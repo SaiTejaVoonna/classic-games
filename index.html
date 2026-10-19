@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en" data-theme="colour">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Snake — Classic Games (UI prototype)</title>
+  <meta name="description" content="Interface prototype for Classic Games Snake. Gameplay is not implemented.">
+  <link rel="stylesheet" href="styles.css">
+  <script src="src/main.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="wordmark" href="./" aria-label="Classic Games home">Classic<span>Games</span></a>
+    <nav class="header-actions" aria-label="Game information">
+      <button type="button" class="btn btn-quiet" data-open="dlg-top">Top score</button>
+      <button type="button" class="btn btn-quiet" data-open="dlg-help">Instructions</button>
+      <button type="button" class="btn btn-quiet" data-open="dlg-settings">Settings</button>
+    </nav>
+  </header>
+
+  <main class="layout">
+    <section class="game" aria-labelledby="game-title">
+      <div class="game-head">
+        <div class="title-block">
+          <h1 id="game-title">Snake</h1>
+          <p class="tagline">Inspired by Nokia 3310 Snake II. Unofficial.</p>
+        </div>
+        <dl class="scores">
+          <div><dt>Score <small>(placeholder)</small></dt><dd id="score">—</dd></div>
+          <div><dt>Best <small>(placeholder)</small></dt><dd id="best">—</dd></div>
+        </dl>
+      </div>
+
+      <div class="board-wrap">
+        <div class="board" id="board" tabindex="0" role="img"
+             aria-label="Static illustrative Snake board. Gameplay is not implemented.">
+          <canvas id="canvas" width="630" height="420"></canvas>
+          <div class="overlay" id="overlay" hidden>
+            <p id="overlay-text"></p>
+          </div>
+        </div>
+        <p class="board-note">UI prototype — gameplay not implemented; board proportions provisional</p>
+      </div>
+    </section>
+
+    <section class="panel" aria-label="Game controls">
+      <p class="state-line"><span><span class="label">Preview state</span> <strong id="state-name">Menu</strong></span> <span class="last"><span class="label">Last input</span> <span id="last-input">none</span></span></p>
+      <p id="status" class="status" role="status" aria-live="polite">Interface preview only. No game is running.</p>
+
+      <div class="actions">
+        <button type="button" class="btn btn-primary" id="btn-new">New game</button>
+        <button type="button" class="btn" id="btn-pause" disabled>Pause</button>
+        <button type="button" class="btn" id="btn-continue" disabled>Continue</button>
+      </div>
+
+      <div class="options">
+        <label class="field">
+          <span>Level</span>
+          <select id="sel-level" disabled aria-describedby="why-blocked">
+            <option>Unavailable</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Maze</span>
+          <select id="sel-maze" disabled aria-describedby="why-blocked">
+            <option>Unavailable</option>
+          </select>
+        </label>
+      </div>
+      <details class="why">
+        <summary>Why are Level and Maze disabled?</summary>
+        <p id="why-blocked" class="hint">The original speed levels and mazes are not yet verified, so no options or counts are shown. Continue is enabled only after the Pause preview. The direction buttons only show the last input; nothing moves.</p>
+      </details>
+
+      <div class="dpad" role="group" aria-label="Direction buttons (preview only)">
+        <button type="button" class="btn dpad-btn up" data-dir="Up" aria-label="Up"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6l7 9H5z"/></svg></button>
+        <button type="button" class="btn dpad-btn left" data-dir="Left" aria-label="Left"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12l9-7v14z"/></svg></button>
+        <button type="button" class="btn dpad-btn right" data-dir="Right" aria-label="Right"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 12l-9 7V5z"/></svg></button>
+        <button type="button" class="btn dpad-btn down" data-dir="Down" aria-label="Down"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 18l-7-9h14z"/></svg></button>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>Classic Games is an independent project inspired by Nokia 3310 Snake II. Unofficial; not affiliated with or endorsed by Nokia.</p>
+  </footer>
+
+  <dialog id="dlg-help" aria-labelledby="dlg-help-t">
+    <h2 id="dlg-help-t">Instructions</h2>
+    <p>This is an interface prototype. The game itself is not implemented yet, so there is nothing to play.</p>
+    <p>Planned controls: arrow keys and the on-screen direction buttons. Other key mappings and pause shortcuts await owner approval.</p>
+    <p>Original rules (speed, mazes, scoring, bonus food) are still being verified and are not described here.</p>
+    <form method="dialog"><button class="btn btn-primary" autofocus>Close</button></form>
+  </dialog>
+
+  <dialog id="dlg-top" aria-labelledby="dlg-top-t">
+    <h2 id="dlg-top-t">Top score</h2>
+    <p>No scores yet. Scoring is not implemented, and this prototype stores no scores.</p>
+    <form method="dialog"><button class="btn btn-primary" autofocus>Close</button></form>
+  </dialog>
+
+  <dialog id="dlg-settings" aria-labelledby="dlg-set-t">
+    <h2 id="dlg-set-t">Settings</h2>
+    <fieldset>
+      <legend>Theme</legend>
+      <label class="radio"><input type="radio" name="theme" value="colour" checked> Colour</label>
+      <label class="radio"><input type="radio" name="theme" value="lcd"> LCD</label>
+      <label class="radio"><input type="radio" name="theme" value="night"> Night</label>
+    </fieldset>
+    <fieldset>
+      <legend>Feedback</legend>
+      <label class="radio"><input type="checkbox" disabled> Sound <small>(not implemented)</small></label>
+      <label class="radio"><input type="checkbox" disabled> Vibration <small>(not implemented)</small></label>
+    </fieldset>
+    <form method="dialog"><button class="btn btn-primary" autofocus>Close</button></form>
+  </dialog>
+</body>
+</html>
