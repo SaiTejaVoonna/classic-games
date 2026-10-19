@@ -13,7 +13,7 @@
   // game's levels; their values are comfort choices from owner testing.
   var SPEEDS = { slow: 300, medium: 220, fast: 150 };
   var SPEED_ORDER = ['slow', 'medium', 'fast'];
-  var DEFAULT_SPEED = 'medium';
+  var DEFAULT_SPEED = 'slow';
 
   var DEFAULTS = {
     cols: 21,        // assumption A1: provisional board size

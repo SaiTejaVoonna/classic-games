@@ -114,7 +114,6 @@ body {
   margin-bottom: 8px;
 }
 h1 { margin: 0; font-size: 1.75rem; line-height: 1.1; letter-spacing: -0.01em; }
-.badge { display: inline-block; vertical-align: middle; margin-left: 6px; padding: 2px 8px; font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink); border: 1px solid var(--ink); border-radius: 999px; }
 .tagline { margin: 2px 0 0; font-size: 0.8125rem; color: var(--muted); }
 
 .scores { display: flex; gap: 16px; margin: 0; }
@@ -148,7 +147,6 @@ h1 { margin: 0; font-size: 1.75rem; line-height: 1.1; letter-spacing: -0.01em; }
 .overlay[hidden] { display: none; }
 .overlay[data-kind="ready"] { background: transparent; align-items: start; pointer-events: none; }
 .overlay p { margin: 0; max-width: 28ch; background: var(--surface); border: 1px solid var(--ink); border-radius: 999px; padding: 6px 14px; }
-.board-note { margin: 0; font-size: 0.75rem; color: var(--muted); text-align: center; }
 
 /* Control panel */
 .panel {
@@ -166,18 +164,6 @@ h1 { margin: 0; font-size: 1.75rem; line-height: 1.1; letter-spacing: -0.01em; }
 
 .actions { display: grid; grid-template-columns: 1.25fr 1fr 1fr; gap: 8px; }
 .actions .btn { padding: 0 6px; white-space: nowrap; font-size: 0.9375rem; }
-.options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.field { display: grid; gap: 2px; font-size: 0.8125rem; color: var(--muted); }
-select {
-  min-height: 44px;
-  font: inherit;
-  color: var(--ink);
-  background: var(--bg);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 0 8px;
-}
-select:disabled { opacity: 0.65; cursor: not-allowed; }
 .hint { margin: 0; font-size: 0.75rem; color: var(--muted); }
 
 /* Buttons */
@@ -216,8 +202,6 @@ select:disabled { opacity: 0.65; cursor: not-allowed; }
 .dpad .left { grid-column: 1; grid-row: 2; }
 .dpad .down { grid-column: 2; grid-row: 2; }
 .dpad .right { grid-column: 3; grid-row: 2; }
-.why summary { cursor: pointer; font-size: 0.8125rem; color: var(--muted); min-height: 24px; }
-.why .hint { margin-top: 4px; }
 .site-footer { max-width: 1100px; margin: 0 auto; padding: 0 16px 16px; }
 .site-footer p { margin: 0; font-size: 0.75rem; color: var(--muted); }
 

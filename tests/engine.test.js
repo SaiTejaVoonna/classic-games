@@ -207,10 +207,10 @@ test('tick count tracks elapsed time across refresh rates', () => {
   }
 });
 
-test('prototype speeds are exactly 300 / 220 / 150 ms with Medium as default', () => {
+test('prototype speeds are exactly 300 / 220 / 150 ms with Slow as default', () => {
   assert.deepEqual(E.SPEEDS, { slow: 300, medium: 220, fast: 150 });
   assert.deepEqual(E.SPEED_ORDER, ['slow', 'medium', 'fast']);
-  assert.equal(E.DEFAULT_SPEED, 'medium');
+  assert.equal(E.DEFAULT_SPEED, 'slow');
 });
 
 test('a run records its speed and tick length at creation', () => {
@@ -219,13 +219,13 @@ test('a run records its speed and tick length at creation', () => {
     assert.equal(g.speed, name);
     assert.equal(g.tickMs, ms);
   }
-  assert.equal(E.createGame({ seed: 1 }).speed, 'medium');
-  assert.equal(E.createGame({ seed: 1 }).tickMs, 220);
+  assert.equal(E.createGame({ seed: 1 }).speed, 'slow');
+  assert.equal(E.createGame({ seed: 1 }).tickMs, 300);
 });
 
 test('unknown speeds fall back to the default', () => {
   for (const bad of ['turbo', '', null, 'constructor', '__proto__', 150]) {
-    assert.equal(E.createGame({ seed: 1, speed: bad }).speed, 'medium', String(bad));
+    assert.equal(E.createGame({ seed: 1, speed: bad }).speed, 'slow', String(bad));
   }
 });
 
@@ -272,4 +272,6 @@ test('settings markup lists the same speeds as the engine', () => {
   }
   assert.ok(html.includes('Applies to new games'));
   assert.equal((html.match(/name="speed"/g) || []).length, 3);
+  assert.ok(/name="speed" value="slow" checked/.test(html), 'Slow is the checked default');
+  assert.equal((html.match(/name="speed"[^>]*checked/g) || []).length, 1);
 });

@@ -138,7 +138,7 @@
       case 'running': return 'Playing.';
       case 'paused': return 'Paused. Press Continue, or Space or P on the board, to resume.';
       case 'over': return 'Game over. Score ' + game.score + '.';
-      default: return 'Board full, run complete. Score ' + game.score + '.';
+      default: return 'Board full. Score ' + game.score + '.';
     }
   }
 
@@ -147,15 +147,15 @@
       case 'menu': return 'Press New game';
       case 'ready': return 'Press a direction to start';
       case 'paused': return 'Paused';
-      case 'over': return 'Game over — score ' + game.score;
-      case 'won': return 'Board full — score ' + game.score;
+      case 'over': return 'Game over. Score ' + game.score + '.';
+      case 'won': return 'Board full. Score ' + game.score + '.';
       default: return '';
     }
   }
 
   function renderBest() {
     var b = best.get(game.speed);
-    $('best').textContent = b > 0 ? String(b) : '—';
+    $('best').textContent = String(b);
     $('best-note').textContent = '(' + SPEED_LABELS[game.speed] + (best.isPersistent() ? '' : ', this session') + ')';
   }
 
@@ -319,13 +319,12 @@
       var dlg = $(id);
       if (!dlg || typeof dlg.showModal !== 'function') return;
       if (id === 'dlg-top') {
-        var parts = E.SPEED_ORDER.map(function (k) {
-          return SPEED_LABELS[k] + ': ' + (best.get(k) > 0 ? best.get(k) : '—');
-        });
-        $('top-text').textContent = 'Best scores — ' + parts.join(' · ');
-        $('top-note').textContent = (best.isPersistent()
-          ? 'Early prototype only. Kept separately for each prototype speed and stored on this device.'
-          : 'Storage is unavailable, so best scores are kept for this session only.');
+        var any = E.SPEED_ORDER.some(function (k) { return best.get(k) > 0; });
+        var parts = E.SPEED_ORDER.map(function (k) { return SPEED_LABELS[k] + ' ' + best.get(k); });
+        $('top-text').textContent = any ? 'Best scores: ' + parts.join(', ') + '.' : 'No score yet.';
+        $('top-note').textContent = best.isPersistent()
+          ? 'Scores are kept separately for each speed and saved on this device.'
+          : 'Storage is unavailable, so best scores last for this session only.';
       }
       if (id === 'dlg-settings') syncSpeedControls();
       // Opening a panel mid-run pauses it; resuming stays explicit.
@@ -347,9 +346,9 @@
     var sel = speedPref.get();
     var radio = document.querySelector('input[name="speed"][value="' + sel + '"]');
     if (radio) radio.checked = true;
-    var note = 'Applies to new games. Prototype speeds, not original game levels.';
+    var note = 'Applies to new games.';
     if ((mode === 'running' || mode === 'paused') && game.speed !== sel) {
-      note = 'The current run stays at ' + SPEED_LABELS[game.speed] + '. ' + SPEED_LABELS[sel] + ' applies to the next New game.';
+      note = 'This run keeps ' + SPEED_LABELS[game.speed] + '. ' + SPEED_LABELS[sel] + ' starts with your next new game.';
     }
     if (!speedPref.isPersistent()) note += ' Not saved on this device.';
     $('speed-note').textContent = note;

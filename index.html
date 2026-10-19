@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Snake — Classic Games (early prototype)</title>
-  <meta name="description" content="Early playable prototype of Snake. Rules are provisional.">
+  <title>Snake | Classic Games</title>
+  <meta name="description" content="Snake, an early version of Classic Games.">
   <link rel="stylesheet" href="styles.css">
   <script src="src/engine.js" defer></script>
   <script src="src/storage.js" defer></script>
@@ -24,12 +24,12 @@
     <section class="game" aria-labelledby="game-title">
       <div class="game-head">
         <div class="title-block">
-          <h1 id="game-title">Snake <span class="badge">Early prototype</span></h1>
+          <h1 id="game-title">Snake</h1>
           <p class="tagline">Inspired by classic mobile games.</p>
         </div>
         <dl class="scores">
           <div><dt>Score</dt><dd id="score">0</dd></div>
-          <div><dt>Best <small id="best-note"></small></dt><dd id="best">—</dd></div>
+          <div><dt>Best <small id="best-note"></small></dt><dd id="best">0</dd></div>
         </dl>
       </div>
 
@@ -41,12 +41,11 @@
             <p id="overlay-text"></p>
           </div>
         </div>
-        <p class="board-note">Early prototype — rules and board size are provisional, not verified original mechanics</p>
       </div>
     </section>
 
     <section class="panel" aria-label="Game controls">
-      <p class="state-line"><span><span class="label">State</span> <strong id="state-name">Menu</strong></span> <span><span class="label">Speed</span> <strong id="speed-name">Medium</strong></span> <span class="last"><span class="label">Length</span> <span id="length">3</span></span></p>
+      <p class="state-line"><span><span class="label">State</span> <strong id="state-name">Menu</strong></span> <span><span class="label">Speed</span> <strong id="speed-name">Slow</strong></span> <span class="last"><span class="label">Length</span> <span id="length">3</span></span></p>
       <p id="status" class="status" role="status" aria-live="polite">Press New game to start.</p>
 
       <div class="actions">
@@ -54,25 +53,6 @@
         <button type="button" class="btn" id="btn-pause" disabled>Pause</button>
         <button type="button" class="btn" id="btn-continue" disabled>Continue</button>
       </div>
-
-      <div class="options">
-        <label class="field">
-          <span>Level</span>
-          <select id="sel-level" disabled aria-describedby="why-blocked">
-            <option>Unavailable</option>
-          </select>
-        </label>
-        <label class="field">
-          <span>Maze</span>
-          <select id="sel-maze" disabled aria-describedby="why-blocked">
-            <option>Unavailable</option>
-          </select>
-        </label>
-      </div>
-      <details class="why">
-        <summary>Why are Level and Maze disabled?</summary>
-        <p id="why-blocked" class="hint">The original speed levels and mazes are not yet verified, so no options or counts are shown. Use Settings → Speed for the prototype speeds (they are not the original levels). The board is open with no mazes. Continue resumes a paused run.</p>
-      </details>
 
       <div class="dpad" role="group" aria-label="Direction buttons">
         <button type="button" class="btn dpad-btn up" data-dir="Up" aria-label="Up"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6l7 9H5z"/></svg></button>
@@ -84,22 +64,22 @@
   </main>
 
   <footer class="site-footer">
-    <p>Classic Games — a fresh take on classic mobile games.</p>
+    <p>Classic Games</p>
   </footer>
 
   <dialog id="dlg-help" aria-labelledby="dlg-help-t">
     <h2 id="dlg-help-t">Instructions</h2>
     <p>Guide the snake to the diamonds. Each one adds a segment and a point. Hitting a wall or yourself ends the run.</p>
-    <p><strong>Keys:</strong> arrow keys or WASD while the board is focused (New game and Continue focus it for you). Space or P pauses and resumes. On touch screens use the direction buttons.</p>
-    <p>The run starts with your first direction key. The game pauses automatically when the tab is hidden; resume it yourself.</p>
-    <p>This is an early prototype. Its board size, speed, scoring and rules are provisional development choices and are not verified against any original game. Levels, mazes and bonus food are not available.</p>
+    <p><strong>Keys:</strong> use the arrow keys or WASD while the board is focused. Space or P pauses and resumes. On touch screens, use the direction buttons.</p>
+    <p>The run starts with your first direction key. The game pauses when the tab is hidden, and you resume it yourself.</p>
+    <p class="about"><strong>About:</strong> An early version of Classic Games. Gameplay may differ from the originals.</p>
     <form method="dialog"><button class="btn btn-primary" autofocus>Close</button></form>
   </dialog>
 
   <dialog id="dlg-top" aria-labelledby="dlg-top-t">
     <h2 id="dlg-top-t">Top score</h2>
     <p id="top-text">No score yet.</p>
-    <p class="hint" id="top-note">Best score for this early prototype only. Stored on this device if the browser allows it.</p>
+    <p class="hint" id="top-note">Scores are kept separately for each speed and saved on this device.</p>
     <form method="dialog"><button class="btn btn-primary" autofocus>Close</button></form>
   </dialog>
 
@@ -122,15 +102,10 @@
     </fieldset>
     <fieldset>
       <legend>Speed</legend>
-      <label class="radio"><input type="radio" name="speed" value="slow"> Slow <small>(300 ms per step)</small></label>
-      <label class="radio"><input type="radio" name="speed" value="medium" checked> Medium <small>(220 ms per step)</small></label>
+      <label class="radio"><input type="radio" name="speed" value="slow" checked> Slow <small>(300 ms per step)</small></label>
+      <label class="radio"><input type="radio" name="speed" value="medium"> Medium <small>(220 ms per step)</small></label>
       <label class="radio"><input type="radio" name="speed" value="fast"> Fast <small>(150 ms per step)</small></label>
-      <p class="hint" id="speed-note">Applies to new games. Prototype speeds, not original game levels.</p>
-    </fieldset>
-    <fieldset>
-      <legend>Feedback</legend>
-      <label class="radio"><input type="checkbox" disabled> Sound <small>(not implemented)</small></label>
-      <label class="radio"><input type="checkbox" disabled> Vibration <small>(not implemented)</small></label>
+      <p class="hint" id="speed-note">Applies to new games.</p>
     </fieldset>
     <form method="dialog"><button class="btn btn-primary" autofocus>Close</button></form>
   </dialog>
