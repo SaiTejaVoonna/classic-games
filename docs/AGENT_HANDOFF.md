@@ -3,26 +3,33 @@
 ## Roles
 - **SaiTejaVoonna** — product owner; approves product direction, gameplay, visuals, and releases.
 - **Codex** — technical lead and reviewer; repository setup, research, architecture, scoped delegation, review, validation.
-- **Claude Code** — implementation agent for future, explicitly approved, bounded tasks only.
+- **Claude Code** — implementation agent for scoped, explicitly approved tasks only.
 
-## Current phase
-Repository setup only. No website, game, prototype, or deployment exists or is authorized. The earlier no-delegation restriction was lifted solely for this setup handshake and verification task. Work stops after the handshake until the next user-approved step.
+The full coordination workflow and permanent rules are in [AGENT_WORKFLOW.md](AGENT_WORKFLOW.md).
 
-## Verification evidence (cloud checkout, before this change)
+## Current state: Step 2 (coordination only)
+- Step 2 is limited to establishing and verifying the Codex/Claude coordination workflow. No game, website, dependencies, or deployment exist or are authorized.
+- The temporary `docs/COORDINATION_TEST_TEMP.md` was added at `55ac6dffe24be8640770d10d95e4860436d6fea2` and independently reviewed by Codex. Cleanup was pending until the commit that adds this update, which deletes it in a normal commit. Once pushed, it is absent at that commit and later tips but retained in earlier history.
+- PR #1 is unmerged, pending approval. Step 2 is complete only after Codex's final independent review.
+- `AGENTS.md` is unchanged and still says not to delegate to Claude yet. The owner's latest Step 2 request authorizes this bounded coordination test under its "latest explicit instructions take precedence" clause; no permanent or broader delegation grant is asserted.
+
+## Earlier evidence: setup handshake (before any change, commit `2f758b1`)
+Recorded at the time of the first handshake, from the cloud checkout:
+
 | Check | Result |
 | --- | --- |
 | Origin URL | `https://github.com/SaiTejaVoonna/classic-games` (fetch and push) |
-| Current branch | `claude/stoic-wozniak-k6o9hd` |
+| Branch | `claude/stoic-wozniak-k6o9hd` |
 | HEAD SHA | `71b8ff10f0e3e50cab24725874374fb13540fe2e` (same as `origin/main`) |
 | Tracked files | `AGENTS.md`, `README.md` |
-| `git status --short` | clean (no output) |
-| `git fetch origin` | exit 0 (authenticated fetch works) |
+| `git status --short` | clean |
+| `git fetch origin` | exit 0 |
 | `git ls-remote --heads origin` | `refs/heads/main` at `71b8ff10…` |
 
 ## Coordination protocol
-- Task instructions reach Claude Code through its session.
-- Source changes and review evidence flow through GitHub branches and pull requests.
+- Task instructions come through this session; `[Codex]`-prefixed messages are from Codex, unprefixed from the product owner.
+- Source changes and review evidence go through GitHub branches and PRs.
 - No direct access to the Codex chat or machine is assumed.
-- No extra network domains or secrets are needed for this handshake.
-- Work one user-approved step at a time, report results, and stop. Do not merge PRs or expand scope without instruction.
+- No extra network domains or secrets are needed.
+- One user-approved step at a time; report and stop. Do not merge or expand scope without instruction.
 - Shared project instructions are in `AGENTS.md`; `CLAUDE.md` points to it.
