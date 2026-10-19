@@ -17,13 +17,13 @@ async function open(browser, { rules, speed, query, viewport, touch } = {}) {
   await p.addInitScript(([r, sp]) => {
     if (sessionStorage.getItem('seeded')) return;
     sessionStorage.setItem('seeded', '1');
-    if (r) localStorage.setItem('classic-games.rules', JSON.stringify(Object.assign({ v: 1 }, r)));
+    if (r) localStorage.setItem('classic-games.rules.v2', JSON.stringify({ v: 2, chosen: r }));
     if (sp) localStorage.setItem('classic-games.speed', sp);
   }, [rules || null, speed || null]);
   await p.goto(INDEX + '?debug=1' + (query || ''));
   return { ctx, p, errs };
 }
-const openSettings = (p) => p.click('[data-open=dlg-settings]');
+const openSetup = (p) => p.click('[data-open=dlg-setup]');
 const pick = (p, name, value) => p.click(`label.radio:has(input[name=${name}][value=${value}])`);
 
 (async () => {
@@ -32,63 +32,100 @@ const pick = (p, name, value) => p.click(`label.radio:has(input[name=${name}][va
   // ---- defaults, persistence, visibility ----
   {
     const { ctx, p, errs } = await open(browser, { query: '&seed=3' });
-    ok('defaults: 1 life, clear field, solid walls, bonus on (rules summary visible before a run)', (await p.textContent('#rules-line')) === '1 life, clear field, solid walls, bonus food on.', await p.textContent('#rules-line'));
-    ok('defaults: Lives shows 1; Unlimited is off by default', (await p.textContent('#lives')) === '1' && await p.isChecked('input[name=lives][value=classic]') && !(await p.isChecked('input[name=lives][value=unlimited]')));
-    ok('nothing stored until the user changes a rule', await p.evaluate(() => localStorage.getItem('classic-games.rules')) === null);
-    await openSettings(p);
-    await pick(p, 'board', 'pillars'); await pick(p, 'edges', 'wrap'); await pick(p, 'lives', 'extra'); await pick(p, 'bonus', 'off');
-    const saved = JSON.parse(await p.evaluate(() => localStorage.getItem('classic-games.rules')));
-    ok('rules saved', saved.board === 'pillars' && saved.edges === 'wrap' && saved.lives === 'extra' && saved.bonus === 'off', JSON.stringify(saved));
-    ok('menu adopts the rules at once (summary and Lives update)', (await p.textContent('#rules-line')) === '3 lives, pillars maze, wrap around edges, bonus food off.' && (await p.textContent('#lives')) === '3', await p.textContent('#rules-line'));
+    ok('defaults: 1 life, clear field, wrap around edges, bonus on (summary visible before a run)', (await p.textContent('#rules-line')) === 'Next game: 1 life, clear field, wrap around edges, bonus food on.', await p.textContent('#rules-line'));
+    ok('defaults: Lives shows 1, Edges shows Wrap, Unlimited is off by default', (await p.textContent('#lives')) === '1' && (await p.textContent('#edges-name')) === 'Wrap');
+    await openSetup(p);
+    ok('defaults checked in Game setup: clear field, wrap around, classic, bonus on', await p.isChecked('input[name=board][value=clear]') && await p.isChecked('input[name=edges][value=wrap]') && await p.isChecked('input[name=lives][value=classic]') && await p.isChecked('input[name=bonus][value=on]') && !(await p.isChecked('input[name=lives][value=unlimited]')));
+    ok('Solid walls is available as an explicit choice', await p.locator('input[name=edges][value=walls]').count() === 1);
+    ok('setup summary says the rules apply to the next run', (await p.textContent('#setup-summary')) === 'Selected for the next run: 1 life, clear field, wrap around edges, bonus food on.', await p.textContent('#setup-summary'));
+    await p.keyboard.press('Escape');
+    ok('nothing stored until the user changes a rule', await p.evaluate(() => localStorage.getItem('classic-games.rules.v2')) === null && await p.evaluate(() => localStorage.getItem('classic-games.rules')) === null);
+    await openSetup(p);
+    await pick(p, 'board', 'pillars'); await pick(p, 'edges', 'walls'); await pick(p, 'lives', 'extra'); await pick(p, 'bonus', 'off');
+    const saved = JSON.parse(await p.evaluate(() => localStorage.getItem('classic-games.rules.v2')));
+    ok('only explicit choices are saved (v2)', saved.v === 2 && saved.chosen.board === 'pillars' && saved.chosen.edges === 'walls' && saved.chosen.lives === 'extra' && saved.chosen.bonus === 'off', JSON.stringify(saved));
+    ok('menu adopts the rules at once (summary, Lives and Edges update)', (await p.textContent('#rules-line')) === 'Next game: 3 lives, pillars maze, solid walls, bonus food off.' && (await p.textContent('#lives')) === '3' && (await p.textContent('#edges-name')) === 'Walls', await p.textContent('#rules-line'));
     await p.keyboard.press('Escape');
     await p.reload(); await p.waitForFunction(() => window.classicGamesDebug);
-    await openSettings(p);
-    ok('rules survive reload and radios match', await p.isChecked('input[name=board][value=pillars]') && await p.isChecked('input[name=edges][value=wrap]') && await p.isChecked('input[name=lives][value=extra]') && await p.isChecked('input[name=bonus][value=off]'));
+    await openSetup(p);
+    ok('rules survive reload and radios match', await p.isChecked('input[name=board][value=pillars]') && await p.isChecked('input[name=edges][value=walls]') && await p.isChecked('input[name=lives][value=extra]') && await p.isChecked('input[name=bonus][value=off]'));
     await p.keyboard.press('Escape');
     await p.click('#btn-new');
     const s = await st(p);
-    ok('New game uses the saved rules', s.game.board === 'pillars' && s.game.wrap === true && s.game.livesMode === 'extra' && s.game.bonusEnabled === false && s.game.obstacles.length === 16);
+    ok('New game uses the saved rules', s.game.board === 'pillars' && s.game.wrap === false && s.game.livesMode === 'extra' && s.game.bonusEnabled === false && s.game.obstacles.length === 16);
     ok('no errors (settings)', errs.length === 0, errs.join('|'));
     await ctx.close();
   }
   {
-    const { ctx, p } = await open(browser, { rules: { lives: 'bogus', board: 'nowhere', edges: 'wrap', bonus: 5 } });
-    ok('invalid saved rule values fall back per field, valid ones are kept', (await p.textContent('#rules-line')) === '1 life, clear field, wrap around edges, bonus food on.', await p.textContent('#rules-line'));
+    const { ctx, p } = await open(browser, { rules: { lives: 'bogus', board: 'nowhere', edges: 'walls', bonus: 5 } });
+    ok('invalid saved rule values fall back per field, valid ones are kept', (await p.textContent('#rules-line')) === 'Next game: 1 life, clear field, solid walls, bonus food on.', await p.textContent('#rules-line'));
     await ctx.close();
   }
 
   // ---- a change applies to the next New game ----
   {
     const { ctx, p } = await open(browser, { speed: 'fast', query: '&seed=3' });
-    await p.click('#btn-new'); await p.keyboard.press('ArrowRight');
-    await openSettings(p); await pick(p, 'board', 'gate'); await pick(p, 'edges', 'wrap');
+    await p.click('#btn-new'); await p.keyboard.press('ArrowUp');
+    await openSetup(p); await pick(p, 'board', 'gate'); await pick(p, 'edges', 'walls');
     ok('note says the run keeps its rules', (await p.textContent('#rules-note')).startsWith('This run keeps its board, edges, lives and bonus.'), await p.textContent('#rules-note'));
+    ok('setup summary names what the next run will use', (await p.textContent('#setup-summary')) === 'Selected for the next run: 1 life, gate maze, solid walls, bonus food on.', await p.textContent('#setup-summary'));
     let s = await st(p);
-    ok('the run in progress is unchanged', s.game.board === 'clear' && s.game.wrap === false && (await p.textContent('#rules-line')) === '1 life, clear field, solid walls, bonus food on.');
+    ok('the run in progress is unchanged (board, edges)', s.game.board === 'clear' && s.game.wrap === true && (await p.textContent('#edges-name')) === 'Wrap');
+    ok('rules line separates this run from the next game', (await p.textContent('#rules-line')) === 'This run: 1 life, clear field, wrap around edges, bonus food on.' && (await p.locator('#rules-next').isVisible()) && (await p.textContent('#rules-next')) === 'Next game: 1 life, gate maze, solid walls, bonus food on.', await p.textContent('#rules-next'));
     await p.keyboard.press('Escape');
-    await p.click('#btn-continue'); await p.click('#btn-new'); await p.click('#dlg-confirm button[value=confirm]');
+    await p.click('#btn-continue'); await sleep(300);
+    s = await st(p);
+    ok('the run keeps running under its own edge rule', s.game.wrap === true && s.mode === 'running');
+    await p.click('#btn-new'); await p.click('#dlg-confirm button[value=confirm]');
     await waitMode(p, 'ready');
     s = await st(p);
-    ok('the next New game uses the new rules', s.game.board === 'gate' && s.game.wrap === true && (await p.textContent('#rules-line')).includes('gate maze'));
+    ok('the next New game uses the new rules', s.game.board === 'gate' && s.game.wrap === false && (await p.textContent('#rules-line')).includes('gate maze') && (await p.textContent('#rules-line')).startsWith('Next game:') && (await p.textContent('#edges-name')) === 'Walls');
     await ctx.close();
   }
 
-  // ---- edge wrap ----
+  // ---- edge wrap (default) and solid walls ----
   {
-    const { ctx, p } = await open(browser, { speed: 'fast', rules: { edges: 'wrap' }, query: '&seed=3' });
-    await p.click('#btn-new'); await p.keyboard.press('ArrowRight');
-    await waitFor(p, () => window.classicGamesDebug.state().game.snake[0].x === 20);
-    await waitFor(p, () => window.classicGamesDebug.state().game.snake[0].x === 0, null, 2000);
-    const s = await st(p);
-    ok('wrap on: leaving the right edge returns at the left edge, run continues', s.mode === 'running' && s.game.snake[0].x === 0 && s.game.status === 'running');
-    await ctx.close();
+    // all four directions at the default edge rule; Fast keeps this quick
+    const run = async (first, then, until, label) => {
+      const { ctx, p } = await open(browser, { speed: 'fast', query: '&seed=3' });
+      await p.click('#btn-new');
+      await p.keyboard.press(first);
+      if (then) { await sleep(180); await p.keyboard.press(then); }
+      await waitFor(p, until, null, 7000);
+      const s = await st(p);
+      ok(`default wrap: ${label}`, s.mode === 'running' && s.game.status === 'running' && s.game.lives === 1, JSON.stringify(s.game.snake[0]));
+      await ctx.close();
+    };
+    await run('ArrowRight', null, () => { const g = window.classicGamesDebug.state().game; return g.ticks > 6 && g.snake[0].x === 0; }, 'leaving the right edge returns at the left edge');
+    await run('ArrowUp', null, () => { const g = window.classicGamesDebug.state().game; return g.ticks > 5 && g.snake[0].y === 13; }, 'leaving the top edge returns at the bottom edge');
+    await run('ArrowDown', null, () => { const g = window.classicGamesDebug.state().game; return g.ticks > 5 && g.snake[0].y === 0; }, 'leaving the bottom edge returns at the top edge');
+    await run('ArrowDown', 'ArrowLeft', () => { const g = window.classicGamesDebug.state().game; return g.ticks > 6 && g.snake[0].x === 20; }, 'leaving the left edge returns at the right edge');
   }
   {
     const { ctx, p } = await open(browser, { speed: 'fast', rules: { edges: 'walls' }, query: '&seed=3' });
+    ok('explicit solid walls: Edges shows Walls and the summary says so', (await p.textContent('#edges-name')) === 'Walls' && (await p.textContent('#rules-line')).includes('solid walls'));
     await p.click('#btn-new'); await p.keyboard.press('ArrowRight');
     await waitMode(p, 'over', 6000);
     const s = await st(p);
-    ok('wrap off: the right edge is a wall and ends a classic run', s.game.reason === 'wall' && s.game.snake[0].x === 20);
+    ok('solid walls: the right edge is a wall and ends a classic run', s.game.reason === 'wall' && s.game.snake[0].x === 20 && s.game.lives === 0);
+    await ctx.close();
+  }
+  {
+    const { ctx, p } = await open(browser, { speed: 'fast', rules: { edges: 'walls', lives: 'extra' }, query: '&seed=3' });
+    await p.click('#btn-new'); await p.keyboard.press('ArrowUp');
+    await waitFor(p, () => window.classicGamesDebug.state().mode === 'ready' && window.classicGamesDebug.state().game.ticks > 0, null, 6000);
+    const s = await st(p);
+    ok('solid walls with extra lives: touching the edge costs one life', s.game.lives === 2 && (await p.textContent('#lives')) === '2' && (await p.textContent('#status')).startsWith('Life lost. 2 lives left.'));
+    await ctx.close();
+  }
+  {
+    const { ctx, p } = await open(browser, { speed: 'fast', rules: { board: 'gate' }, query: '&seed=3' });
+    ok('maze blocks stay solid with wrap on (default edges)', (await p.textContent('#edges-name')) === 'Wrap');
+    await p.click('#btn-new'); await p.keyboard.press('ArrowUp');
+    await waitFor(p, () => window.classicGamesDebug.state().game.snake[0].y <= 3);
+    await p.keyboard.press('ArrowRight');
+    await waitMode(p, 'over', 5000);
+    ok('wrap does not make maze blocks passable', (await st(p)).game.reason === 'obstacle');
     await ctx.close();
   }
 
@@ -107,7 +144,7 @@ const pick = (p, name, value) => p.click(`label.radio:has(input[name=${name}][va
 
   // ---- extra lives ----
   {
-    const { ctx, p } = await open(browser, { speed: 'fast', rules: { lives: 'extra', bonus: 'off' }, query: '&seed=3' });
+    const { ctx, p } = await open(browser, { speed: 'fast', rules: { lives: 'extra', bonus: 'off', edges: 'walls' }, query: '&seed=3' });
     ok('extra lives: Lives shows 3 before the run', (await p.textContent('#lives')) === '3');
     await p.click('#btn-new');
     const crashOnce = async () => { await p.keyboard.press('ArrowUp'); await waitFor(p, () => window.classicGamesDebug.state().mode !== 'running', null, 6000); };
@@ -126,8 +163,8 @@ const pick = (p, name, value) => p.click(`label.radio:has(input[name=${name}][va
 
   // ---- unlimited assist ----
   {
-    const { ctx, p } = await open(browser, { speed: 'fast', rules: { lives: 'unlimited' }, query: '&seed=3' });
-    ok('unlimited is labelled as an assist during play and before', (await p.textContent('#rules-line')).startsWith('Assist: unlimited lives') && (await p.textContent('#lives')) === 'Unlimited');
+    const { ctx, p } = await open(browser, { speed: 'fast', rules: { lives: 'unlimited', edges: 'walls' }, query: '&seed=3' });
+    ok('unlimited is labelled as an assist during play and before', (await p.textContent('#rules-line')).startsWith('Next game: Assist: unlimited lives') && (await p.textContent('#lives')) === 'Unlimited');
     await p.click('#btn-new');
     for (let i = 0; i < 3; i++) {
       await p.keyboard.press('ArrowUp');
@@ -136,7 +173,7 @@ const pick = (p, name, value) => p.click(`label.radio:has(input[name=${name}][va
     }
     const s = await st(p);
     ok('unlimited: three collisions, the run never ends, lives stay Unlimited', s.mode === 'ready' && s.game.status === 'ready' && s.game.lives === null && (await p.textContent('#lives')) === 'Unlimited');
-    ok('still labelled as an assist after collisions', (await p.textContent('#rules-line')).startsWith('Assist: unlimited lives'));
+    ok('still labelled as an assist after collisions', (await p.textContent('#rules-line')).startsWith('This run: Assist: unlimited lives'));
     ok('unlimited status is a plain sentence', (await p.textContent('#status')) === 'Back at the start. Press a direction to continue.');
     await ctx.close();
   }

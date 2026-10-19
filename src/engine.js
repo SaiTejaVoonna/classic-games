@@ -22,7 +22,7 @@
   var DEFAULT_LIVES = 'classic';
 
   var EDGES_ORDER = ['walls', 'wrap'];
-  var DEFAULT_EDGES = 'walls';
+  var DEFAULT_EDGES = 'wrap'; // Classic Games prototype choice: the default play does not end at a screen edge
 
   var DEFAULTS = {
     cols: 21,          // provisional board size
@@ -130,7 +130,7 @@
     var speed = hasOwn(SPEEDS, opt.speed) ? opt.speed : DEFAULT_SPEED;
     var livesMode = hasOwn(LIVES, opt.lives) ? opt.lives : DEFAULT_LIVES;
     var board = hasOwn(MAZES, opt.board) ? opt.board : DEFAULT_BOARD;
-    var wrap = opt.wrap === true;
+    var wrap = opt.wrap !== false; // wrap is the default; pass wrap:false for solid walls
     var bonus = opt.bonus !== false;
     var obstacles = mazeCells(board);
     var blocked = {};

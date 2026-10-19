@@ -53,15 +53,15 @@
 }
 
 :root[data-theme="night"] {
-  --bg: #0b1118;
-  --surface: #121a23;
+  --bg: #0a111e;
+  --surface: #101a2b;
   --ink: #e6f0f7;
   --muted: #9fb3c8;
-  --line: #243242;
-  --board: #08121a;
-  --board-line: #13303a;
-  --snake: #3ddc97;
-  --snake-head: #8ff5c4;
+  --line: #22344d;
+  --board: #08111f;
+  --board-line: #12304a;
+  --snake: #34e39c;
+  --snake-head: #7cf7c0;
   --food: #ff6b5e;
   --bonus: #ffd166;
   --snake-edge: #01070a;
@@ -97,6 +97,15 @@ body {
   outline-offset: 2px;
 }
 
+/* Game setup summary and speed meter */
+.setup { display: grid; gap: 6px; }
+.btn-setup { width: 100%; }
+.speed-dots { display: inline-flex; gap: 3px; vertical-align: middle; margin-left: 4px; }
+.speed-dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--line); display: block; }
+.speed-dots[data-level="1"] i:nth-child(-n+1),
+.speed-dots[data-level="2"] i:nth-child(-n+2),
+.speed-dots[data-level="3"] i:nth-child(-n+3) { background: var(--accent); }
+
 /* Run summary and score list */
 .rules-line { margin: 0; font-size: 0.8125rem; color: var(--muted); }
 .top-list { margin: 0 0 10px; padding-left: 1.1rem; font-size: 0.9375rem; }
@@ -120,7 +129,50 @@ body {
   white-space: nowrap;
 }
 .wordmark span { font-weight: 400; margin-left: 0.25em; color: var(--muted); }
-.header-actions { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+.header-actions { display: flex; gap: 4px; justify-content: flex-end; }
+
+/* Header icon buttons with labels on hover and keyboard focus */
+.icon-btn {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+.icon-btn svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.icon-btn:focus-visible { background: var(--surface); }
+.tip {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 5;
+  padding: 4px 9px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.3;
+  white-space: nowrap;
+  color: var(--bg);
+  background: var(--ink);
+  border-radius: 6px;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+.icon-btn:focus-visible .tip { opacity: 1; visibility: visible; }
+@media (hover: hover) {
+  .icon-btn:hover { background: var(--surface); border-color: var(--line); }
+  .icon-btn:hover .tip { opacity: 1; visibility: visible; }
+}
+.tips-dismissed .tip { opacity: 0 !important; visibility: hidden !important; }
 
 /* Layout */
 .layout {
@@ -211,8 +263,6 @@ h1 { margin: 0; font-size: 1.75rem; line-height: 1.1; letter-spacing: -0.01em; }
 .btn:active:not(:disabled) { transform: translateY(1px); }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
-.btn-quiet { background: transparent; border-color: transparent; padding: 0 10px; min-height: 44px; font-weight: 500; }
-.btn-quiet:hover:not(:disabled) { border-color: var(--line); }
 
 /* D-pad: inverted-T for a compact footprint */
 .dpad {
@@ -240,8 +290,14 @@ dialog {
   border-radius: var(--radius);
   padding: 16px;
 }
+/* The heading and the Close button stay in view; only the middle part scrolls. */
+dialog[open] { display: flex; flex-direction: column; }
+dialog { max-height: 88vh; max-height: 88dvh; overflow: hidden; }
+.dlg-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-right: 2px; }
+.dlg-foot { flex: none; }
+dialog h2 { flex: none; }
+dialog h2:focus { outline: none; }
 dialog::backdrop { background: rgba(0, 0, 0, 0.45); }
-dialog { max-height: 90vh; max-height: 90dvh; overflow-y: auto; }
 dialog h2 { margin: 0 0 8px; font-size: 1.25rem; }
 dialog p { margin: 0 0 10px; }
 dialog form { margin-top: 12px; text-align: right; }
@@ -255,14 +311,12 @@ legend { padding: 0 4px; color: var(--muted); font-size: 0.8125rem; }
 /* Phones */
 @media (max-width: 480px) {
   .site-header { padding: 4px 8px; }
-  .btn-quiet { padding: 0 6px; font-size: 0.8125rem; }
   .header-actions { gap: 0; }
 }
 
 /* Compact phones */
 @media (max-width: 380px) {
   .site-header { padding: 4px 8px; }
-  .btn-quiet { padding: 0 6px; font-size: 0.875rem; }
   .layout { padding: 8px 12px 8px; gap: 8px; }
   .site-footer { padding: 0 12px 12px; }
   h1 { font-size: 1.5rem; }

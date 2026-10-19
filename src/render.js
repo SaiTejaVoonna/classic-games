@@ -162,6 +162,16 @@
       ctx.restore();
     }
 
+    // a solid inner edge shows that the walls are solid
+    if (!state.wrap) {
+      ctx.save();
+      ctx.strokeStyle = palette.obstacleEdge;
+      ctx.globalAlpha = 0.7;
+      ctx.lineWidth = Math.max(1, cell * 0.07);
+      ctx.strokeRect(l.ox + cell * 0.06, l.oy + cell * 0.06, l.cols * cell - cell * 0.12, l.rows * cell - cell * 0.12);
+      ctx.restore();
+    }
+
     // maze blocks: solid grid aligned squares, used only as real obstacles
     state.obstacles.forEach(function (o) {
       var pad = cell * 0.05;

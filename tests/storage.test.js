@@ -186,39 +186,91 @@ test('speed preference survives unavailable and throwing storage for the session
 
 // ---- rules preference ----
 const SCHEMA = { board: E.MAZE_ORDER, edges: E.EDGES_ORDER, lives: E.LIVES_ORDER, bonus: ['on', 'off'] };
-const DEFAULTS = { board: 'clear', edges: 'walls', lives: 'classic', bonus: 'on' };
+const DEFAULTS = { board: 'clear', edges: 'wrap', lives: 'classic', bonus: 'on' };
 const rulesPref = (st) => S.createRulesPref(st, SCHEMA, DEFAULTS);
 
-test('rules preference: defaults are classic, clear, solid walls, bonus on; Unlimited is off by default', () => {
+test('rules preference: fresh defaults are clear field, wrap around, classic, bonus on; Unlimited is off', () => {
   const st = fake();
   const p = rulesPref(st);
   p.load();
   assert.deepEqual(p.get(), DEFAULTS);
+  assert.equal(E.DEFAULT_EDGES, DEFAULTS.edges, 'the engine and the app agree on the default edge rule');
   assert.notEqual(p.get().lives, 'unlimited');
-  assert.equal(st.m.has(S.RULES_KEY), false, 'nothing is written until the user chooses');
+  assert.equal(st.m.has(S.RULES_KEY_V2), false, 'nothing is written until the user chooses');
 });
 
-test('rules preference: each choice persists and reloads', () => {
+test('rules preference: only chosen fields are stored, under the v2 key', () => {
   const st = fake();
   const p = rulesPref(st);
   p.load();
-  p.set('board', 'gate'); p.set('edges', 'wrap'); p.set('lives', 'unlimited'); p.set('bonus', 'off');
-  assert.deepEqual(JSON.parse(st.m.get(S.RULES_KEY)), { v: 1, board: 'gate', edges: 'wrap', lives: 'unlimited', bonus: 'off' });
+  p.set('board', 'gate');
+  assert.deepEqual(JSON.parse(st.m.get(S.RULES_KEY_V2)), { v: 2, chosen: { board: 'gate' } });
+  p.set('edges', 'walls'); p.set('lives', 'unlimited'); p.set('bonus', 'off');
+  assert.deepEqual(JSON.parse(st.m.get(S.RULES_KEY_V2)), { v: 2, chosen: { board: 'gate', edges: 'walls', lives: 'unlimited', bonus: 'off' } });
   const again = rulesPref(st);
   again.load();
-  assert.deepEqual(again.get(), { board: 'gate', edges: 'wrap', lives: 'unlimited', bonus: 'off' });
+  assert.deepEqual(again.get(), { board: 'gate', edges: 'walls', lives: 'unlimited', bonus: 'off' });
   assert.equal(again.isPersistent(), true);
 });
 
-test('rules preference: invalid fields fall back individually', () => {
-  const st = fake({ [S.RULES_KEY]: JSON.stringify({ v: 1, board: 'frame', edges: 'bogus', lives: 5, bonus: 'off', extra: 'x' }) });
+test('rules preference: an explicit solid walls choice is kept (v2)', () => {
+  const p = rulesPref(fake({ [S.RULES_KEY_V2]: JSON.stringify({ v: 2, chosen: { edges: 'walls' } }) }));
+  p.load();
+  assert.equal(p.get().edges, 'walls');
+});
+
+test('rules preference: a changed default does not override an unchosen field', () => {
+  const p = S.createRulesPref(fake({ [S.RULES_KEY_V2]: JSON.stringify({ v: 2, chosen: { board: 'frame' } }) }), SCHEMA, { board: 'clear', edges: 'walls', lives: 'classic', bonus: 'on' });
+  p.load();
+  assert.equal(p.get().edges, 'walls');
+  const q = S.createRulesPref(fake({ [S.RULES_KEY_V2]: JSON.stringify({ v: 2, chosen: { board: 'frame' } }) }), SCHEMA, DEFAULTS);
+  q.load();
+  assert.equal(q.get().edges, 'wrap');
+  assert.equal(q.get().board, 'frame');
+});
+
+test('rules preference v1 migration: board, lives and bonus are kept; walls moves to the new default; wrap is kept', () => {
+  const v1 = JSON.stringify({ v: 1, board: 'gate', edges: 'walls', lives: 'extra', bonus: 'off' });
+  const st = fake({ [S.RULES_KEY]: v1 });
   const p = rulesPref(st);
   p.load();
-  assert.deepEqual(p.get(), { board: 'frame', edges: 'walls', lives: 'classic', bonus: 'off' });
-  for (const raw of ['not json', '{"v":2,"board":"gate"}', 'null', '[]']) {
-    const q = rulesPref(fake({ [S.RULES_KEY]: raw }));
+  assert.deepEqual(p.get(), { board: 'gate', edges: 'wrap', lives: 'extra', bonus: 'off' });
+  assert.equal(st.m.get(S.RULES_KEY), v1, 'the v1 data is left untouched');
+  assert.equal(st.m.has(S.RULES_KEY_V2), false, 'reading does not write');
+  const w = rulesPref(fake({ [S.RULES_KEY]: JSON.stringify({ v: 1, board: 'clear', edges: 'wrap', lives: 'classic', bonus: 'on' }) }));
+  w.load();
+  assert.equal(w.get().edges, 'wrap');
+  p.set('edges', 'walls');
+  assert.equal(JSON.parse(st.m.get(S.RULES_KEY_V2)).chosen.edges, 'walls', 'a new explicit choice is stored');
+  assert.equal(st.m.get(S.RULES_KEY), v1, 'still untouched');
+  const later = rulesPref(st);
+  later.load();
+  assert.equal(later.get().edges, 'walls', 'v2 wins over v1 afterwards');
+});
+
+test('rules preference: v2 overrides v1 for the same field', () => {
+  const p = rulesPref(fake({
+    [S.RULES_KEY]: JSON.stringify({ v: 1, board: 'gate', edges: 'wrap', lives: 'extra', bonus: 'off' }),
+    [S.RULES_KEY_V2]: JSON.stringify({ v: 2, chosen: { board: 'frame' } })
+  }));
+  p.load();
+  assert.deepEqual(p.get(), { board: 'frame', edges: 'wrap', lives: 'extra', bonus: 'off' });
+});
+
+test('rules preference: invalid fields fall back individually', () => {
+  const st = fake({ [S.RULES_KEY_V2]: JSON.stringify({ v: 2, chosen: { board: 'frame', edges: 'bogus', lives: 5, bonus: 'off', extra: 'x' } }) });
+  const p = rulesPref(st);
+  p.load();
+  assert.deepEqual(p.get(), { board: 'frame', edges: 'wrap', lives: 'classic', bonus: 'off' });
+  for (const raw of ['not json', '{"v":3,"chosen":{"board":"gate"}}', 'null', '[]', '{"v":2,"chosen":null}']) {
+    const q = rulesPref(fake({ [S.RULES_KEY_V2]: raw }));
     q.load();
     assert.deepEqual(q.get(), DEFAULTS, raw);
+  }
+  for (const raw of ['not json', '{"v":2}', 'null', '[]']) {
+    const q = rulesPref(fake({ [S.RULES_KEY]: raw }));
+    q.load();
+    assert.deepEqual(q.get(), DEFAULTS, 'v1 ' + raw);
   }
 });
 

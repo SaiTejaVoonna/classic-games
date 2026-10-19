@@ -17,7 +17,8 @@
   // v3: one best score per rules profile: {v:3, best:{"slow|classic|clear|walls|bonus":n}}.
   var BEST_KEY = 'classic-games.best.prototype-v3';
   var SPEED_KEY = 'classic-games.speed';
-  var RULES_KEY = 'classic-games.rules';
+  var RULES_KEY = 'classic-games.rules'; // v1, read only
+  var RULES_KEY_V2 = 'classic-games.rules.v2';
 
   function hasOwn(obj, k) { return Object.prototype.hasOwnProperty.call(obj, k); }
 
@@ -90,22 +91,40 @@
     return { load: load, get: get, submit: submit, entries: entries, isPersistent: function () { return persistent; } };
   }
 
-  // Rules preferences (board, edges, lives, bonus). Each field is validated on its own
-  // against schema {field: [allowed values]}; unknown or invalid values fall back to the
-  // defaults. Nothing is written until the user changes a field.
+  // Rules preferences (board, edges, lives, bonus). Only choices the user actually made are
+  // stored (key RULES_KEY_V2, {v:2, chosen:{field:value}}), so a default can change later
+  // without overriding an explicit choice. Each field is validated on its own against
+  // schema {field: [allowed values]}; invalid values fall back to the defaults.
+  // The first version (RULES_KEY, {v:1, board, edges, lives, bonus}) stored every field, so
+  // it cannot show which ones were chosen. It is read once and never modified:
+  //   board, lives and bonus are kept; edges is kept only when it is "wrap" (the current
+  //   default). A stored "walls" matches the old default, so it moves to the new default.
   function createRulesPref(storage, schema, defaults) {
     var value = {};
+    var chosen = {};
     Object.keys(schema).forEach(function (f) { value[f] = defaults[f]; });
     var persistent = false;
 
+    function valid(f, v) { return typeof v === 'string' && schema[f].indexOf(v) >= 0; }
+
     function load() {
       if (!storage) { persistent = false; return; }
-      var r = readJson(storage, RULES_KEY);
-      persistent = r.ok;
-      var v = r.value;
-      if (v && v.v === 1 && typeof v === 'object') {
+      var r2 = readJson(storage, RULES_KEY_V2);
+      var r1 = readJson(storage, RULES_KEY);
+      persistent = r2.ok && r1.ok;
+      var v1 = r1.value;
+      if (v1 && typeof v1 === 'object' && v1.v === 1) {
         Object.keys(schema).forEach(function (f) {
-          if (typeof v[f] === 'string' && schema[f].indexOf(v[f]) >= 0) value[f] = v[f];
+          if (!valid(f, v1[f])) return;
+          if (f === 'edges' && v1[f] === 'walls') return; // ambiguous: treat as the old default
+          value[f] = v1[f];
+          if (v1[f] !== defaults[f]) chosen[f] = v1[f];
+        });
+      }
+      var v2 = r2.value;
+      if (v2 && typeof v2 === 'object' && v2.v === 2 && v2.chosen && typeof v2.chosen === 'object') {
+        Object.keys(schema).forEach(function (f) {
+          if (valid(f, v2.chosen[f])) { value[f] = v2.chosen[f]; chosen[f] = v2.chosen[f]; }
         });
       }
     }
@@ -113,11 +132,10 @@
     function set(field, next) {
       if (!hasOwn(schema, field) || schema[field].indexOf(next) < 0) return;
       value[field] = next;
+      chosen[field] = next;
       try {
         if (!storage) throw new Error('no storage');
-        var out = { v: 1 };
-        Object.keys(schema).forEach(function (f) { out[f] = value[f]; });
-        storage.setItem(RULES_KEY, JSON.stringify(out));
+        storage.setItem(RULES_KEY_V2, JSON.stringify({ v: 2, chosen: chosen }));
         persistent = true;
       } catch {
         persistent = false; // keep the choice for this session only
@@ -172,6 +190,7 @@
     BEST_KEY_V1: BEST_KEY_V1,
     SPEED_KEY: SPEED_KEY,
     RULES_KEY: RULES_KEY,
+    RULES_KEY_V2: RULES_KEY_V2,
     createBestStore: createBestStore,
     createSpeedPref: createSpeedPref,
     createRulesPref: createRulesPref

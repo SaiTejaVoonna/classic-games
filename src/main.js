@@ -161,13 +161,30 @@
     $('best-note').textContent = '(this setup' + (best.isPersistent() ? '' : ', this session') + ')';
   }
 
-  function rulesText(g) {
+  // d: { livesMode, board, wrap, bonusEnabled } (a game state or the selected options)
+  function rulesText(d) {
     var parts = [];
-    parts.push(g.livesMode === 'unlimited' ? 'Assist: unlimited lives' : g.livesMode === 'extra' ? '3 lives' : '1 life');
-    parts.push(g.board === 'clear' ? 'clear field' : BOARD_LABELS[g.board].toLowerCase());
-    parts.push(g.wrap ? 'wrap around edges' : 'solid walls');
-    parts.push(g.bonusEnabled ? 'bonus food on' : 'bonus food off');
+    parts.push(d.livesMode === 'unlimited' ? 'Assist: unlimited lives' : d.livesMode === 'extra' ? '3 lives' : '1 life');
+    parts.push(d.board === 'clear' ? 'clear field' : BOARD_LABELS[d.board].toLowerCase());
+    parts.push(d.wrap ? 'wrap around edges' : 'solid walls');
+    parts.push(d.bonusEnabled ? 'bonus food on' : 'bonus food off');
     return parts.join(', ') + '.';
+  }
+
+  function selectedRules() {
+    var o = gameOptions();
+    return { livesMode: o.lives, board: o.board, wrap: o.wrap, bonusEnabled: o.bonus };
+  }
+
+  // The rules of the run on screen, and, when the saved choice differs, what the next game uses.
+  function renderRules() {
+    var active = runInProgress();
+    $('rules-line').textContent = (active ? 'This run: ' : 'Next game: ') + rulesText(game);
+    var sel = selectedRules();
+    var differs = game.livesMode !== sel.livesMode || game.board !== sel.board || game.wrap !== sel.wrap || game.bonusEnabled !== sel.bonusEnabled;
+    var next = $('rules-next');
+    next.hidden = !(active && differs);
+    next.textContent = 'Next game: ' + rulesText(sel);
   }
 
   function bonusSeconds(g) {
@@ -196,7 +213,9 @@
     $('score').textContent = String(game.score);
     $('length').textContent = String(game.snake.length);
     $('lives').textContent = game.lives === null ? 'Unlimited' : String(game.lives);
-    $('rules-line').textContent = rulesText(game);
+    $('edges-name').textContent = game.wrap ? 'Wrap' : 'Walls';
+    $('speed-dots').setAttribute('data-level', String({ slow: 1, medium: 2, fast: 3 }[game.speed]));
+    renderRules();
     renderBonus();
     btnPause.disabled = mode !== 'running';
     btnContinue.disabled = mode !== 'paused';
@@ -374,10 +393,15 @@
           ? 'Scores are kept separately for each speed and rules setup, and saved on this device.'
           : 'Storage is unavailable, so best scores last for this session only.';
       }
-      if (id === 'dlg-settings') syncSettingsControls();
+      if (id === 'dlg-settings' || id === 'dlg-setup') syncSettingsControls();
       // Opening a panel mid-run pauses it; resuming stays explicit.
       pause();
       dlg.showModal();
+      // Start at the top: scroll position reset and focus on the heading, not on Close.
+      var body = dlg.querySelector('.dlg-scroll');
+      if (body) body.scrollTop = 0;
+      var h = dlg.querySelector('h2');
+      if (h) h.focus({ preventScroll: true });
     });
   });
 
@@ -415,7 +439,7 @@
     }
     if (!speedPref.isPersistent()) note += ' Not saved on this device.';
     $('speed-note').textContent = note;
-    var rulesNote = 'Board, edges, lives and bonus apply to new games. Mazes, wrap, lives and bonus food are Classic Games choices, not verified original rules.';
+    var rulesNote = 'Game setup applies to the next run. Mazes, wrap, lives and bonus food are Classic Games choices, not verified original rules.';
     var now = gameOptions();
     var same = game.board === now.board && game.wrap === now.wrap && game.livesMode === now.lives && game.bonusEnabled === now.bonus;
     if ((mode === 'running' || mode === 'paused') && !same) {
@@ -423,6 +447,8 @@
     }
     if (!rulesPref.isPersistent()) rulesNote += ' Not saved on this device.';
     $('rules-note').textContent = rulesNote;
+    $('setup-summary').textContent = 'Selected for the next run: ' + rulesText(selectedRules());
+    renderRules();
   }
 
   function adoptSettings() {
@@ -447,6 +473,21 @@
         rulesPref.set(field, r.value);
         adoptSettings();
       });
+    });
+  });
+
+  // ---------- Header tooltips ----------
+  // Labels show on hover and keyboard focus. Escape hides them (and they come back on the
+  // next hover or focus), so they never get in the way.
+  var header = $('site-header');
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && header.querySelector('.icon-btn:focus-visible, .icon-btn:hover')) {
+      header.classList.add('tips-dismissed');
+    }
+  });
+  Array.prototype.forEach.call(header.querySelectorAll('.icon-btn'), function (b) {
+    ['pointerenter', 'focus'].forEach(function (ev) {
+      b.addEventListener(ev, function () { header.classList.remove('tips-dismissed'); });
     });
   });
 

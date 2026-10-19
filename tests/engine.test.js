@@ -5,7 +5,7 @@ const E = require('../src/engine.js');
 
 // Build a state directly for edge-case scenarios.
 function make(over) {
-  const base = E.createGame({ seed: 7 });
+  const base = E.createGame({ seed: 7, wrap: false }); // the tests below assume solid walls unless a case says otherwise
   return Object.assign({}, base, over);
 }
 const cells = (arr) => arr.map(([x, y]) => ({ x, y }));
@@ -277,7 +277,7 @@ test('settings markup lists the same speeds as the engine', () => {
 });
 
 // ---------- edge wrap ----------
-const mk = (opts, over) => Object.assign({}, E.createGame(Object.assign({ seed: 7 }, opts)), over);
+const mk = (opts, over) => Object.assign({}, E.createGame(Object.assign({ seed: 7, wrap: false }, opts)), over);
 
 test('wrap: leaving each edge re-enters at the opposite edge', () => {
   const cases = [
@@ -292,6 +292,47 @@ test('wrap: leaving each edge re-enters at the opposite edge', () => {
     assert.equal(r.state.status, 'running', dir);
     assert.deepEqual(r.state.snake[0], { x: ex, y: ey }, dir);
     assert.equal(r.state.snake.length, 2, dir);
+  }
+});
+
+test('defaults: edges wrap, clear field, one life, bonus on; walls are an explicit choice', () => {
+  const g = E.createGame({ seed: 1 });
+  assert.equal(E.DEFAULT_EDGES, 'wrap');
+  assert.equal(g.wrap, true);
+  assert.equal(g.board, 'clear');
+  assert.equal(g.livesMode, 'classic');
+  assert.equal(g.bonusEnabled, true);
+  assert.equal(E.createGame({ seed: 1, wrap: false }).wrap, false);
+  assert.equal(E.createGame({ seed: 1, wrap: 'walls' }).wrap, true, 'only an explicit false selects solid walls');
+});
+
+test('default wrap: all four edges bring the snake back on the opposite edge (default options)', () => {
+  const cases = [['right', [20, 5], [0, 5], [19, 5]], ['left', [0, 5], [20, 5], [1, 5]], ['down', [5, 13], [5, 0], [5, 12]], ['up', [5, 0], [5, 13], [5, 1]]];
+  for (const [dir, [x, y], [ex, ey], [bx, by]] of cases) {
+    const s0 = Object.assign({}, E.createGame({ seed: 7 }), { status: 'running', dir, queue: [], snake: cells([[x, y], [bx, by]]), food: { x: 10, y: 10 } });
+    const r = E.step(s0);
+    assert.equal(r.state.status, 'running', dir);
+    assert.deepEqual(r.state.snake[0], { x: ex, y: ey }, dir);
+  }
+});
+
+test('solid walls: each edge collision costs a life with extra lives, and ends a classic run', () => {
+  const cases = [['right', [20, 5], [19, 5]], ['left', [0, 5], [1, 5]], ['down', [5, 13], [5, 12]], ['up', [5, 0], [5, 1]]];
+  for (const [dir, [x, y], [bx, by]] of cases) {
+    const base = { status: 'running', dir, queue: [], snake: cells([[x, y], [bx, by]]), food: { x: 10, y: 10 } };
+    const extra = E.step(Object.assign({}, E.createGame({ seed: 7, wrap: false, lives: 'extra' }), base));
+    assert.equal(extra.state.lives, 2, dir);
+    assert.equal(extra.events[0].reason, 'wall', dir);
+    const classic = E.step(Object.assign({}, E.createGame({ seed: 7, wrap: false }), base));
+    assert.equal(classic.state.status, 'over', dir);
+  }
+});
+
+test('maze blocks stay solid whether edges wrap or not', () => {
+  for (const wrap of [true, false]) {
+    const g = E.createGame({ seed: 1, board: 'gate', wrap });
+    const s = Object.assign({}, g, { status: 'running', dir: 'right', queue: [], snake: cells([[9, 2], [8, 2]]), food: { x: 0, y: 13 } });
+    assert.equal(E.step(s).state.reason, 'obstacle', String(wrap));
   }
 });
 
@@ -512,7 +553,8 @@ test('profile keys separate every rules combination', () => {
     keys.add(g.profile);
   }
   assert.equal(keys.size, 3 * 3 * 4 * 2 * 2);
-  assert.equal(E.createGame({ seed: 1 }).profile, 'slow|classic|clear|walls|bonus');
+  assert.equal(E.createGame({ seed: 1 }).profile, 'slow|classic|clear|wrap|bonus', 'the default play wraps at the edges');
+  assert.equal(E.createGame({ seed: 1, wrap: false }).profile, 'slow|classic|clear|walls|bonus');
 });
 
 test('isProfileKey rejects malformed keys', () => {

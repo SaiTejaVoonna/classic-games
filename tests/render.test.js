@@ -176,10 +176,12 @@ test('draw: the highlight continues around turns and restarts after a wrap', () 
 
 test('draw: food, obstacles and the wrap edge only appear when present', () => {
   const plain = mockCtx();
-  R.draw(plain, game([[8, 7], [7, 7], [6, 7]], 'right', { food: null }), PALETTE, W, H);
+  R.draw(plain, game([[8, 7], [7, 7], [6, 7]], 'right', { food: null, wrap: false }), PALETTE, W, H);
   assert.ok(!fills(plain).includes('#food'));
   assert.ok(!fills(plain).includes('#obstacle'));
   assert.ok(!plain.log.some((c) => c.op === 'setLineDash'));
+  assert.ok(plain.log.some((c) => c.op === 'strokeRect'), 'solid walls show a solid inner edge');
+  assert.ok(!plain.log.some((c) => c.op === 'setLineDash'), 'and no dashes');
 
   const full = mockCtx();
   const g = E.createGame({ seed: 3, board: 'pillars', wrap: true });
@@ -187,6 +189,7 @@ test('draw: food, obstacles and the wrap edge only appear when present', () => {
   assert.equal(fills(full).filter((c) => c === '#obstacle').length, g.obstacles.length, 'one block per obstacle cell');
   assert.ok(fills(full).includes('#food'));
   assert.ok(full.log.some((c) => c.op === 'setLineDash'), 'dashed edge shows the wrap rule');
+  assert.equal(full.log.filter((c) => c.op === 'strokeRect').length, 1, 'wrap draws one dashed edge, not a second solid one');
 });
 
 test('draw: obstacle blocks are grid aligned squares', () => {
