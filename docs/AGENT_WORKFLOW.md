@@ -30,7 +30,7 @@ This documents the coordination workflow between Codex and Claude Code as actual
 - `claude auth status` → `loggedIn: true` (OAuth, first-party provider; no secrets recorded)
 
 **Codex local environment (reported by Codex):**
-- Local Codex CLI: not found on PATH or common locations.
+- Local Claude Code CLI: not found on PATH or common locations.
 - A local authenticated clone is unavailable.
 
 ## Limits
