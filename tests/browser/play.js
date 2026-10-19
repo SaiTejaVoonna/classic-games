@@ -29,7 +29,7 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
     await p.keyboard.press('ArrowUp'); s = await st(p);
     ok('first valid key starts run', s.mode === 'running');
     await sleep(520); s = await st(p);
-    ok('time-based movement (3-4 ticks in ~520ms)', s.game.ticks >= 2 && s.game.ticks <= 5, 'ticks=' + s.game.ticks);
+    ok('time-based movement at default Medium 220 ms (about 2 ticks in ~520ms)', s.game.tickMs === 220 && s.game.ticks >= 1 && s.game.ticks <= 4, 'ticks=' + s.game.ticks + ' tickMs=' + s.game.tickMs);
     ok('moving up after ArrowUp', s.game.dir === 'up');
     await p.keyboard.press('d'); await sleep(200); s = await st(p); ok('WASD d turns right', s.game.dir === 'right');
     await p.keyboard.press(' '); s = await st(p); ok('Space pauses', s.mode === 'paused');
@@ -93,8 +93,8 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
     s = await st(p);
     if (s.mode !== 'over') { await p.keyboard.press('ArrowLeft'); await p.waitForFunction(() => window.classicGamesDebug.state().mode === 'over', null, { timeout: 8000 }).catch(() => {}); s = await st(p); }
     ok('run ended', s.mode === 'over');
-    const stored = await p.evaluate(() => localStorage.getItem('classic-games.best.prototype-v1'));
-    ok('best stored with versioned key', stored && JSON.parse(stored).best === s.game.score && s.game.score >= sc, stored);
+    const stored = await p.evaluate(() => localStorage.getItem('classic-games.best.prototype-v2'));
+    ok('best stored per speed under the v2 key', stored && JSON.parse(stored).best.medium === s.game.score && s.game.score >= sc, stored);
     ok('best shown', (await p.textContent('#best')) === String(s.game.score));
     await p.reload(); ok('best survives reload', (await p.textContent('#best')) === String(s.game.score));
     await p.click('[data-open=dlg-top]'); ok('top score dialog shows best', (await p.textContent('#top-text')).includes(String(s.game.score)));
@@ -122,7 +122,7 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
     const ctx = await browser.newContext({ viewport: { width: 1366, height: 768 } });
     const p = await ctx.newPage(); const errs = [];
     p.on('pageerror', e => errs.push(String(e)));
-    await p.addInitScript(() => { localStorage.setItem('classic-games.best.prototype-v1', '{corrupt'); });
+    await p.addInitScript(() => { localStorage.setItem('classic-games.best.prototype-v2', '{corrupt'); localStorage.setItem('classic-games.best.prototype-v1', '{corrupt'); });
     await p.goto(url('?debug=1'));
     ok('corrupt stored best ignored', errs.length === 0 && (await p.textContent('#best')) === '—');
     await ctx.close();
@@ -148,6 +148,158 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
     ok('page does not scroll horizontally', await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     ok('errors (touch)', errs.length === 0, errs.join('|'));
     await p.screenshot({ path: process.argv[2] + '/play-touch-390x844.png' });
+    await ctx.close();
+  }
+
+  // ---- Speed setting ----
+  const speedOf = async (p) => (await st(p)).game.speed;
+  const ticksIn = async (p, ms) => { const a = (await st(p)).game.ticks; await sleep(ms); return (await st(p)).game.ticks - a; };
+  const openSettings = async (p) => { await p.click('[data-open=dlg-settings]'); };
+  const pickSpeed = async (p, v) => { await p.click(`label.radio:has(input[name=speed][value=${v}])`); };
+  {
+    const ctx = await browser.newContext({ viewport: { width: 1366, height: 768 } });
+    const p = await ctx.newPage(); const errs = [];
+    p.on('pageerror', e => errs.push(String(e)));
+    await p.goto(url('?seed=3&debug=1'));
+    ok('default speed is Medium (220 ms)', await speedOf(p) === 'medium' && (await st(p)).game.tickMs === 220 && (await p.textContent('#speed-name')) === 'Medium');
+    await openSettings(p);
+    const labels = await p.evaluate(() => [...document.querySelectorAll('label.radio:has(input[name=speed])')].map(l => l.textContent.replace(/\s+/g, ' ').trim()));
+    ok('settings list Slow 300 / Medium 220 / Fast 150', labels.join('|') === 'Slow (300 ms per step)|Medium (220 ms per step)|Fast (150 ms per step)', labels.join('|'));
+    ok('Medium radio checked by default', await p.isChecked('input[name=speed][value=medium]'));
+    ok('help text: applies to new games, not original levels', (await p.textContent('#speed-note')).includes('Applies to new games') && (await p.textContent('#speed-note')).includes('not original game levels'));
+    // keyboard operation of the radio group
+    await p.focus('input[name=speed][value=medium]'); await p.keyboard.press('ArrowDown');
+    ok('keyboard: ArrowDown moves the speed radio to Fast', await p.isChecked('input[name=speed][value=fast]') && await speedOf(p) === 'fast');
+    ok('menu state adopts the new speed immediately', (await p.textContent('#speed-name')) === 'Fast' && (await st(p)).game.tickMs === 150);
+    await pickSpeed(p, 'slow');
+    ok('choice saved under classic-games.speed', await p.evaluate(() => localStorage.getItem('classic-games.speed')) === 'slow');
+    await p.keyboard.press('Escape');
+    await p.reload(); await p.waitForFunction(() => window.classicGamesDebug);
+    ok('speed preference survives reload', await speedOf(p) === 'slow' && (await p.textContent('#speed-name')) === 'Slow');
+    await openSettings(p); ok('radio reflects the saved speed after reload', await p.isChecked('input[name=speed][value=slow]')); await p.keyboard.press('Escape');
+
+    // real timing per speed
+    await p.click('#btn-new'); await p.keyboard.press('ArrowRight'); // heading right keeps 13 cells before the wall
+    let s = await st(p); ok('Slow run records 300 ms ticks', s.game.speed === 'slow' && s.game.tickMs === 300);
+    const slowTicks = await ticksIn(p, 1500);
+    ok('Slow: about 5 ticks in 1.5 s (300 ms/tick)', slowTicks >= 4 && slowTicks <= 6, 'ticks=' + slowTicks);
+
+    // change while running: the run keeps its timing; applies to next New game
+    await openSettings(p);
+    s = await st(p); ok('opening Settings pauses the run', s.mode === 'paused');
+    await pickSpeed(p, 'fast');
+    ok('note says the current run keeps its speed', (await p.textContent('#speed-note')).includes('current run stays at Slow') && (await p.textContent('#speed-note')).includes('Fast applies to the next New game'), await p.textContent('#speed-note'));
+    s = await st(p); ok('existing run keeps tickMs 300 after changing the setting', s.game.speed === 'slow' && s.game.tickMs === 300);
+    await p.keyboard.press('Escape');
+    ok('HUD still shows the run speed (Slow)', (await p.textContent('#speed-name')) === 'Slow');
+    await p.click('#btn-continue');
+    const contTicks = await ticksIn(p, 1200);
+    ok('resumed run still ticks at 300 ms (not 150): about 4 ticks in 1.2 s', contTicks >= 3 && contTicks <= 5, 'ticks=' + contTicks);
+    await p.click('#btn-new'); await p.click('#dlg-confirm button[value=confirm]');
+    await p.waitForFunction(() => window.classicGamesDebug.state().mode === 'ready');
+    s = await st(p); ok('next New game uses the new speed (Fast 150 ms)', s.game.speed === 'fast' && s.game.tickMs === 150 && (await p.textContent('#speed-name')) === 'Fast');
+    await p.keyboard.press('ArrowRight');
+    const fastTicks = await ticksIn(p, 1500);
+    ok('Fast: about 10 ticks in 1.5 s (150 ms/tick)', fastTicks >= 8 && fastTicks <= 12, 'ticks=' + fastTicks);
+    await p.keyboard.press('ArrowUp'); // turn away from the wall before the pause checks
+    // pause/resume intact at the new speed
+    await p.keyboard.press(' '); const f1 = (await st(p)).game.ticks; await sleep(500);
+    ok('pause freezes ticks at Fast', (await st(p)).mode === 'paused' && (await st(p)).game.ticks === f1);
+    await p.keyboard.press('p'); ok('resume works at Fast', (await st(p)).mode === 'running');
+    ok('Level and Maze remain disabled and unavailable', await p.isDisabled('#sel-level') && await p.isDisabled('#sel-maze') && (await p.textContent('#sel-level')).trim() === 'Unavailable');
+    ok('speed change: no errors', errs.length === 0, errs.join('|'));
+    await ctx.close();
+  }
+
+  // ---- Best scores separated by speed; legacy data preserved ----
+  {
+    const ctx = await browser.newContext({ viewport: { width: 1366, height: 768 } });
+    const p = await ctx.newPage();
+    await p.addInitScript(() => { if (!localStorage.getItem('classic-games.speed')) localStorage.setItem('classic-games.speed', 'fast'); });
+    await p.goto(url('?seed=11&debug=1'));
+    await p.click('#btn-new');
+    const key = { up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight' };
+    const opp = { up: 'down', down: 'up', left: 'right', right: 'left' };
+    const t0 = Date.now(); let s = await st(p);
+    while (s.mode !== 'over' && s.game.score < 2 && Date.now() - t0 < 30000) {
+      const h = s.game.snake[0], f = s.game.food; if (!f) break;
+      let want = f.x > h.x ? 'right' : f.x < h.x ? 'left' : f.y > h.y ? 'down' : 'up';
+      if (want === opp[s.game.dir]) want = h.y < s.game.rows - 1 ? 'down' : 'up';
+      if (want !== s.game.dir || s.mode === 'ready') await p.keyboard.press(key[want]);
+      await sleep(50); s = await st(p);
+    }
+    const fastScore = s.game.score;
+    ok('bot scored at Fast', s.game.speed === 'fast' && fastScore >= 1, 'score=' + fastScore);
+    await p.keyboard.press('ArrowUp'); await p.waitForFunction(() => window.classicGamesDebug.state().mode === 'over', null, { timeout: 8000 }).catch(() => {});
+    s = await st(p);
+    if (s.mode !== 'over') { await p.keyboard.press('ArrowLeft'); await p.waitForFunction(() => window.classicGamesDebug.state().mode === 'over', null, { timeout: 8000 }).catch(() => {}); s = await st(p); }
+    const stored = JSON.parse(await p.evaluate(() => localStorage.getItem('classic-games.best.prototype-v2')));
+    ok('Fast best stored; Slow and Medium untouched', stored.best.fast === s.game.score && stored.best.slow === 0 && stored.best.medium === 0, JSON.stringify(stored));
+    await openSettings(p); await pickSpeed(p, 'slow'); await p.keyboard.press('Escape');
+    await p.click('#btn-new');
+    ok('Slow run shows its own best (none), not the Fast score', (await p.textContent('#best')) === '—' && (await p.textContent('#best-note')).includes('Slow'));
+    await p.click('[data-open=dlg-top]');
+    const top = await p.textContent('#top-text');
+    ok('Top score lists each speed separately', top.includes('Slow: —') && top.includes('Medium: —') && top.includes('Fast: ' + s.game.score), top);
+    await ctx.close();
+  }
+  {
+    const ctx = await browser.newContext({ viewport: { width: 1366, height: 768 } });
+    const p = await ctx.newPage();
+    await p.addInitScript(() => { if (!sessionStorage.getItem('seeded')) { sessionStorage.setItem('seeded', '1'); localStorage.setItem('classic-games.best.prototype-v1', JSON.stringify({ v: 1, best: 5 })); } });
+    await p.goto(url('?seed=3&debug=1'));
+    ok('legacy best is not shown at the default Medium speed', (await p.textContent('#best')) === '—');
+    await openSettings(p); await pickSpeed(p, 'fast'); await p.keyboard.press('Escape');
+    ok('legacy best (recorded at 150 ms) appears under Fast', (await p.textContent('#best')) === '5');
+    ok('legacy v1 data left untouched', await p.evaluate(() => localStorage.getItem('classic-games.best.prototype-v1')) === JSON.stringify({ v: 1, best: 5 }));
+    await ctx.close();
+  }
+
+  // ---- Preference storage failure / invalid ----
+  {
+    const ctx = await browser.newContext({ viewport: { width: 1366, height: 768 } });
+    const p = await ctx.newPage(); const errs = [];
+    p.on('pageerror', e => errs.push(String(e)));
+    await p.addInitScript(() => { const t = () => { throw new DOMException('denied', 'SecurityError'); }; Storage.prototype.getItem = t; Storage.prototype.setItem = t; });
+    await p.goto(url('?seed=3&debug=1'));
+    await openSettings(p); await pickSpeed(p, 'slow');
+    ok('speed choice works for the session when storage throws', await speedOf(p) === 'slow' && (await p.textContent('#speed-note')).includes('Not saved on this device'), await p.textContent('#speed-note'));
+    await p.keyboard.press('Escape'); await p.click('#btn-new');
+    ok('New game uses the session speed; no errors', (await st(p)).game.tickMs === 300 && errs.length === 0, errs.join('|'));
+    await ctx.close();
+  }
+  {
+    const ctx = await browser.newContext({ viewport: { width: 1366, height: 768 } });
+    const p = await ctx.newPage();
+    await p.addInitScript(() => { localStorage.setItem('classic-games.speed', 'turbo'); });
+    await p.goto(url('?debug=1'));
+    ok('invalid stored speed falls back to Medium', await speedOf(p) === 'medium');
+    await ctx.close();
+  }
+
+  // ---- Settings dialog fit and touch ----
+  for (const [w, h, theme] of [[320, 568, 'colour'], [320, 568, 'night'], [390, 844, 'lcd'], [768, 1024, 'colour'], [1366, 768, 'colour']]) {
+    const ctx = await browser.newContext({ viewport: { width: w, height: h }, hasTouch: w < 900 });
+    const p = await ctx.newPage(); const errs = [];
+    p.on('pageerror', e => errs.push(String(e)));
+    await p.addInitScript(t => { try { localStorage.setItem('classic-games.theme', t); } catch (e) { /* ignore */ } }, theme);
+    await p.goto(url('?debug=1'));
+    await openSettings(p);
+    const m = await p.evaluate(() => { const d = document.getElementById('dlg-settings'); const r = d.getBoundingClientRect(); const close = d.querySelector('form button').getBoundingClientRect(); return { top: r.top, bottom: r.bottom, left: r.left, right: r.right, vh: innerHeight, vw: innerWidth, scrolls: d.scrollHeight > d.clientHeight, radios: [...d.querySelectorAll('label.radio')].map(l => Math.round(l.getBoundingClientRect().height)), closeH: Math.round(close.height) }; });
+    ok(`settings dialog fits ${w}x${h} ${theme}`, m.top >= 0 && m.bottom <= m.vh && m.left >= 0 && m.right <= m.vw, JSON.stringify(m));
+    ok(`settings radios and Close are at least 44 px high at ${w}x${h}`, m.radios.every(z => z >= 44) && m.closeH >= 44, JSON.stringify(m.radios) + ' close=' + m.closeH);
+    await p.locator('#dlg-settings form button').scrollIntoViewIfNeeded();
+    const cb = await p.locator('#dlg-settings form button').boundingBox();
+    ok(`Close reachable (scrolls if needed) at ${w}x${h}`, cb && cb.y >= 0 && cb.y + cb.height <= h, JSON.stringify(cb));
+    if (w === 320 && theme === 'colour') await p.screenshot({ path: process.argv[2] + '/settings-320x568.png' });
+    if (w === 390) await p.screenshot({ path: process.argv[2] + '/settings-390x844.png' });
+    if (w < 900) {
+      const tap = async (sel) => { const b = await p.locator(sel).boundingBox(); await p.touchscreen.tap(b.x + b.width / 2, b.y + b.height / 2); };
+      await p.locator('label.radio:has(input[name=speed][value=fast])').scrollIntoViewIfNeeded();
+      await tap('label.radio:has(input[name=speed][value=fast])');
+      ok(`touch: tapping Fast selects it at ${w}x${h}`, await p.evaluate(() => localStorage.getItem('classic-games.speed')) === 'fast');
+    }
+    ok(`settings: no errors at ${w}x${h}`, errs.length === 0, errs.join('|'));
     await ctx.close();
   }
   await browser.close();

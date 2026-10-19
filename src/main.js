@@ -41,12 +41,15 @@
   // mode: menu | ready | running | paused | over | won
   var mode = 'menu';
   var game;
-  var best = S.createBestStore(storage);
+  // Best scores are kept per prototype speed; v1 data (recorded at 150 ms) migrates to "fast".
+  var best = S.createBestStore(storage, E.SPEED_ORDER, 'fast');
   best.load();
+  var speedPref = S.createSpeedPref(storage, E.SPEED_ORDER, E.DEFAULT_SPEED);
+  speedPref.load();
+  var SPEED_LABELS = { slow: 'Slow', medium: 'Medium', fast: 'Fast' };
   var rafId = 0;
   var lastTime = null;
   var acc = 0;
-  var TICK = E.DEFAULTS.tickMs;
   var MAX_STEPS = E.DEFAULTS.maxCatchUpSteps;
 
   function newSeed() {
@@ -151,12 +154,14 @@
   }
 
   function renderBest() {
-    $('best').textContent = best.get() > 0 ? String(best.get()) : '—';
-    $('best-note').textContent = best.isPersistent() ? '' : '(this session)';
+    var b = best.get(game.speed);
+    $('best').textContent = b > 0 ? String(b) : '—';
+    $('best-note').textContent = '(' + SPEED_LABELS[game.speed] + (best.isPersistent() ? '' : ', this session') + ')';
   }
 
   function updateUI(announce) {
     $('state-name').textContent = LABELS[mode];
+    $('speed-name').textContent = SPEED_LABELS[game.speed];
     if (announce !== false) $('status').textContent = statusText();
     var text = overlayText();
     overlay.hidden = !text;
@@ -189,7 +194,7 @@
     if (mode !== 'running') return;
     var dt = lastTime === null ? 0 : t - lastTime;
     lastTime = t;
-    var r = E.advanceClock(acc, dt, TICK, MAX_STEPS);
+    var r = E.advanceClock(acc, dt, game.tickMs, MAX_STEPS);
     acc = r.acc;
     for (var i = 0; i < r.steps && game.status === 'running'; i++) {
       game = E.step(game).state;
@@ -205,9 +210,9 @@
   }
 
   function finish() {
-    var before = best.get();
+    var before = best.get(game.speed);
     mode = game.status;
-    best.submit(game.score);
+    best.submit(game.speed, game.score);
     updateUI();
     if (game.score > before && game.score > 0) {
       $('status').textContent = statusText() + ' New best.';
@@ -217,7 +222,7 @@
   // ---------- Commands ----------
   function startNewGame() {
     stopLoop();
-    game = E.createGame({ seed: newSeed() });
+    game = E.createGame({ seed: newSeed(), speed: speedPref.get() });
     mode = 'ready';
     updateUI();
     $('board').focus(); // so keys work immediately after an explicit start
@@ -314,11 +319,15 @@
       var dlg = $(id);
       if (!dlg || typeof dlg.showModal !== 'function') return;
       if (id === 'dlg-top') {
-        $('top-text').textContent = best.get() > 0 ? 'Best score: ' + best.get() : 'No score yet.';
-        $('top-note').textContent = best.isPersistent()
-          ? 'Best score for this early prototype only. Stored on this device.'
-          : 'Storage is unavailable, so the best score is kept for this session only.';
+        var parts = E.SPEED_ORDER.map(function (k) {
+          return SPEED_LABELS[k] + ': ' + (best.get(k) > 0 ? best.get(k) : '—');
+        });
+        $('top-text').textContent = 'Best scores — ' + parts.join(' · ');
+        $('top-note').textContent = (best.isPersistent()
+          ? 'Early prototype only. Kept separately for each prototype speed and stored on this device.'
+          : 'Storage is unavailable, so best scores are kept for this session only.');
       }
+      if (id === 'dlg-settings') syncSpeedControls();
       // Opening a panel mid-run pauses it; resuming stays explicit.
       pause();
       dlg.showModal();
@@ -331,6 +340,33 @@
     });
   });
 
+  // ---------- Speed setting ----------
+  // The speed applies to the next New game so a run's timing never changes mid-run. With no
+  // run started yet (menu or ready) the pending game adopts it immediately.
+  function syncSpeedControls() {
+    var sel = speedPref.get();
+    var radio = document.querySelector('input[name="speed"][value="' + sel + '"]');
+    if (radio) radio.checked = true;
+    var note = 'Applies to new games. Prototype speeds, not original game levels.';
+    if ((mode === 'running' || mode === 'paused') && game.speed !== sel) {
+      note = 'The current run stays at ' + SPEED_LABELS[game.speed] + '. ' + SPEED_LABELS[sel] + ' applies to the next New game.';
+    }
+    if (!speedPref.isPersistent()) note += ' Not saved on this device.';
+    $('speed-note').textContent = note;
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('input[name="speed"]'), function (r) {
+    r.addEventListener('change', function () {
+      if (!r.checked) return;
+      speedPref.set(r.value);
+      if (mode === 'menu' || mode === 'ready') {
+        game = E.createGame({ seed: newSeed(), speed: speedPref.get() });
+        updateUI(false);
+      }
+      syncSpeedControls();
+    });
+  });
+
   // ---------- Init ----------
   if (params.get('debug') === '1') {
     // Test hook (read-only snapshot); not used by the app.
@@ -338,8 +374,9 @@
       state: function () { return JSON.parse(JSON.stringify({ game: game, mode: mode })); }
     };
   }
-  game = E.createGame({ seed: newSeed() });
+  game = E.createGame({ seed: newSeed(), speed: speedPref.get() });
   applyTheme(readTheme());
+  syncSpeedControls();
   updateUI();
   if (window.ResizeObserver) {
     new ResizeObserver(resizeCanvas).observe(canvas);

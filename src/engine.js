@@ -9,11 +9,16 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
+  // assumption A3/A17: prototype speed settings (ms per tick). These are NOT the original
+  // game's levels; their values are comfort choices from owner testing.
+  var SPEEDS = { slow: 300, medium: 220, fast: 150 };
+  var SPEED_ORDER = ['slow', 'medium', 'fast'];
+  var DEFAULT_SPEED = 'medium';
+
   var DEFAULTS = {
     cols: 21,        // assumption A1: provisional board size
     rows: 14,
     startLength: 3,  // assumption A2
-    tickMs: 150,     // assumption A3: one fixed provisional speed, no levels
     maxQueuedTurns: 2, // assumption A4
     maxCatchUpSteps: 2 // assumption A5: bound on steps per rendered frame
   };
@@ -34,6 +39,8 @@
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
     return [((t ^ (t >>> 14)) >>> 0) / 4294967296, s];
   }
+
+  function hasOwn(obj, k) { return Object.prototype.hasOwnProperty.call(obj, k); }
 
   function key(x, y) { return x + ',' + y; }
 
@@ -67,8 +74,10 @@
     var snake = [];
     for (var i = 0; i < o.startLength; i++) snake.push({ x: headX - i, y: y });
     var f = placeFood(snake, o.cols, o.rows, seed);
+    var speed = options && hasOwn(SPEEDS, options.speed) ? options.speed : DEFAULT_SPEED;
     return {
       cols: o.cols, rows: o.rows,
+      speed: speed, tickMs: SPEEDS[speed], // fixed for the life of the run
       maxQueuedTurns: o.maxQueuedTurns,
       snake: snake, dir: 'right', queue: [],
       food: f[0], rng: f[1],
@@ -153,6 +162,9 @@
   }
 
   return {
+    SPEEDS: SPEEDS,
+    SPEED_ORDER: SPEED_ORDER,
+    DEFAULT_SPEED: DEFAULT_SPEED,
     DEFAULTS: DEFAULTS,
     createGame: createGame,
     turn: turn,

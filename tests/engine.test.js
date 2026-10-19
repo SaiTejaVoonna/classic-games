@@ -206,3 +206,70 @@ test('tick count tracks elapsed time across refresh rates', () => {
     assert.ok(Math.abs(ticks - 200) <= 1, `frame ${frame.toFixed(1)}: ${ticks}`);
   }
 });
+
+test('prototype speeds are exactly 300 / 220 / 150 ms with Medium as default', () => {
+  assert.deepEqual(E.SPEEDS, { slow: 300, medium: 220, fast: 150 });
+  assert.deepEqual(E.SPEED_ORDER, ['slow', 'medium', 'fast']);
+  assert.equal(E.DEFAULT_SPEED, 'medium');
+});
+
+test('a run records its speed and tick length at creation', () => {
+  for (const [name, ms] of Object.entries(E.SPEEDS)) {
+    const g = E.createGame({ seed: 1, speed: name });
+    assert.equal(g.speed, name);
+    assert.equal(g.tickMs, ms);
+  }
+  assert.equal(E.createGame({ seed: 1 }).speed, 'medium');
+  assert.equal(E.createGame({ seed: 1 }).tickMs, 220);
+});
+
+test('unknown speeds fall back to the default', () => {
+  for (const bad of ['turbo', '', null, 'constructor', '__proto__', 150]) {
+    assert.equal(E.createGame({ seed: 1, speed: bad }).speed, 'medium', String(bad));
+  }
+});
+
+test('speed does not change the simulation, only the tick length', () => {
+  const inputs = ['up', null, null, 'right', null, null, 'down', null];
+  const a = run(E.createGame({ seed: 4, speed: 'slow' }), inputs).state;
+  const b = run(E.createGame({ seed: 4, speed: 'fast' }), inputs).state;
+  assert.deepEqual(a.snake, b.snake);
+  assert.deepEqual(a.food, b.food);
+  assert.equal(a.score, b.score);
+});
+
+test('step keeps the run speed (an existing run keeps its timing)', () => {
+  let s = E.turn(E.createGame({ seed: 2, speed: 'slow' }), 'up');
+  s = E.step(s).state;
+  assert.equal(s.speed, 'slow');
+  assert.equal(s.tickMs, 300);
+});
+
+test('ticks over 30 s at 60 Hz match each speed (100 / 136 / 200)', () => {
+  const expected = { slow: 100, medium: 136, fast: 200 };
+  for (const [name, ms] of Object.entries(E.SPEEDS)) {
+    let acc = 0, ticks = 0;
+    const frame = 1000 / 60;
+    for (let t = 0; t < 30000 - 1e-6; t += frame) {
+      const r = E.advanceClock(acc, frame, ms, 2);
+      acc = r.acc; ticks += r.steps;
+    }
+    assert.ok(Math.abs(ticks - expected[name]) <= 1, `${name}: ${ticks}`);
+  }
+});
+
+test('clock clamp scales with the speed: a long gap yields at most 2 ticks at any speed', () => {
+  for (const ms of Object.values(E.SPEEDS)) {
+    assert.equal(E.advanceClock(0, 120000, ms, 2).steps, 2);
+  }
+});
+
+test('settings markup lists the same speeds as the engine', () => {
+  const html = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'index.html'), 'utf8');
+  for (const [name, ms] of Object.entries(E.SPEEDS)) {
+    assert.ok(html.includes(`name="speed" value="${name}"`), name);
+    assert.ok(html.includes(`(${ms} ms per step)`), `${name} ${ms}`);
+  }
+  assert.ok(html.includes('Applies to new games'));
+  assert.equal((html.match(/name="speed"/g) || []).length, 3);
+});

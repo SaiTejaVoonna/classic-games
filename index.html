@@ -46,7 +46,7 @@
     </section>
 
     <section class="panel" aria-label="Game controls">
-      <p class="state-line"><span><span class="label">State</span> <strong id="state-name">Menu</strong></span> <span class="last"><span class="label">Length</span> <span id="length">3</span></span></p>
+      <p class="state-line"><span><span class="label">State</span> <strong id="state-name">Menu</strong></span> <span><span class="label">Speed</span> <strong id="speed-name">Medium</strong></span> <span class="last"><span class="label">Length</span> <span id="length">3</span></span></p>
       <p id="status" class="status" role="status" aria-live="polite">Press New game to start.</p>
 
       <div class="actions">
@@ -71,7 +71,7 @@
       </div>
       <details class="why">
         <summary>Why are Level and Maze disabled?</summary>
-        <p id="why-blocked" class="hint">The original speed levels and mazes are not yet verified, so no options or counts are shown. This prototype has a single provisional speed and an open board. Continue resumes a paused run.</p>
+        <p id="why-blocked" class="hint">The original speed levels and mazes are not yet verified, so no options or counts are shown. Use Settings → Speed for the prototype speeds (they are not the original levels). The board is open with no mazes. Continue resumes a paused run.</p>
       </details>
 
       <div class="dpad" role="group" aria-label="Direction buttons">
@@ -119,6 +119,13 @@
       <label class="radio"><input type="radio" name="theme" value="colour" checked> Colour</label>
       <label class="radio"><input type="radio" name="theme" value="lcd"> LCD</label>
       <label class="radio"><input type="radio" name="theme" value="night"> Night</label>
+    </fieldset>
+    <fieldset>
+      <legend>Speed</legend>
+      <label class="radio"><input type="radio" name="speed" value="slow"> Slow <small>(300 ms per step)</small></label>
+      <label class="radio"><input type="radio" name="speed" value="medium" checked> Medium <small>(220 ms per step)</small></label>
+      <label class="radio"><input type="radio" name="speed" value="fast"> Fast <small>(150 ms per step)</small></label>
+      <p class="hint" id="speed-note">Applies to new games. Prototype speeds, not original game levels.</p>
     </fieldset>
     <fieldset>
       <legend>Feedback</legend>

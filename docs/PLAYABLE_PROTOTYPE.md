@@ -21,7 +21,7 @@ Controls: arrow keys or WASD while the board has focus; Space or P pauses/resume
 | --- | --- | --- |
 | A1 | Board 21×14 cells (3:2). Carried over from the UI mock; not historical (U01). | `DEFAULTS` |
 | A2 | Start length 3, heading right, fixed start cell (head at x=7, middle row) (U03). | `createGame` |
-| A3 | One fixed speed: 150 ms per tick. No levels, no acceleration (U02). | `DEFAULTS.tickMs` |
+| A3 | Superseded by A17: the first build used one fixed 150 ms tick, which owner testing found too fast. Still no levels and no acceleration (U02). | `SPEEDS` |
 | A4 | Turn queue depth 2. A repeat or reversal of the most recent queued/current direction is ignored; extra inputs are dropped (U04). | `turn` |
 | A5 | At most 2 ticks per rendered frame; long gaps are clamped, not replayed. | `advanceClock` |
 | A6 | See A2 (start cell). | |
@@ -33,10 +33,13 @@ Controls: arrow keys or WASD while the board has focus; Space or P pauses/resume
 | A12 | Browser adaptation: the run auto-pauses when the tab is hidden or when an Instructions/Top score/Settings panel opens; resuming is always explicit and never replays elapsed time. The spec lists auto-pause as proposed, not approved. | `main.js` |
 | A13 | "Continue" resumes a paused in-memory run only; nothing persists across reload. | `main.js` |
 | A14 | New game during a running or paused run asks for confirmation. | `main.js` |
-| A15 | Best score is one value for this provisional ruleset, stored under key `classic-games.best.prototype-v1` as `{v:1,best:n}`, written at game over. Not grouped by level or maze because none exist. If storage fails it is kept for the session and labelled "(this session)". | `storage.js` |
+| A15 | Superseded by A19. The first build stored one best value under `classic-games.best.prototype-v1`; that data is preserved and migrated. If storage fails the best is kept for the session and labelled. | `storage.js` |
 | A16 | WASD and Space/P keys are proposed alternatives from the interface spec and not approved; Escape is unused. | `main.js` |
+| A17 | **Prototype speed settings** (Settings → Speed): Slow 300 ms, **Medium 220 ms (default)**, Fast 150 ms per tick. These are comfort choices from owner testing, not the original game's levels and not verified (U02). The Level selector stays disabled and unavailable. The choice is stored under `classic-games.speed`; unknown stored values fall back to Medium, and if storage fails the choice lasts for the session and the dialog says "Not saved on this device". | `SPEEDS`, `storage.js`, `main.js` |
+| A18 | A speed change **applies to the next New game**. A run records its `speed` and `tickMs` at creation, so a run in progress (running or paused) keeps its timing; the Settings note says so. When no run has started (menu or ready) the pending game adopts the new speed immediately. The HUD shows the speed of the run on screen. | `createGame`, `main.js` |
+| A19 | **Best scores are kept per prototype speed**: `classic-games.best.prototype-v2` = `{v:2,best:{slow,medium,fast}}`. Existing v1 data (`classic-games.best.prototype-v1`, one value recorded at the old fixed 150 ms) is migrated by reading it as the **Fast** best (the same 150 ms); the v1 key is never rewritten or deleted. Top score lists the three speeds separately. | `storage.js` |
 
-Not implemented: levels, mazes, bonus creatures/food, sound, vibration, swipe input, persistence of an in-progress run.
+Not implemented: original levels, mazes, bonus creatures/food, sound, vibration, swipe input, persistence of an in-progress run.
 
 ## Test hooks
 `?seed=<int>` fixes the RNG seed; `?debug=1` exposes a read-only snapshot at `window.classicGamesDebug.state()`. Both are used by the browser checks only.
@@ -47,18 +50,24 @@ Open `index.html` in a browser (works from `file://`; scripts are plain deferred
 - Unit tests: `node --test tests/engine.test.js tests/storage.test.js` (no install).
 - Browser checks (Playwright and Chromium preinstalled in the cloud container): `NODE_PATH=<playwright dir> node tests/browser/play.js <outdir>` and `... sweep.js <outdir>`.
 
-## Results (this container, final source)
+## Results (this container, final source of this revision)
 | Check | Result |
 | --- | --- |
-| `node --check` on `src/*.js`, ESLint (temporary config outside repo: `no-undef`, `no-unused-vars`, `eqeqeq`) | pass |
-| Engine tests (21): determinism and seed replay; no movement before first input; start/reversal; one cell per tick; queue depth, ordering and reversal; food respawn off the body (300 seeds + single-free-cell case); growth and score; each wall; self collision; tail-vacating allowed / blocked while eating; frozen after game over; board-full win; no input mutation; clock clamping and tick count across 30/60/144 Hz | 21/21 pass |
-| Storage tests (7): persist increases only, load, corrupt/invalid values, throwing reads and writes, quota error, null storage, non-numeric scores | 7/7 pass |
-| Browser `play.js` (49 checks, Chromium, `file://`; 6 consecutive runs all 49/49): menu/ready/running flow; real key presses with no board click (ArrowLeft ignored, ArrowUp starts, WASD, Space and P pause/resume, P on a non-board button ignored); movement over time; frozen while paused/over; hidden-tab auto-pause and no auto-resume; no catch-up burst after resume; confirm dialog cancel/confirm and focus; wall game-over text; a key-driven bot eating food (score, length = 3 + score, DOM score); best stored, shown, survives reload, shown in Top score; throwing storage and corrupt stored value; touch taps on New game, D-pad, Pause, Continue; D-pad disabled outside ready/running; touch targets at least 44 px | 49/49 pass |
-| Responsive sweep (`sweep.js`): 320×568, 390×844, 768×1024, 1366×768, 1440×900 × Colour/LCD/Night, menu and paused-mid-run states | no console errors, no horizontal overflow, all enabled buttons at least 44×44, no header/score overlap |
-| 390×844 fit | board and D-pad inside the viewport (D-pad bottom 772 of 844) |
+| `node --check` on `src/*.js`; ESLint on `src` and `tests/*.js` (temporary config outside the repo: `no-undef`, `no-unused-vars`, `eqeqeq`) | pass |
+| Unit tests, `node --test tests/engine.test.js tests/storage.test.js` | 44/44 pass |
+| Engine tests (29): determinism and seed replay; no movement before first input; start/reversal; one cell per tick; queue depth, ordering and reversal; food respawn off the body; growth and score; each wall; self collision; tail rule; frozen after game over; board-full win; no input mutation; clock clamping and tick counts across 30/60/144 Hz. Speed tests: exact table 300/220/150 with Medium default; a run records `speed` and `tickMs` at creation; unknown or inherited keys (`constructor`, `__proto__`, numbers) fall back to Medium; speed changes tick length only, not the simulation; a run keeps its timing through `step`; 30 s at 60 Hz yields 100/136/200 ticks; the catch-up clamp holds at every speed; Settings markup lists exactly the engine's speeds and "Applies to new games" | pass |
+| Storage tests (15): per-speed best (increase only, no sharing between speeds); v2 load; **legacy v1 best migrates to Fast only and the v1 key is never rewritten**; higher of v1/v2 wins; corrupt/invalid fields ignored per field; corrupt v2 does not block v1 migration; throwing, quota-failing and null storage; inherited keys; speed preference default, validation, persistence, throwing/null storage | pass |
+| Browser `tests/browser/play.js` (105 checks, Chromium, `file://`; 5 consecutive runs all 105/105) | pass |
+| - existing flow checks (49): keyboard with no board click, WASD, Space/P, hidden tab, no catch-up, confirm dialog, game over, bot scoring, storage failures, touch taps, 44 px targets | pass |
+| - speed checks: Medium default at 220 ms; Settings list 300/220/150 with "Applies to new games / not original game levels"; keyboard ArrowDown moves the radio; choice saved under `classic-games.speed` and survives reload; measured ticks in real time: Slow 300 ms about 5 per 1.5 s, resumed run still 300 ms after switching the setting to Fast, next New game 150 ms about 10 per 1.5 s; opening Settings pauses; note "current run stays at Slow, Fast applies to the next New game"; pause/resume intact; Level and Maze still disabled and "Unavailable" | pass |
+| - best by speed: bot score at Fast stored in v2 Fast only; Slow run shows no best; Top score lists the speeds separately; legacy v1 value 5 appears under Fast and not Medium, v1 left byte-identical | pass |
+| - preference failure: throwing storage keeps the choice for the session with "Not saved on this device"; invalid stored speed falls back to Medium | pass |
+| - Settings dialog at 320×568 (Colour, Night), 390×844 (LCD), 768×1024, 1366×768: dialog inside the viewport, radios and Close at least 44 px high, Close reachable (the dialog scrolls when taller than 90% of the viewport), touch tap selects Fast, no console errors | pass |
+| Responsive sweep (`sweep.js`): 320×568, 390×844, 768×1024, 1366×768, 1440×900 × Colour/LCD/Night, menu and paused states | no console errors, no horizontal overflow, enabled buttons at least 44×44, no header/score overlap |
+| 390×844 fit with the new Speed readout | board and D-pad inside the viewport (D-pad bottom 803 of 844) |
 | 1366×768, 1440×900 | no page scroll |
-| Contrast (computed from theme variables, all themes; text 4.5:1, non-text 3:1) | 0 failures; unchanged palette |
-| Size: HTML+CSS+JS gzip (5 files) | about 12.2 KB (35.7 KB raw) |
+| Contrast, computed from theme variables for all themes | 0 failures; palette unchanged |
+| Size: HTML+CSS+JS gzip (5 files) | about 13.8 KB |
 
 ## Limits
 - Chromium only. Safari, Firefox, real phones, screen readers and real device touch/haptics were **not** tested. "Touch" tests use Playwright's touch emulation.
@@ -66,12 +75,12 @@ Open `index.html` in a browser (works from `file://`; scripts are plain deferred
 - At 320×568 and 768×1024 the page scrolls vertically and the D-pad is below the fold at 320×568 (unchanged from the UI prototype).
 - No test of audio/haptics (not implemented), resize during play, or orientation change beyond layout sweeps.
 - Game feel, speed and difficulty are untuned development guesses.
-- `docs/UI_PROTOTYPE.md` and the older screenshots describe the earlier non-playable preview; `docs/screenshots/playable-*.png` show the playable build (paused mid-run).
+- `docs/UI_PROTOTYPE.md` and the older screenshots describe the earlier non-playable preview; `docs/screenshots/playable-*.png` show the playable build (paused mid-run) and the Settings dialog.
 
 ## Decisions needed from the owner
-1. Accept, change or reject the provisional rules A1–A16, knowing they are not historical.
+1. Accept, change or reject the provisional rules A1–A19 (including the speed values and the Medium default), knowing they are not historical.
 2. Which reference handset/firmware to verify against, and how evidence will be gathered (U01–U12), before any rule is called faithful.
 3. Whether auto-pause (A12), session-only Continue (A13) and the extra key mappings (A16) are approved.
 
 ## Link status (GitHack)
-The repository is private. GitHack cannot fetch private repositories, so no testing link is live. A link would take the form `https://raw.githack.com/SaiTejaVoonna/classic-games/<commit-sha>/index.html`, pinned to a reviewed commit, and must be verified before being shared. The `preview/ui-prototype` branch was not updated by this change.
+The repository is now public (verified by Codex). Links take the form `https://raw.githack.com/SaiTejaVoonna/classic-games/<commit-sha>/index.html`, pinned to a reviewed commit and verified before being shared (the report for each commit gives the current one). The `preview/ui-prototype` branch was not updated by this change.
