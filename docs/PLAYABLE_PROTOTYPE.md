@@ -66,15 +66,15 @@ Open `index.html` in a browser (works from `file://`; scripts are plain deferred
 | - preference failure: throwing storage keeps the choice for the session with "Not saved on this device"; invalid stored speed falls back to Slow | pass |
 | - Settings dialog at 320×568 (Colour, Night), 390×844 (LCD), 768×1024, 1366×768: dialog inside the viewport, radios and Close at least 44 px high, Close reachable (the dialog scrolls when taller than 90% of the viewport), touch tap selects Fast, no console errors | pass |
 | Responsive sweep (`sweep.js`): 320×568, 390×844, 768×1024, 1366×768, 1440×900 × Colour/LCD/Night, menu and paused states | no console errors, no horizontal overflow, enabled buttons at least 44×44, no header/score overlap |
-| 390×844 fit with the new Speed readout | board and D-pad inside the viewport (D-pad bottom 803 of 844) |
+| 390×844 fit | board and D-pad inside the viewport (D-pad bottom 624 of 844, after the disabled Level and Maze controls were removed) |
 | 1366×768, 1440×900 | no page scroll |
 | Contrast, computed from theme variables for all themes | 0 failures; palette unchanged |
-| Size: HTML+CSS+JS gzip (5 files) | about 13.8 KB |
+| Size: HTML+CSS+JS gzip (5 files) | about 13.1 KB |
 
 ## Limits
 - Chromium only. Safari, Firefox, real phones, screen readers and real device touch/haptics were **not** tested. "Touch" tests use Playwright's touch emulation.
 - Timing was checked by tick counts against elapsed time, not by perceived latency on a real device.
-- At 320×568 and 768×1024 the page scrolls vertically and the D-pad is below the fold at 320×568 (unchanged from the UI prototype).
+- At 320×568 the page scrolls vertically: the D-pad ends at 597 px on a 568 px viewport, so it is slightly below the fold.
 - No test of audio/haptics (not implemented), resize during play, or orientation change beyond layout sweeps.
 - Game feel, speed and difficulty are untuned development guesses.
 - `docs/UI_PROTOTYPE.md` and the older screenshots describe the earlier non-playable preview; `docs/screenshots/playable-*.png` show the playable build (paused mid-run) and the Settings dialog.
