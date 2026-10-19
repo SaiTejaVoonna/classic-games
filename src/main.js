@@ -129,8 +129,12 @@
   var btnPause = $('btn-pause');
   var btnContinue = $('btn-continue');
 
+  var currentState = 'menu';
+  var dpadButtons = document.querySelectorAll('.dpad-btn');
+
   function setState(key) {
     var s = STATES[key];
+    currentState = key;
     $('state-name').textContent = s.name;
     $('status').textContent = s.status;
     var overlay = $('overlay');
@@ -138,28 +142,34 @@
     $('overlay-text').textContent = s.overlay;
     btnPause.disabled = key !== 'ready';
     btnContinue.disabled = key !== 'paused';
+    // Direction preview only registers in the ready preview state.
+    Array.prototype.forEach.call(dpadButtons, function (b) { b.disabled = key !== 'ready'; });
   }
 
-  btnNew.addEventListener('click', function () { setState('ready'); });
+  btnNew.addEventListener('click', function () {
+    setState('ready');
+    showInput('none');
+    $('board').focus(); // so arrow keys work immediately after an explicit start
+  });
   btnPause.addEventListener('click', function () {
     setState('paused');
     btnContinue.focus();
   });
   btnContinue.addEventListener('click', function () {
     setState('ready');
-    btnPause.focus();
+    $('board').focus();
   });
 
   // ---------- Direction input preview ----------
   function showInput(dir) {
     $('last-input').textContent = dir;
   }
-  Array.prototype.forEach.call(document.querySelectorAll('.dpad-btn'), function (b) {
+  Array.prototype.forEach.call(dpadButtons, function (b) {
     b.addEventListener('click', function () { showInput(b.getAttribute('data-dir')); });
   });
   var ARROWS = { ArrowUp: 'Up', ArrowDown: 'Down', ArrowLeft: 'Left', ArrowRight: 'Right' };
   $('board').addEventListener('keydown', function (e) {
-    if (ARROWS[e.key]) {
+    if (ARROWS[e.key] && currentState === 'ready') {
       e.preventDefault(); // only while the board has focus
       showInput(ARROWS[e.key]);
     }

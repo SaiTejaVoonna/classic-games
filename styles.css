@@ -16,7 +16,7 @@
   --board-line: #d6ceb6;
   --snake: #2f7d4f;
   --snake-head: #1f5c38;
-  --food: #d98a1a;
+  --food: #a85f00;
   --accent: #2f7d4f;
   --accent-ink: #ffffff;
   --focus: #1d4ed8;
@@ -196,7 +196,7 @@ select:disabled { opacity: 0.65; cursor: not-allowed; }
 .btn:active:not(:disabled) { transform: translateY(1px); }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
-.btn-quiet { background: transparent; border-color: transparent; padding: 0 10px; min-height: 40px; font-weight: 500; }
+.btn-quiet { background: transparent; border-color: transparent; padding: 0 10px; min-height: 44px; font-weight: 500; }
 .btn-quiet:hover:not(:disabled) { border-color: var(--line); }
 
 /* D-pad: inverted-T for a compact footprint */
