@@ -3,9 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Snake — Classic Games (UI prototype)</title>
-  <meta name="description" content="Interface prototype for Classic Games Snake. Gameplay is not implemented.">
+  <title>Snake — Classic Games (early prototype)</title>
+  <meta name="description" content="Early playable prototype of Snake. Rules are provisional.">
   <link rel="stylesheet" href="styles.css">
+  <script src="src/engine.js" defer></script>
+  <script src="src/storage.js" defer></script>
   <script src="src/main.js" defer></script>
 </head>
 <body>
@@ -22,30 +24,30 @@
     <section class="game" aria-labelledby="game-title">
       <div class="game-head">
         <div class="title-block">
-          <h1 id="game-title">Snake</h1>
+          <h1 id="game-title">Snake <span class="badge">Early prototype</span></h1>
           <p class="tagline">Inspired by classic mobile games.</p>
         </div>
         <dl class="scores">
-          <div><dt>Score <small>(placeholder)</small></dt><dd id="score">—</dd></div>
-          <div><dt>Best <small>(placeholder)</small></dt><dd id="best">—</dd></div>
+          <div><dt>Score</dt><dd id="score">0</dd></div>
+          <div><dt>Best <small id="best-note"></small></dt><dd id="best">—</dd></div>
         </dl>
       </div>
 
       <div class="board-wrap">
         <div class="board" id="board" tabindex="0" role="img"
-             aria-label="Static illustrative Snake board. Gameplay is not implemented.">
+             aria-label="Snake board. Focus here to play with arrow keys or WASD; Space or P pauses.">
           <canvas id="canvas" width="630" height="420"></canvas>
           <div class="overlay" id="overlay" hidden>
             <p id="overlay-text"></p>
           </div>
         </div>
-        <p class="board-note">UI prototype — gameplay not implemented; board proportions provisional</p>
+        <p class="board-note">Early prototype — rules and board size are provisional, not verified original mechanics</p>
       </div>
     </section>
 
     <section class="panel" aria-label="Game controls">
-      <p class="state-line"><span><span class="label">Preview state</span> <strong id="state-name">Menu</strong></span> <span class="last"><span class="label">Last input</span> <span id="last-input">none</span></span></p>
-      <p id="status" class="status" role="status" aria-live="polite">Interface preview only. No game is running.</p>
+      <p class="state-line"><span><span class="label">State</span> <strong id="state-name">Menu</strong></span> <span class="last"><span class="label">Length</span> <span id="length">3</span></span></p>
+      <p id="status" class="status" role="status" aria-live="polite">Press New game to start.</p>
 
       <div class="actions">
         <button type="button" class="btn btn-primary" id="btn-new">New game</button>
@@ -69,10 +71,10 @@
       </div>
       <details class="why">
         <summary>Why are Level and Maze disabled?</summary>
-        <p id="why-blocked" class="hint">The original speed levels and mazes are not yet verified, so no options or counts are shown. Continue is enabled only after the Pause preview. The direction buttons only show the last input; nothing moves.</p>
+        <p id="why-blocked" class="hint">The original speed levels and mazes are not yet verified, so no options or counts are shown. This prototype has a single provisional speed and an open board. Continue resumes a paused run.</p>
       </details>
 
-      <div class="dpad" role="group" aria-label="Direction buttons (preview only)">
+      <div class="dpad" role="group" aria-label="Direction buttons">
         <button type="button" class="btn dpad-btn up" data-dir="Up" aria-label="Up"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6l7 9H5z"/></svg></button>
         <button type="button" class="btn dpad-btn left" data-dir="Left" aria-label="Left"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12l9-7v14z"/></svg></button>
         <button type="button" class="btn dpad-btn right" data-dir="Right" aria-label="Right"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 12l-9 7V5z"/></svg></button>
@@ -87,16 +89,27 @@
 
   <dialog id="dlg-help" aria-labelledby="dlg-help-t">
     <h2 id="dlg-help-t">Instructions</h2>
-    <p>This is an interface prototype. The game itself is not implemented yet, so there is nothing to play.</p>
-    <p>Planned controls: arrow keys and the on-screen direction buttons. Other key mappings and pause shortcuts await owner approval.</p>
-    <p>Original rules (speed, mazes, scoring, bonus food) are still being verified and are not described here.</p>
+    <p>Guide the snake to the diamonds. Each one adds a segment and a point. Hitting a wall or yourself ends the run.</p>
+    <p><strong>Keys:</strong> arrow keys or WASD while the board is focused (New game and Continue focus it for you). Space or P pauses and resumes. On touch screens use the direction buttons.</p>
+    <p>The run starts with your first direction key. The game pauses automatically when the tab is hidden; resume it yourself.</p>
+    <p>This is an early prototype. Its board size, speed, scoring and rules are provisional development choices and are not verified against any original game. Levels, mazes and bonus food are not available.</p>
     <form method="dialog"><button class="btn btn-primary" autofocus>Close</button></form>
   </dialog>
 
   <dialog id="dlg-top" aria-labelledby="dlg-top-t">
     <h2 id="dlg-top-t">Top score</h2>
-    <p>No scores yet. Scoring is not implemented, and this prototype stores no scores.</p>
+    <p id="top-text">No score yet.</p>
+    <p class="hint" id="top-note">Best score for this early prototype only. Stored on this device if the browser allows it.</p>
     <form method="dialog"><button class="btn btn-primary" autofocus>Close</button></form>
+  </dialog>
+
+  <dialog id="dlg-confirm" aria-labelledby="dlg-confirm-t">
+    <h2 id="dlg-confirm-t">Start a new game?</h2>
+    <p>The current run will be discarded.</p>
+    <form method="dialog" class="dialog-actions">
+      <button class="btn" value="cancel" autofocus>Keep playing</button>
+      <button class="btn btn-primary" value="confirm">New game</button>
+    </form>
   </dialog>
 
   <dialog id="dlg-settings" aria-labelledby="dlg-set-t">

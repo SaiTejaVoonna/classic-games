@@ -114,6 +114,7 @@ body {
   margin-bottom: 8px;
 }
 h1 { margin: 0; font-size: 1.75rem; line-height: 1.1; letter-spacing: -0.01em; }
+.badge { display: inline-block; vertical-align: middle; margin-left: 6px; padding: 2px 8px; font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink); border: 1px solid var(--ink); border-radius: 999px; }
 .tagline { margin: 2px 0 0; font-size: 0.8125rem; color: var(--muted); }
 
 .scores { display: flex; gap: 16px; margin: 0; }
@@ -145,6 +146,7 @@ h1 { margin: 0; font-size: 1.75rem; line-height: 1.1; letter-spacing: -0.01em; }
   font-weight: 600;
 }
 .overlay[hidden] { display: none; }
+.overlay[data-kind="ready"] { background: transparent; align-items: start; pointer-events: none; }
 .overlay p { margin: 0; max-width: 28ch; background: var(--surface); border: 1px solid var(--ink); border-radius: 999px; padding: 6px 14px; }
 .board-note { margin: 0; font-size: 0.75rem; color: var(--muted); text-align: center; }
 
@@ -180,6 +182,7 @@ select:disabled { opacity: 0.65; cursor: not-allowed; }
 
 /* Buttons */
 .btn {
+  touch-action: manipulation;
   min-height: 44px;
   min-width: 44px;
   padding: 0 14px;
@@ -231,6 +234,7 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.45); }
 dialog h2 { margin: 0 0 8px; font-size: 1.25rem; }
 dialog p { margin: 0 0 10px; }
 dialog form { margin-top: 12px; text-align: right; }
+.dialog-actions { display: flex; gap: 8px; justify-content: flex-end; }
 fieldset { border: 1px solid var(--line); border-radius: 8px; margin: 0 0 10px; padding: 8px 12px; }
 legend { padding: 0 4px; color: var(--muted); font-size: 0.8125rem; }
 .radio { display: flex; align-items: center; gap: 8px; min-height: 44px; }

@@ -1,35 +1,34 @@
-// UI prototype only. No game engine: nothing moves, scores, grows or collides.
-// The board below is a static illustration; its grid and proportions are provisional
-// and make no claim about the original handset.
+// Early playable prototype. Wiring, rendering and lifecycle only; all game rules live in
+// engine.js and are provisional development assumptions (see docs/PLAYABLE_PROTOTYPE.md).
 (function () {
   'use strict';
 
+  var E = window.SnakeEngine;
+  var S = window.SnakeStorage;
+
   var THEME_KEY = 'classic-games.theme';
   var THEMES = ['colour', 'lcd', 'night'];
-
-  // Provisional illustrative grid (columns x rows). Not historical data.
-  var COLS = 21;
-  var ROWS = 14;
-  // Static illustrative snake, tail first, head last. Purely decorative.
-  var SNAKE = [
-    [5, 9], [6, 9], [7, 9], [8, 9], [9, 9], [10, 9], [10, 8], [10, 7], [11, 7], [12, 7], [13, 7]
-  ];
-  var FOOD = [16, 4];
 
   var $ = function (id) { return document.getElementById(id); };
   var root = document.documentElement;
   var canvas = $('canvas');
   var ctx = canvas.getContext('2d');
+  var params = new URLSearchParams(window.location.search);
+
+  function safeStorage() {
+    try { return window.localStorage; } catch { return null; }
+  }
+  var storage = safeStorage();
 
   // ---------- Theme ----------
   function readTheme() {
     try {
-      var t = window.localStorage.getItem(THEME_KEY);
+      var t = storage && storage.getItem(THEME_KEY);
       return THEMES.indexOf(t) >= 0 ? t : 'colour';
     } catch { return 'colour'; }
   }
   function saveTheme(t) {
-    try { window.localStorage.setItem(THEME_KEY, t); } catch { /* storage unavailable: fine */ }
+    try { if (storage) storage.setItem(THEME_KEY, t); } catch { /* storage unavailable: fine */ }
   }
   function applyTheme(t) {
     root.setAttribute('data-theme', t);
@@ -38,10 +37,26 @@
     draw();
   }
 
-  // ---------- Drawing ----------
-  function cssVar(name) {
-    return getComputedStyle(root).getPropertyValue(name).trim();
+  // ---------- Game state ----------
+  // mode: menu | ready | running | paused | over | won
+  var mode = 'menu';
+  var game;
+  var best = S.createBestStore(storage);
+  best.load();
+  var rafId = 0;
+  var lastTime = null;
+  var acc = 0;
+  var TICK = E.DEFAULTS.tickMs;
+  var MAX_STEPS = E.DEFAULTS.maxCatchUpSteps;
+
+  function newSeed() {
+    var q = parseInt(params.get('seed'), 10);
+    if (isFinite(q)) return q; // test hook for deterministic runs
+    return ((Date.now() ^ Math.floor(Math.random() * 4294967296)) >>> 0);
   }
+
+  // ---------- Drawing ----------
+  function cssVar(name) { return getComputedStyle(root).getPropertyValue(name).trim(); }
 
   function roundRect(x, y, w, h, r) {
     ctx.beginPath();
@@ -59,127 +74,254 @@
     var dpr = window.devicePixelRatio || 1;
     var w = Math.max(1, Math.round(rect.width * dpr));
     var h = Math.max(1, Math.round(rect.height * dpr));
-    if (canvas.width !== w || canvas.height !== h) {
-      canvas.width = w;
-      canvas.height = h;
-    }
+    if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
     draw();
   }
 
   function draw() {
+    if (!game) return;
+    var cols = game.cols;
+    var rows = game.rows;
     var w = canvas.width;
     var h = canvas.height;
-    var cell = Math.min(w / COLS, h / ROWS);
-    var ox = (w - cell * COLS) / 2;
-    var oy = (h - cell * ROWS) / 2;
+    var cell = Math.min(w / cols, h / rows);
+    var ox = (w - cell * cols) / 2;
+    var oy = (h - cell * rows) / 2;
     ctx.clearRect(0, 0, w, h);
 
-    // faint grid
     ctx.strokeStyle = cssVar('--board-line');
     ctx.lineWidth = Math.max(1, cell * 0.04);
     ctx.beginPath();
-    for (var c = 1; c < COLS; c++) { ctx.moveTo(ox + c * cell, oy); ctx.lineTo(ox + c * cell, oy + ROWS * cell); }
-    for (var r = 1; r < ROWS; r++) { ctx.moveTo(ox, oy + r * cell); ctx.lineTo(ox + COLS * cell, oy + r * cell); }
+    for (var c = 1; c < cols; c++) { ctx.moveTo(ox + c * cell, oy); ctx.lineTo(ox + c * cell, oy + rows * cell); }
+    for (var r = 1; r < rows; r++) { ctx.moveTo(ox, oy + r * cell); ctx.lineTo(ox + cols * cell, oy + r * cell); }
     ctx.stroke();
 
-    // snake
     var pad = cell * 0.08;
-    for (var i = 0; i < SNAKE.length; i++) {
-      var isHead = i === SNAKE.length - 1;
-      ctx.fillStyle = cssVar(isHead ? '--snake-head' : '--snake');
-      roundRect(ox + SNAKE[i][0] * cell + pad, oy + SNAKE[i][1] * cell + pad,
+    for (var i = game.snake.length - 1; i >= 0; i--) {
+      ctx.fillStyle = cssVar(i === 0 ? '--snake-head' : '--snake');
+      roundRect(ox + game.snake[i].x * cell + pad, oy + game.snake[i].y * cell + pad,
                 cell - 2 * pad, cell - 2 * pad, cell * 0.28);
       ctx.fill();
     }
 
-    // food: a diamond, distinct from the square snake segments by shape
-    var fx = ox + (FOOD[0] + 0.5) * cell;
-    var fy = oy + (FOOD[1] + 0.5) * cell;
-    var d = cell * 0.4;
-    ctx.fillStyle = cssVar('--food');
-    ctx.beginPath();
-    ctx.moveTo(fx, fy - d);
-    ctx.lineTo(fx + d, fy);
-    ctx.lineTo(fx, fy + d);
-    ctx.lineTo(fx - d, fy);
-    ctx.closePath();
-    ctx.fill();
+    if (game.food) { // diamond: distinct from the square snake segments by shape
+      var fx = ox + (game.food.x + 0.5) * cell;
+      var fy = oy + (game.food.y + 0.5) * cell;
+      var d = cell * 0.4;
+      ctx.fillStyle = cssVar('--food');
+      ctx.beginPath();
+      ctx.moveTo(fx, fy - d);
+      ctx.lineTo(fx + d, fy);
+      ctx.lineTo(fx, fy + d);
+      ctx.lineTo(fx - d, fy);
+      ctx.closePath();
+      ctx.fill();
+    }
   }
 
-  // ---------- Interface-preview states (no gameplay) ----------
-  var STATES = {
-    menu: {
-      name: 'Menu',
-      status: 'Interface preview only. No game is running.',
-      overlay: ''
-    },
-    ready: {
-      name: 'Ready (preview)',
-      status: 'Ready state shown for interface review. Gameplay is not implemented.',
-      overlay: 'Ready — interface preview only'
-    },
-    paused: {
-      name: 'Paused (preview)',
-      status: 'Paused state shown for interface review. Continue returns to the ready preview.',
-      overlay: 'Paused — interface preview only'
-    }
-  };
-
+  // ---------- UI ----------
   var btnNew = $('btn-new');
   var btnPause = $('btn-pause');
   var btnContinue = $('btn-continue');
-
-  var currentState = 'menu';
   var dpadButtons = document.querySelectorAll('.dpad-btn');
+  var overlay = $('overlay');
 
-  function setState(key) {
-    var s = STATES[key];
-    currentState = key;
-    $('state-name').textContent = s.name;
-    $('status').textContent = s.status;
-    var overlay = $('overlay');
-    overlay.hidden = !s.overlay;
-    $('overlay-text').textContent = s.overlay;
-    btnPause.disabled = key !== 'ready';
-    btnContinue.disabled = key !== 'paused';
-    // Direction preview only registers in the ready preview state.
-    Array.prototype.forEach.call(dpadButtons, function (b) { b.disabled = key !== 'ready'; });
+  var LABELS = { menu: 'Menu', ready: 'Ready', running: 'Running', paused: 'Paused', over: 'Game over', won: 'Board full' };
+
+  function statusText() {
+    switch (mode) {
+      case 'menu': return 'Press New game to start.';
+      case 'ready': return 'Ready. Press an arrow key, WASD or a direction button to start.';
+      case 'running': return 'Playing.';
+      case 'paused': return 'Paused. Press Continue, or Space or P on the board, to resume.';
+      case 'over': return 'Game over. Score ' + game.score + '.';
+      default: return 'Board full, run complete. Score ' + game.score + '.';
+    }
   }
 
-  btnNew.addEventListener('click', function () {
-    setState('ready');
-    showInput('none');
-    $('board').focus(); // so arrow keys work immediately after an explicit start
-  });
+  function overlayText() {
+    switch (mode) {
+      case 'menu': return 'Press New game';
+      case 'ready': return 'Press a direction to start';
+      case 'paused': return 'Paused';
+      case 'over': return 'Game over — score ' + game.score;
+      case 'won': return 'Board full — score ' + game.score;
+      default: return '';
+    }
+  }
+
+  function renderBest() {
+    $('best').textContent = best.get() > 0 ? String(best.get()) : '—';
+    $('best-note').textContent = best.isPersistent() ? '' : '(this session)';
+  }
+
+  function updateUI(announce) {
+    $('state-name').textContent = LABELS[mode];
+    if (announce !== false) $('status').textContent = statusText();
+    var text = overlayText();
+    overlay.hidden = !text;
+    overlay.setAttribute('data-kind', mode);
+    $('overlay-text').textContent = text;
+    $('score').textContent = String(game.score);
+    $('length').textContent = String(game.snake.length);
+    btnPause.disabled = mode !== 'running';
+    btnContinue.disabled = mode !== 'paused';
+    var active = mode === 'ready' || mode === 'running';
+    Array.prototype.forEach.call(dpadButtons, function (b) { b.disabled = !active; });
+    renderBest();
+    draw();
+  }
+
+  // ---------- Loop ----------
+  function stopLoop() {
+    if (rafId) { window.cancelAnimationFrame(rafId); rafId = 0; }
+  }
+
+  function startLoop() {
+    stopLoop();
+    lastTime = null; // never replay time spent paused, hidden or not yet started
+    acc = 0;
+    rafId = window.requestAnimationFrame(frame);
+  }
+
+  function frame(t) {
+    rafId = 0;
+    if (mode !== 'running') return;
+    var dt = lastTime === null ? 0 : t - lastTime;
+    lastTime = t;
+    var r = E.advanceClock(acc, dt, TICK, MAX_STEPS);
+    acc = r.acc;
+    for (var i = 0; i < r.steps && game.status === 'running'; i++) {
+      game = E.step(game).state;
+    }
+    if (game.status === 'over' || game.status === 'won') {
+      finish();
+      return;
+    }
+    $('score').textContent = String(game.score);
+    $('length').textContent = String(game.snake.length);
+    draw();
+    rafId = window.requestAnimationFrame(frame);
+  }
+
+  function finish() {
+    var before = best.get();
+    mode = game.status;
+    best.submit(game.score);
+    updateUI();
+    if (game.score > before && game.score > 0) {
+      $('status').textContent = statusText() + ' New best.';
+    }
+  }
+
+  // ---------- Commands ----------
+  function startNewGame() {
+    stopLoop();
+    game = E.createGame({ seed: newSeed() });
+    mode = 'ready';
+    updateUI();
+    $('board').focus(); // so keys work immediately after an explicit start
+  }
+
+  function pause() {
+    if (mode !== 'running') return false;
+    mode = 'paused';
+    stopLoop();
+    updateUI();
+    return true;
+  }
+
+  function resume() {
+    if (mode !== 'paused') return false;
+    mode = 'running';
+    updateUI();
+    startLoop();
+    return true;
+  }
+
+  function input(dir) {
+    if (mode !== 'ready' && mode !== 'running') return;
+    var next = E.turn(game, dir);
+    var started = mode === 'ready' && next.status === 'running';
+    game = next;
+    if (started) {
+      mode = 'running';
+      updateUI();
+      startLoop();
+    }
+  }
+
+  function requestNewGame() {
+    if (mode === 'running' || mode === 'paused') {
+      var wasRunning = pause();
+      var dlg = $('dlg-confirm');
+      if (typeof dlg.showModal === 'function') {
+        dlg.returnValue = '';
+        dlg.showModal();
+        dlg.addEventListener('close', function onClose() {
+          dlg.removeEventListener('close', onClose);
+          if (dlg.returnValue === 'confirm') startNewGame();
+          else if (wasRunning || mode === 'paused') btnContinue.focus();
+        });
+        return;
+      }
+    }
+    startNewGame();
+  }
+
+  btnNew.addEventListener('click', requestNewGame);
   btnPause.addEventListener('click', function () {
-    setState('paused');
-    btnContinue.focus();
+    if (pause()) btnContinue.focus();
   });
   btnContinue.addEventListener('click', function () {
-    setState('ready');
-    $('board').focus();
+    if (resume()) $('board').focus();
   });
 
-  // ---------- Direction input preview ----------
-  function showInput(dir) {
-    $('last-input').textContent = dir;
-  }
-  Array.prototype.forEach.call(dpadButtons, function (b) {
-    b.addEventListener('click', function () { showInput(b.getAttribute('data-dir')); });
+  // Auto-pause when the tab is hidden; resuming is always explicit and never catches up.
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) pause();
   });
-  var ARROWS = { ArrowUp: 'Up', ArrowDown: 'Down', ArrowLeft: 'Left', ArrowRight: 'Right' };
+
+  // ---------- Input ----------
+  var DIRS = { up: 'up', down: 'down', left: 'left', right: 'right' };
+  Array.prototype.forEach.call(dpadButtons, function (b) {
+    b.addEventListener('click', function () { input(DIRS[b.getAttribute('data-dir').toLowerCase()]); });
+  });
+
+  var KEYS = {
+    ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right',
+    w: 'up', a: 'left', s: 'down', d: 'right'
+  };
+  // Keys act only while the board has focus, so form fields and the rest of the page keep
+  // their normal behaviour.
   $('board').addEventListener('keydown', function (e) {
-    if (ARROWS[e.key] && currentState === 'ready') {
-      e.preventDefault(); // only while the board has focus
-      showInput(ARROWS[e.key]);
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    var k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+    var dir = KEYS[k];
+    if (dir && (mode === 'ready' || mode === 'running')) {
+      e.preventDefault();
+      input(dir);
+    } else if ((k === ' ' || k === 'p') && (mode === 'running' || mode === 'paused')) {
+      e.preventDefault();
+      if (mode === 'running') pause(); else resume();
     }
   });
 
-  // ---------- Dialogs ----------
+  // ---------- Dialogs and settings ----------
   Array.prototype.forEach.call(document.querySelectorAll('[data-open]'), function (b) {
     b.addEventListener('click', function () {
-      var dlg = $(b.getAttribute('data-open'));
-      if (dlg && typeof dlg.showModal === 'function') dlg.showModal();
+      var id = b.getAttribute('data-open');
+      var dlg = $(id);
+      if (!dlg || typeof dlg.showModal !== 'function') return;
+      if (id === 'dlg-top') {
+        $('top-text').textContent = best.get() > 0 ? 'Best score: ' + best.get() : 'No score yet.';
+        $('top-note').textContent = best.isPersistent()
+          ? 'Best score for this early prototype only. Stored on this device.'
+          : 'Storage is unavailable, so the best score is kept for this session only.';
+      }
+      // Opening a panel mid-run pauses it; resuming stays explicit.
+      pause();
+      dlg.showModal();
     });
   });
 
@@ -190,8 +332,15 @@
   });
 
   // ---------- Init ----------
+  if (params.get('debug') === '1') {
+    // Test hook (read-only snapshot); not used by the app.
+    window.classicGamesDebug = {
+      state: function () { return JSON.parse(JSON.stringify({ game: game, mode: mode })); }
+    };
+  }
+  game = E.createGame({ seed: newSeed() });
   applyTheme(readTheme());
-  setState('menu');
+  updateUI();
   if (window.ResizeObserver) {
     new ResizeObserver(resizeCanvas).observe(canvas);
   } else {

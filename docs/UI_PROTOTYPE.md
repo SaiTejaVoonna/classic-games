@@ -1,5 +1,7 @@
 # Snake UI prototype
 
+> Historical note: this describes the earlier non-playable interface preview. It is superseded by [PLAYABLE_PROTOTYPE.md](PLAYABLE_PROTOTYPE.md); gameplay now exists and the statements below about "nothing moves" no longer apply.
+
 Status: implementation by Claude Code for the owner-authorized UI milestone. **Not independently accepted**; Codex review corrections (focus, food contrast, header touch targets) applied and awaiting re-review.
 
 ## Scope
