@@ -33,3 +33,8 @@ Recorded at the time of the first handshake, from the cloud checkout:
 - No extra network domains or secrets are needed.
 - One user-approved step at a time; report and stop. Do not merge or expand scope without instruction.
 - Shared project instructions are in `AGENTS.md`; `CLAUDE.md` points to it.
+
+## Latest handoff: research and planning (2026-10-19)
+The owner supplied the full GPT-6 project handoff after Step 2. Codex prepared NOKIA_REFERENCE.md, INTERFACE_SPEC.md and ARCHITECTURE_PLAN.md directly and updated AGENTS.md. This supersedes the earlier setup-only phase above; all recorded Step 2 evidence remains historical evidence.
+The Nokia 3310 manual verifies core menu functions, but the exact engine constants remain unresolved. Do not build the game from generated image geometry or related-handset rules. Owner review and original-device verification are the next gates.
+The coordination PR #1 remains unmerged. Planning is on a separate Codex branch based on its reviewed tip; no Claude delegation, merge or deployment was performed. Both images generated in this Codex chat remain unapproved discussion references and were not sent to Claude.

@@ -41,3 +41,6 @@ This documents the coordination workflow between Codex and Claude Code as actual
 - The temporary `docs/COORDINATION_TEST_TEMP.md` (marker `CLASSIC-GAMES-STEP2-20261019`, added at `55ac6dffe24be8640770d10d95e4860436d6fea2`, independently reviewed by Codex) was pending cleanup until the commit that adds this document; that commit deletes it. Once pushed, it is **absent at that commit and later tips but retained in earlier history**.
 - PR #1 remains **unmerged**, pending approval.
 - No game, website, dependencies, or deployment exist.
+
+## Later scope update
+The owner subsequently supplied the full GPT-6 research/planning handoff. Its latest instructions authorize that bounded preparation; the updated AGENTS.md records the current phase. The Step 2 authorization and limitations above describe that test's historical state, not a restriction overriding the owner's newer request. No implementation is authorized by the research handoff.
