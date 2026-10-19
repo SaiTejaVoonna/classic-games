@@ -93,11 +93,11 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
     s = await st(p);
     if (s.mode !== 'over') { await p.keyboard.press('ArrowLeft'); await p.waitForFunction(() => window.classicGamesDebug.state().mode === 'over', null, { timeout: 8000 }).catch(() => {}); s = await st(p); }
     ok('run ended', s.mode === 'over');
-    const stored = await p.evaluate(() => localStorage.getItem('classic-games.best.prototype-v2'));
-    ok('best stored per speed under the v2 key', stored && JSON.parse(stored).best.slow === s.game.score && s.game.score >= sc, stored);
+    const stored = await p.evaluate(() => localStorage.getItem('classic-games.best.prototype-v3'));
+    ok('best stored per rules profile under the v3 key', stored && JSON.parse(stored).best['slow|classic|clear|walls|bonus'] === s.game.score && s.game.score >= sc, stored);
     ok('best shown', (await p.textContent('#best')) === String(s.game.score));
     await p.reload(); ok('best survives reload', (await p.textContent('#best')) === String(s.game.score));
-    await p.click('[data-open=dlg-top]'); ok('top score dialog shows best', (await p.textContent('#top-text')).includes(String(s.game.score)));
+    await p.click('[data-open=dlg-top]'); ok('top score dialog lists the recorded best', (await p.evaluate(() => [...document.querySelectorAll('#top-list li')].map(l => l.textContent))).some(t => t.endsWith(': ' + s.game.score)));
     await ctx.close();
   }
 
@@ -122,7 +122,7 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
     const ctx = await browser.newContext({ viewport: { width: 1366, height: 768 } });
     const p = await ctx.newPage(); const errs = [];
     p.on('pageerror', e => errs.push(String(e)));
-    await p.addInitScript(() => { localStorage.setItem('classic-games.best.prototype-v2', '{corrupt'); localStorage.setItem('classic-games.best.prototype-v1', '{corrupt'); });
+    await p.addInitScript(() => { for (const k of ['v3', 'v2', 'v1']) localStorage.setItem('classic-games.best.prototype-' + k, '{corrupt'); });
     await p.goto(url('?debug=1'));
     ok('corrupt stored best ignored', errs.length === 0 && (await p.textContent('#best')) === '0');
     await ctx.close();
@@ -168,7 +168,7 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
     ok('no em or en dashes in any visible copy (including dialogs)', !/[\u2013\u2014]/.test(bodyText));
     ok('no Early prototype badge or repeated board disclaimer', !/early prototype/i.test(bodyText) && (await p.locator('.badge, .board-note').count()) === 0);
     ok('one About note, inside Instructions', (bodyText.match(/An early version of Classic Games\. Gameplay may differ from the originals\./g) || []).length === 1 && (await p.locator('#dlg-help .about').count()) === 1);
-    ok('Level, Maze, Sound and Vibration controls are not shown', !/level|maze|sound|vibration|unavailable|not implemented|why are/i.test(bodyText) && (await p.locator('#sel-level, #sel-maze, input[type=checkbox]').count()) === 0);
+    ok('Level, Sound and Vibration controls are not shown', !/sound|vibration|unavailable|not implemented|why are|choose a level/i.test(bodyText) && (await p.locator('#sel-level, #sel-maze, input[type=checkbox]').count()) === 0);
     await p.click('[data-open=dlg-top]'); ok('Top score shows No score yet for a fresh profile', (await p.textContent('#top-text')) === 'No score yet.'); await p.keyboard.press('Escape');
     await openSettings(p);
     const labels = await p.evaluate(() => [...document.querySelectorAll('label.radio:has(input[name=speed])')].map(l => l.textContent.replace(/\s+/g, ' ').trim()));
@@ -250,14 +250,14 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
     await p.keyboard.press('ArrowUp'); await p.waitForFunction(() => window.classicGamesDebug.state().mode === 'over', null, { timeout: 8000 }).catch(() => {});
     s = await st(p);
     if (s.mode !== 'over') { await p.keyboard.press('ArrowLeft'); await p.waitForFunction(() => window.classicGamesDebug.state().mode === 'over', null, { timeout: 8000 }).catch(() => {}); s = await st(p); }
-    const stored = JSON.parse(await p.evaluate(() => localStorage.getItem('classic-games.best.prototype-v2')));
-    ok('Fast best stored; Slow and Medium untouched', stored.best.fast === s.game.score && stored.best.slow === 0 && stored.best.medium === 0, JSON.stringify(stored));
+    const stored = JSON.parse(await p.evaluate(() => localStorage.getItem('classic-games.best.prototype-v3')));
+    ok('Fast best stored under its own profile only', stored.best['fast|classic|clear|walls|bonus'] === s.game.score && Object.keys(stored.best).length === 1, JSON.stringify(stored));
     await openSettings(p); await pickSpeed(p, 'slow'); await p.keyboard.press('Escape');
     await p.click('#btn-new');
-    ok('Slow run shows its own best (0), not the Fast score', (await p.textContent('#best')) === '0' && (await p.textContent('#best-note')).includes('Slow'));
+    ok('Slow run shows its own best (0), not the Fast score', (await p.textContent('#best')) === '0' && (await p.textContent('#best-note')).includes('this setup'));
     await p.click('[data-open=dlg-top]');
-    const top = await p.textContent('#top-text');
-    ok('Top score lists each speed separately', top === `Best scores: Slow 0, Medium 0, Fast ${s.game.score}.`, top);
+    const top = await p.evaluate(() => [...document.querySelectorAll('#top-list li')].map(l => l.textContent));
+    ok('Top score lists the setup that scored, with its rules', top.length === 1 && top[0] === `Fast, Classic, Clear field, Solid walls, Bonus on: ${s.game.score}`, top.join('|'));
     await ctx.close();
   }
   {
@@ -266,8 +266,10 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
     await p.addInitScript(() => { if (!sessionStorage.getItem('seeded')) { sessionStorage.setItem('seeded', '1'); localStorage.setItem('classic-games.best.prototype-v1', JSON.stringify({ v: 1, best: 5 })); } });
     await p.goto(url('?seed=3&debug=1'));
     ok('legacy best is not shown at the default Slow speed', (await p.textContent('#best')) === '0');
-    await openSettings(p); await pickSpeed(p, 'fast'); await p.keyboard.press('Escape');
-    ok('legacy best (recorded at 150 ms) appears under Fast', (await p.textContent('#best')) === '5');
+    await openSettings(p); await pickSpeed(p, 'fast');
+    ok('legacy best is not shown under the Fast bonus profile either', (await p.textContent('#best')) === '0');
+    await p.click('label.radio:has(input[name=bonus][value=off])'); await p.keyboard.press('Escape');
+    ok('legacy best (150 ms, classic, clear, solid walls, no bonus) appears under that profile', (await p.textContent('#best')) === '5');
     ok('legacy v1 data left untouched', await p.evaluate(() => localStorage.getItem('classic-games.best.prototype-v1')) === JSON.stringify({ v: 1, best: 5 }));
     await ctx.close();
   }

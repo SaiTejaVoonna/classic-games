@@ -1,10 +1,12 @@
-// Early playable prototype. Wiring, rendering and lifecycle only; all game rules live in
-// engine.js and are provisional development assumptions (see docs/PLAYABLE_PROTOTYPE.md).
+// Early playable prototype. Wiring and lifecycle only; game rules live in engine.js and
+// drawing lives in render.js. All rules are Classic Games prototype choices (see
+// docs/PLAYABLE_PROTOTYPE.md).
 (function () {
   'use strict';
 
   var E = window.SnakeEngine;
   var S = window.SnakeStorage;
+  var R = window.SnakeRender;
 
   var THEME_KEY = 'classic-games.theme';
   var THEMES = ['colour', 'lcd', 'night'];
@@ -41,16 +43,55 @@
   // mode: menu | ready | running | paused | over | won
   var mode = 'menu';
   var game;
-  // Best scores are kept per prototype speed; v1 data (recorded at 150 ms) migrates to "fast".
-  var best = S.createBestStore(storage, E.SPEED_ORDER, 'fast');
+  var SPEED_LABELS = { slow: 'Slow', medium: 'Medium', fast: 'Fast' };
+  var BOARD_LABELS = { clear: 'Clear field', pillars: 'Pillars maze', gate: 'Gate maze', frame: 'Frame maze' };
+  var LIVES_LABELS = { classic: 'Classic', extra: 'Extra lives', unlimited: 'Unlimited' };
+  var EDGES_LABELS = { walls: 'Solid walls', wrap: 'Wrap around' };
+  var RULE_SCHEMA = {
+    board: E.MAZE_ORDER,
+    edges: E.EDGES_ORDER,
+    lives: E.LIVES_ORDER,
+    bonus: ['on', 'off']
+  };
+  var RULE_DEFAULTS = { board: E.DEFAULT_BOARD, edges: E.DEFAULT_EDGES, lives: E.DEFAULT_LIVES, bonus: 'on' };
+
+  // Best scores are kept per rules profile. Older data (one value per speed, recorded with
+  // classic lives, a clear field, solid walls and no bonus) migrates to that profile.
+  var best = S.createBestStore(storage, {
+    isKey: E.isProfileKey,
+    legacyKey: function (speed) {
+      return E.isProfileKey(speed + '|classic|clear|walls|nobonus') ? speed + '|classic|clear|walls|nobonus' : '';
+    }
+  });
   best.load();
   var speedPref = S.createSpeedPref(storage, E.SPEED_ORDER, E.DEFAULT_SPEED);
   speedPref.load();
-  var SPEED_LABELS = { slow: 'Slow', medium: 'Medium', fast: 'Fast' };
+  var rulesPref = S.createRulesPref(storage, RULE_SCHEMA, RULE_DEFAULTS);
+  rulesPref.load();
+  var readyNote = ''; // set after a lost life
   var rafId = 0;
   var lastTime = null;
   var acc = 0;
   var MAX_STEPS = E.DEFAULTS.maxCatchUpSteps;
+
+  // Options for a new run from the saved speed and rules choices.
+  function gameOptions() {
+    var r = rulesPref.get();
+    var o = { speed: speedPref.get(), board: r.board, wrap: r.edges === 'wrap', lives: r.lives, bonus: r.bonus === 'on' };
+    if (params.get('debug') === '1') { // test hooks: bonus tuning for browser checks
+      ['bonusEvery', 'bonusTicks', 'bonusPoints'].forEach(function (k) {
+        var v = parseInt(params.get(k), 10);
+        if (isFinite(v)) o[k] = v;
+      });
+      if (params.get('bonusGrows') === '1') o.bonusGrows = true;
+    }
+    return o;
+  }
+  function newGame() {
+    var o = gameOptions();
+    o.seed = newSeed();
+    return E.createGame(o);
+  }
 
   function newSeed() {
     var q = parseInt(params.get('seed'), 10);
@@ -61,15 +102,13 @@
   // ---------- Drawing ----------
   function cssVar(name) { return getComputedStyle(root).getPropertyValue(name).trim(); }
 
-  function roundRect(x, y, w, h, r) {
-    ctx.beginPath();
-    if (ctx.roundRect) { ctx.roundRect(x, y, w, h, r); return; }
-    ctx.moveTo(x + r, y);
-    ctx.arcTo(x + w, y, x + w, y + h, r);
-    ctx.arcTo(x + w, y + h, x, y + h, r);
-    ctx.arcTo(x, y + h, x, y, r);
-    ctx.arcTo(x, y, x + w, y, r);
-    ctx.closePath();
+  function palette() {
+    return {
+      boardLine: cssVar('--board-line'), snake: cssVar('--snake'), snakeHead: cssVar('--snake-head'),
+      snakeEdge: cssVar('--snake-edge'), shine: cssVar('--shine'), eye: cssVar('--eye'),
+      pupil: cssVar('--pupil'), food: cssVar('--food'), bonus: cssVar('--bonus'),
+      obstacle: cssVar('--obstacle'), obstacleEdge: cssVar('--obstacle-edge')
+    };
   }
 
   function resizeCanvas() {
@@ -83,43 +122,7 @@
 
   function draw() {
     if (!game) return;
-    var cols = game.cols;
-    var rows = game.rows;
-    var w = canvas.width;
-    var h = canvas.height;
-    var cell = Math.min(w / cols, h / rows);
-    var ox = (w - cell * cols) / 2;
-    var oy = (h - cell * rows) / 2;
-    ctx.clearRect(0, 0, w, h);
-
-    ctx.strokeStyle = cssVar('--board-line');
-    ctx.lineWidth = Math.max(1, cell * 0.04);
-    ctx.beginPath();
-    for (var c = 1; c < cols; c++) { ctx.moveTo(ox + c * cell, oy); ctx.lineTo(ox + c * cell, oy + rows * cell); }
-    for (var r = 1; r < rows; r++) { ctx.moveTo(ox, oy + r * cell); ctx.lineTo(ox + cols * cell, oy + r * cell); }
-    ctx.stroke();
-
-    var pad = cell * 0.08;
-    for (var i = game.snake.length - 1; i >= 0; i--) {
-      ctx.fillStyle = cssVar(i === 0 ? '--snake-head' : '--snake');
-      roundRect(ox + game.snake[i].x * cell + pad, oy + game.snake[i].y * cell + pad,
-                cell - 2 * pad, cell - 2 * pad, cell * 0.28);
-      ctx.fill();
-    }
-
-    if (game.food) { // diamond: distinct from the square snake segments by shape
-      var fx = ox + (game.food.x + 0.5) * cell;
-      var fy = oy + (game.food.y + 0.5) * cell;
-      var d = cell * 0.4;
-      ctx.fillStyle = cssVar('--food');
-      ctx.beginPath();
-      ctx.moveTo(fx, fy - d);
-      ctx.lineTo(fx + d, fy);
-      ctx.lineTo(fx, fy + d);
-      ctx.lineTo(fx - d, fy);
-      ctx.closePath();
-      ctx.fill();
-    }
+    R.draw(ctx, game, palette(), canvas.width, canvas.height);
   }
 
   // ---------- UI ----------
@@ -134,7 +137,7 @@
   function statusText() {
     switch (mode) {
       case 'menu': return 'Press New game to start.';
-      case 'ready': return 'Ready. Press an arrow key, WASD or a direction button to start.';
+      case 'ready': return readyNote || 'Ready. Press an arrow key, WASD or a direction button to start.';
       case 'running': return 'Playing.';
       case 'paused': return 'Paused. Press Continue, or Space or P on the board, to resume.';
       case 'over': return 'Game over. Score ' + game.score + '.';
@@ -145,7 +148,7 @@
   function overlayText() {
     switch (mode) {
       case 'menu': return 'Press New game';
-      case 'ready': return 'Press a direction to start';
+      case 'ready': return readyNote ? 'Press a direction to continue' : 'Press a direction to start';
       case 'paused': return 'Paused';
       case 'over': return 'Game over. Score ' + game.score + '.';
       case 'won': return 'Board full. Score ' + game.score + '.';
@@ -154,9 +157,32 @@
   }
 
   function renderBest() {
-    var b = best.get(game.speed);
-    $('best').textContent = String(b);
-    $('best-note').textContent = '(' + SPEED_LABELS[game.speed] + (best.isPersistent() ? '' : ', this session') + ')';
+    $('best').textContent = String(best.get(game.profile));
+    $('best-note').textContent = '(this setup' + (best.isPersistent() ? '' : ', this session') + ')';
+  }
+
+  function rulesText(g) {
+    var parts = [];
+    parts.push(g.livesMode === 'unlimited' ? 'Assist: unlimited lives' : g.livesMode === 'extra' ? '3 lives' : '1 life');
+    parts.push(g.board === 'clear' ? 'clear field' : BOARD_LABELS[g.board].toLowerCase());
+    parts.push(g.wrap ? 'wrap around edges' : 'solid walls');
+    parts.push(g.bonusEnabled ? 'bonus food on' : 'bonus food off');
+    return parts.join(', ') + '.';
+  }
+
+  function bonusSeconds(g) {
+    return Math.max(1, Math.ceil(g.bonusItem.ticksLeft * g.tickMs / 1000));
+  }
+
+  function renderBonus() {
+    var item = $('bonus-item');
+    if (game.bonusItem && (mode === 'running' || mode === 'paused' || mode === 'ready')) {
+      item.hidden = false;
+      var t = bonusSeconds(game) + ' s';
+      if ($('bonus-time').textContent !== t) $('bonus-time').textContent = t;
+    } else {
+      item.hidden = true;
+    }
   }
 
   function updateUI(announce) {
@@ -169,6 +195,9 @@
     $('overlay-text').textContent = text;
     $('score').textContent = String(game.score);
     $('length').textContent = String(game.snake.length);
+    $('lives').textContent = game.lives === null ? 'Unlimited' : String(game.lives);
+    $('rules-line').textContent = rulesText(game);
+    renderBonus();
     btnPause.disabled = mode !== 'running';
     btnContinue.disabled = mode !== 'paused';
     var active = mode === 'ready' || mode === 'running';
@@ -196,23 +225,35 @@
     lastTime = t;
     var r = E.advanceClock(acc, dt, game.tickMs, MAX_STEPS);
     acc = r.acc;
+    var lifeLost = false;
     for (var i = 0; i < r.steps && game.status === 'running'; i++) {
-      game = E.step(game).state;
+      var res = E.step(game);
+      game = res.state;
+      res.events.forEach(function (e) { if (e.type === 'lifeLost') lifeLost = true; });
     }
     if (game.status === 'over' || game.status === 'won') {
       finish();
       return;
     }
+    if (lifeLost) { // the snake is back at the start and waits for a direction
+      mode = 'ready';
+      readyNote = game.lives === null
+        ? 'Back at the start. Press a direction to continue.'
+        : 'Life lost. ' + game.lives + (game.lives === 1 ? ' life left' : ' lives left') + '. Press a direction to continue.';
+      updateUI();
+      return;
+    }
     $('score').textContent = String(game.score);
     $('length').textContent = String(game.snake.length);
+    renderBonus();
     draw();
     rafId = window.requestAnimationFrame(frame);
   }
 
   function finish() {
-    var before = best.get(game.speed);
+    var before = best.get(game.profile);
     mode = game.status;
-    best.submit(game.speed, game.score);
+    best.submit(game.profile, game.score);
     updateUI();
     if (game.score > before && game.score > 0) {
       $('status').textContent = statusText() + ' New best.';
@@ -222,7 +263,8 @@
   // ---------- Commands ----------
   function startNewGame() {
     stopLoop();
-    game = E.createGame({ seed: newSeed(), speed: speedPref.get() });
+    game = newGame();
+    readyNote = '';
     mode = 'ready';
     updateUI();
     $('board').focus(); // so keys work immediately after an explicit start
@@ -250,6 +292,7 @@
     var started = mode === 'ready' && next.status === 'running';
     game = next;
     if (started) {
+      readyNote = '';
       mode = 'running';
       updateUI();
       startLoop();
@@ -319,14 +362,19 @@
       var dlg = $(id);
       if (!dlg || typeof dlg.showModal !== 'function') return;
       if (id === 'dlg-top') {
-        var any = E.SPEED_ORDER.some(function (k) { return best.get(k) > 0; });
-        var parts = E.SPEED_ORDER.map(function (k) { return SPEED_LABELS[k] + ' ' + best.get(k); });
-        $('top-text').textContent = any ? 'Best scores: ' + parts.join(', ') + '.' : 'No score yet.';
+        var list = $('top-list');
+        list.textContent = '';
+        best.entries().slice(0, 8).forEach(function (e) {
+          var li = document.createElement('li');
+          li.textContent = profileLabel(e[0]) + ': ' + e[1];
+          list.appendChild(li);
+        });
+        $('top-text').textContent = best.entries().length ? 'Best scores by setup:' : 'No score yet.';
         $('top-note').textContent = best.isPersistent()
-          ? 'Scores are kept separately for each speed and saved on this device.'
+          ? 'Scores are kept separately for each speed and rules setup, and saved on this device.'
           : 'Storage is unavailable, so best scores last for this session only.';
       }
-      if (id === 'dlg-settings') syncSpeedControls();
+      if (id === 'dlg-settings') syncSettingsControls();
       // Opening a panel mid-run pauses it; resuming stays explicit.
       pause();
       dlg.showModal();
@@ -339,30 +387,66 @@
     });
   });
 
-  // ---------- Speed setting ----------
-  // The speed applies to the next New game so a run's timing never changes mid-run. With no
-  // run started yet (menu or ready) the pending game adopts it immediately.
-  function syncSpeedControls() {
+  // ---------- Speed and rules settings ----------
+  function profileLabel(key) {
+    var p = key.split('|');
+    return [SPEED_LABELS[p[0]], LIVES_LABELS[p[1]], BOARD_LABELS[p[2]], EDGES_LABELS[p[3]],
+            p[4] === 'bonus' ? 'Bonus on' : 'Bonus off'].join(', ');
+  }
+
+  // A change applies to the next New game so a run's rules and timing never change mid-run.
+  // With no run started yet (menu or a fresh ready state) the pending game adopts it at once.
+  function runInProgress() {
+    return mode === 'running' || mode === 'paused' || mode === 'over' || mode === 'won' ||
+      (mode === 'ready' && readyNote !== '');
+  }
+
+  function syncSettingsControls() {
     var sel = speedPref.get();
-    var radio = document.querySelector('input[name="speed"][value="' + sel + '"]');
-    if (radio) radio.checked = true;
+    var rules = rulesPref.get();
+    var checks = { speed: sel, board: rules.board, edges: rules.edges, lives: rules.lives, bonus: rules.bonus };
+    Object.keys(checks).forEach(function (name) {
+      var radio = document.querySelector('input[name="' + name + '"][value="' + checks[name] + '"]');
+      if (radio) radio.checked = true;
+    });
     var note = 'Applies to new games.';
     if ((mode === 'running' || mode === 'paused') && game.speed !== sel) {
       note = 'This run keeps ' + SPEED_LABELS[game.speed] + '. ' + SPEED_LABELS[sel] + ' starts with your next new game.';
     }
     if (!speedPref.isPersistent()) note += ' Not saved on this device.';
     $('speed-note').textContent = note;
+    var rulesNote = 'Board, edges, lives and bonus apply to new games. Mazes, wrap, lives and bonus food are Classic Games choices, not verified original rules.';
+    var now = gameOptions();
+    var same = game.board === now.board && game.wrap === now.wrap && game.livesMode === now.lives && game.bonusEnabled === now.bonus;
+    if ((mode === 'running' || mode === 'paused') && !same) {
+      rulesNote = 'This run keeps its board, edges, lives and bonus. Changes start with your next new game.';
+    }
+    if (!rulesPref.isPersistent()) rulesNote += ' Not saved on this device.';
+    $('rules-note').textContent = rulesNote;
+  }
+
+  function adoptSettings() {
+    if (!runInProgress()) {
+      game = newGame();
+      updateUI(false);
+    }
+    syncSettingsControls();
   }
 
   Array.prototype.forEach.call(document.querySelectorAll('input[name="speed"]'), function (r) {
     r.addEventListener('change', function () {
       if (!r.checked) return;
       speedPref.set(r.value);
-      if (mode === 'menu' || mode === 'ready') {
-        game = E.createGame({ seed: newSeed(), speed: speedPref.get() });
-        updateUI(false);
-      }
-      syncSpeedControls();
+      adoptSettings();
+    });
+  });
+  ['board', 'edges', 'lives', 'bonus'].forEach(function (field) {
+    Array.prototype.forEach.call(document.querySelectorAll('input[name="' + field + '"]'), function (r) {
+      r.addEventListener('change', function () {
+        if (!r.checked) return;
+        rulesPref.set(field, r.value);
+        adoptSettings();
+      });
     });
   });
 
@@ -373,9 +457,9 @@
       state: function () { return JSON.parse(JSON.stringify({ game: game, mode: mode })); }
     };
   }
-  game = E.createGame({ seed: newSeed(), speed: speedPref.get() });
+  game = newGame();
   applyTheme(readTheme());
-  syncSpeedControls();
+  syncSettingsControls();
   updateUI();
   if (window.ResizeObserver) {
     new ResizeObserver(resizeCanvas).observe(canvas);

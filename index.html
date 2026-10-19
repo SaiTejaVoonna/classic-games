@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="styles.css">
   <script src="src/engine.js" defer></script>
   <script src="src/storage.js" defer></script>
+  <script src="src/render.js" defer></script>
   <script src="src/main.js" defer></script>
 </head>
 <body>
@@ -45,7 +46,8 @@
     </section>
 
     <section class="panel" aria-label="Game controls">
-      <p class="state-line"><span><span class="label">State</span> <strong id="state-name">Menu</strong></span> <span><span class="label">Speed</span> <strong id="speed-name">Slow</strong></span> <span class="last"><span class="label">Length</span> <span id="length">3</span></span></p>
+      <p class="state-line"><span><span class="label">State</span> <strong id="state-name">Menu</strong></span> <span><span class="label">Speed</span> <strong id="speed-name">Slow</strong></span> <span><span class="label">Length</span> <span id="length">3</span></span> <span><span class="label">Lives</span> <strong id="lives">1</strong></span> <span id="bonus-item" hidden><span class="label">Bonus</span> <strong id="bonus-time">0</strong></span></p>
+      <p id="rules-line" class="rules-line"></p>
       <p id="status" class="status" role="status" aria-live="polite">Press New game to start.</p>
 
       <div class="actions">
@@ -69,7 +71,9 @@
 
   <dialog id="dlg-help" aria-labelledby="dlg-help-t">
     <h2 id="dlg-help-t">Instructions</h2>
-    <p>Guide the snake to the diamonds. Each one adds a segment and a point. Hitting a wall or yourself ends the run.</p>
+    <p>Guide the snake to the round fruit. Each one adds a segment and a point. Hitting a wall, a maze block or yourself costs a life. In the default Classic mode that ends the run.</p>
+    <p><strong>Bonus food:</strong> a diamond with a ring appears now and then. The ring empties as time runs out. Eating it gives extra points and does not grow the snake. Missing it costs nothing.</p>
+    <p><strong>Edges and mazes:</strong> with Wrap on, leaving one edge brings you back on the opposite edge. Maze blocks are solid. Choose these in Settings before a run.</p>
     <p><strong>Keys:</strong> use the arrow keys or WASD while the board is focused. Space or P pauses and resumes. On touch screens, use the direction buttons.</p>
     <p>The run starts with your first direction key. The game pauses when the tab is hidden, and you resume it yourself.</p>
     <p class="about"><strong>About:</strong> An early version of Classic Games. Gameplay may differ from the originals.</p>
@@ -79,6 +83,7 @@
   <dialog id="dlg-top" aria-labelledby="dlg-top-t">
     <h2 id="dlg-top-t">Top score</h2>
     <p id="top-text">No score yet.</p>
+    <ul id="top-list" class="top-list"></ul>
     <p class="hint" id="top-note">Scores are kept separately for each speed and saved on this device.</p>
     <form method="dialog"><button class="btn btn-primary" autofocus>Close</button></form>
   </dialog>
@@ -106,6 +111,32 @@
       <label class="radio"><input type="radio" name="speed" value="medium"> Medium <small>(220 ms per step)</small></label>
       <label class="radio"><input type="radio" name="speed" value="fast"> Fast <small>(150 ms per step)</small></label>
       <p class="hint" id="speed-note">Applies to new games.</p>
+      <p class="hint">Speed choices are comfort settings, not original game levels.</p>
+    </fieldset>
+    <fieldset>
+      <legend>Board</legend>
+      <label class="radio"><input type="radio" name="board" value="clear" checked> Clear field</label>
+      <label class="radio"><input type="radio" name="board" value="pillars"> Pillars maze</label>
+      <label class="radio"><input type="radio" name="board" value="gate"> Gate maze</label>
+      <label class="radio"><input type="radio" name="board" value="frame"> Frame maze</label>
+    </fieldset>
+    <fieldset>
+      <legend>Edges</legend>
+      <label class="radio"><input type="radio" name="edges" value="walls" checked> Solid walls</label>
+      <label class="radio"><input type="radio" name="edges" value="wrap"> Wrap around</label>
+    </fieldset>
+    <fieldset>
+      <legend>Lives</legend>
+      <label class="radio"><input type="radio" name="lives" value="classic" checked> Classic <small>(one life)</small></label>
+      <label class="radio"><input type="radio" name="lives" value="extra"> Extra lives <small>(three lives)</small></label>
+      <label class="radio"><input type="radio" name="lives" value="unlimited"> Unlimited <small>(assist mode)</small></label>
+      <p class="hint">Unlimited is an optional assist. Collisions never end the run.</p>
+    </fieldset>
+    <fieldset>
+      <legend>Bonus food</legend>
+      <label class="radio"><input type="radio" name="bonus" value="on" checked> On</label>
+      <label class="radio"><input type="radio" name="bonus" value="off"> Off</label>
+      <p class="hint" id="rules-note">Board, edges, lives and bonus apply to new games. Mazes, wrap, lives and bonus food are Classic Games choices, not verified original rules.</p>
     </fieldset>
     <form method="dialog"><button class="btn btn-primary" autofocus>Close</button></form>
   </dialog>
