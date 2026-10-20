@@ -12,3 +12,11 @@ Static pictures of a proposed bigger Snake layout, drawn with the real renderer.
 - `index.html`: the source of the pictures (open it with `?theme=night&only=play` and similar).
 
 Open choices: a portrait board on phones needs its own maze layouts; the full screen button works on Android and desktop only; sound is shown as a placeholder.
+
+## More mockups: snake styles, mazes, colours
+- `sheets/sheet-3-snake-styles.png`: Modern tube (current), Classic pixel, Striped, Scales, Beads, Neon, Pixel cobra. Drawing only; rules unchanged.
+- `sheets/sheet-4-mazes.png`: Clear field, the 3 maze layouts in the game, and 8 new ideas (Corners, Tunnels, Zigzag, Rooms, Diamond, Islands, Staircase, Bars). The script that drew them checks that the start row is clear and every free cell is reachable. New layouts would need engine tests and a picker in Game setup.
+- `sheets/sheet-5-snake-colours.png`: Green, Cyan, Blue, Violet, Pink and Lime. No red, orange or yellow, so the snake never looks like the fruit or bonus.
+- `styles.html`: the source (`?sheet=styles`, `?sheet=mazes`, `?sheet=colours`).
+- `sheets/sheet-1-three-looks.png`, `sheets/sheet-2-phone-flow.png`: combined views of the layout mockups.
+Proposal only. None of this is in the game yet.
