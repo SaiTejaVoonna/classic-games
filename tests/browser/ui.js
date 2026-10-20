@@ -35,7 +35,7 @@ const tipInfo = (p, i) => p.evaluate((idx) => {
 
 (async () => {
   const browser = await chromium.launch({ executablePath: CHROMIUM });
-  const NAMES = ['Top score', 'Instructions', 'Settings', 'Full screen'];
+  const NAMES = ['Top score', 'Instructions', 'App settings', 'Full screen'];
 
   // ---- header icon navigation ----
   for (const [w, h, touch] of [[1366, 768, false], [390, 844, true], [320, 568, true]]) {
@@ -86,7 +86,7 @@ const tipInfo = (p, i) => p.evaluate((idx) => {
     await p.keyboard.press('Enter'); await sleep(150);
     ok(`[${tag}] Enter on the focused Settings icon opens Settings`, await p.evaluate(() => document.getElementById('dlg-settings').open));
     await p.keyboard.press('Escape'); await sleep(100);
-    ok(`[${tag}] focus returns to the Settings icon after closing`, await p.evaluate(() => document.activeElement.getAttribute('aria-label')) === 'Settings');
+    ok(`[${tag}] focus returns to the Settings icon after closing`, await p.evaluate(() => document.activeElement.getAttribute('aria-label')) === 'App settings');
     ok(`[${tag}] no errors`, errs.length === 0, errs.join('|'));
     await ctx.close();
   }
@@ -96,16 +96,16 @@ const tipInfo = (p, i) => p.evaluate((idx) => {
     const { ctx, p } = await open(browser);
     await p.click('[data-open=dlg-settings]');
     const settings = await p.evaluate(() => [...new Set([...document.querySelectorAll('#dlg-settings input')].map(i => i.name))]);
-    ok('Settings holds Theme, Snake colour, Snake style and Speed only', settings.sort().join(',') === 'snakecolour,snakestyle,speed,theme', settings.join(','));
+    ok('App settings hold Theme only', settings.sort().join(',') === 'theme', settings.join(','));
     ok('Settings has no gameplay rule wording', !/maze|wrap|lives|bonus|edges/i.test(await p.evaluate(() => document.getElementById('dlg-settings').textContent)));
     await p.keyboard.press('Escape');
     await p.click('#btn-setup');
     const setup = await p.evaluate(() => [...new Set([...document.querySelectorAll('#dlg-setup input')].map(i => i.name))]);
-    ok('Game setup holds Board, Edges, Lives and Bonus only', setup.sort().join(',') === 'board,bonus,edges,lives', setup.join(','));
-    ok('Game setup is titled and says the rules apply to the next run', (await p.textContent('#dlg-setup-t')) === 'Game setup' && (await p.textContent('#setup-summary')).startsWith('Selected for the next run:'));
+    ok('Snake settings hold look, speed and rules', setup.sort().join(',') === 'board,bonus,edges,lives,snakecolour,snakestyle,speed', setup.join(','));
+    ok('Snake settings is titled and says the rules apply to the next run', (await p.textContent('#dlg-setup-t')) === 'Snake settings' && (await p.textContent('#setup-summary')).startsWith('Selected for the next run:'));
     await p.keyboard.press('Escape');
     const pos = await p.evaluate(() => { const n = document.getElementById('btn-new').getBoundingClientRect(); const g = document.getElementById('btn-setup').getBoundingClientRect(); const panel = document.querySelector('.panel').getBoundingClientRect(); return { dy: g.top - n.bottom, inPanel: g.left >= panel.left && g.right <= panel.right, h: g.height, label: document.getElementById('btn-setup').textContent }; });
-    ok('the Game setup action sits right below New game, inside the controls panel', pos.dy >= 0 && pos.dy < 24 && pos.inPanel && pos.h >= 44 && pos.label === 'Game setup', JSON.stringify(pos));
+    ok('the Snake settings action sits right below New game, inside the controls panel', pos.dy >= 0 && pos.dy < 24 && pos.inPanel && pos.h >= 44 && pos.label === 'Snake settings', JSON.stringify(pos));
     ok('the selected rules are shown before New game, with the next game label', (await p.textContent('#rules-line')).startsWith('Next game: '));
     await ctx.close();
   }

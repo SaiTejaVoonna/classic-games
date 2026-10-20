@@ -442,3 +442,17 @@ legend { padding: 0 4px; color: var(--muted); font-size: 0.8125rem; }
 /* On a tall board the HUD keeps the full phone width even when the board is narrower */
 .layout[data-shape="tall"] .hud { width: min(100vw - 24px, 440px); position: relative; left: 50%; transform: translateX(-50%); }
 .cell b { white-space: nowrap; }
+
+/* snake colour swatches (Colour theme values; brighter in Night) */
+.chipdot[data-colour="green"] { --dot: #2f7d4f; }
+.chipdot[data-colour="cyan"] { --dot: #0e7490; }
+.chipdot[data-colour="blue"] { --dot: #2563eb; }
+.chipdot[data-colour="violet"] { --dot: #7c3aed; }
+.chipdot[data-colour="pink"] { --dot: #c026d3; }
+.chipdot[data-colour="lime"] { --dot: #4d7c0f; }
+:root[data-theme="night"] .chipdot[data-colour="green"] { --dot: #34e39c; }
+:root[data-theme="night"] .chipdot[data-colour="cyan"] { --dot: #22d3ee; }
+:root[data-theme="night"] .chipdot[data-colour="blue"] { --dot: #60a5fa; }
+:root[data-theme="night"] .chipdot[data-colour="violet"] { --dot: #a78bfa; }
+:root[data-theme="night"] .chipdot[data-colour="pink"] { --dot: #f472b6; }
+:root[data-theme="night"] .chipdot[data-colour="lime"] { --dot: #a3e635; }

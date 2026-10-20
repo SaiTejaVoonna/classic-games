@@ -163,7 +163,7 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
   // ---- Speed setting ----
   const speedOf = async (p) => (await st(p)).game.speed;
   const ticksIn = async (p, ms) => { const a = (await st(p)).game.ticks; await sleep(ms); return (await st(p)).game.ticks - a; };
-  const openSettings = async (p) => { await p.click('[data-open=dlg-settings]'); };
+  const openSettings = async (p) => { await p.evaluate(() => document.getElementById('btn-setup').click()); };
   const pickSpeed = async (p, v) => { await p.click(`label.radio:has(input[name=speed][value=${v}])`); };
   {
     const ctx = await browser.newContext({ viewport: { width: 1366, height: 768 } });
@@ -313,11 +313,11 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
     await p.addInitScript(t => { try { localStorage.setItem('classic-games.theme', t); } catch (e) { /* ignore */ } }, theme);
     await p.goto(url('?debug=1'));
     await openSettings(p);
-    const m = await p.evaluate(() => { const d = document.getElementById('dlg-settings'); const r = d.getBoundingClientRect(); const close = d.querySelector('.dlg-foot button').getBoundingClientRect(); return { top: r.top, bottom: r.bottom, left: r.left, right: r.right, vh: innerHeight, vw: innerWidth, scrolls: d.scrollHeight > d.clientHeight, radios: [...d.querySelectorAll('label.radio')].map(l => Math.round(l.getBoundingClientRect().height)), closeH: Math.round(close.height) }; });
+    const m = await p.evaluate(() => { const d = document.getElementById('dlg-setup'); const r = d.getBoundingClientRect(); const close = d.querySelector('.dlg-foot button').getBoundingClientRect(); return { top: r.top, bottom: r.bottom, left: r.left, right: r.right, vh: innerHeight, vw: innerWidth, scrolls: d.scrollHeight > d.clientHeight, radios: [...d.querySelectorAll('label.radio')].map(l => Math.round(l.getBoundingClientRect().height)), closeH: Math.round(close.height) }; });
     ok(`settings dialog fits ${w}x${h} ${theme}`, m.top >= 0 && m.bottom <= m.vh && m.left >= 0 && m.right <= m.vw, JSON.stringify(m));
     ok(`settings radios and Close are at least 44 px high at ${w}x${h}`, m.radios.every(z => z >= 44) && m.closeH >= 44, JSON.stringify(m.radios) + ' close=' + m.closeH);
-    await p.locator('#dlg-settings .dlg-foot button').scrollIntoViewIfNeeded();
-    const cb = await p.locator('#dlg-settings .dlg-foot button').boundingBox();
+    await p.locator('#dlg-setup .dlg-foot button').scrollIntoViewIfNeeded();
+    const cb = await p.locator('#dlg-setup .dlg-foot button').boundingBox();
     ok(`Close reachable (scrolls if needed) at ${w}x${h}`, cb && cb.y >= 0 && cb.y + cb.height <= h, JSON.stringify(cb));
     if (w === 320 && theme === 'colour') await p.screenshot({ path: process.argv[2] + '/settings-320x568.png' });
     if (w === 390) await p.screenshot({ path: process.argv[2] + '/settings-390x844.png' });

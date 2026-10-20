@@ -40,7 +40,7 @@
     drawThumbs();
   }
 
-  // Small previews of each board in Game setup.
+  // Small previews of each board in Snake settings.
   function drawThumbs() {
     var p = basePalette();
     Array.prototype.forEach.call(document.querySelectorAll('.tile'), function (tile) {
@@ -604,7 +604,7 @@
     }
     if (!speedPref.isPersistent()) note += ' Not saved on this device.';
     $('speed-note').textContent = note;
-    var rulesNote = 'Game setup applies to the next run. Mazes, wrap, lives and bonus food are Classic Games choices, not verified original rules.';
+    var rulesNote = 'Snake settings: rules apply to the next run. Mazes, wrap, lives and bonus food are Classic Games choices, not verified original rules.';
     var now = gameOptions();
     var same = game.board === now.board && game.wrap === now.wrap && game.livesMode === now.lives && game.bonusEnabled === now.bonus;
     if ((mode === 'running' || mode === 'paused') && !same) {

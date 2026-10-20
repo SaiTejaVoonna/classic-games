@@ -96,7 +96,7 @@ async function drag(p, cdp, from, to) {
     ok('picking a board updates the chip and the next run', (await p.textContent('#chip-board-name')) === 'Zigzag' && (await st(p)).game.board === 'zigzag');
     await p.keyboard.press('Escape');
 
-    await p.tap('[data-open=dlg-settings]');
+    await p.evaluate(() => document.getElementById('btn-setup').click());
     await p.click('label.radio:has(input[name=snakecolour][value=violet])');
     await p.click('label.radio:has(input[name=snakestyle][value=pixel])');
     const skin = JSON.parse(await p.evaluate(() => localStorage.getItem('classic-games.skin'))).chosen;

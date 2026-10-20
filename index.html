@@ -24,9 +24,9 @@
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1.1.9-1.1 1.7"/><path d="M12 17h.01"/></svg>
         <span class="tip" aria-hidden="true">Instructions</span>
       </button>
-      <button type="button" class="icon-btn" data-open="dlg-settings" aria-label="Settings">
+      <button type="button" class="icon-btn" data-open="dlg-settings" aria-label="App settings">
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="5.5"/><circle cx="12" cy="12" r="2"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/></svg>
-        <span class="tip" aria-hidden="true">Settings</span>
+        <span class="tip" aria-hidden="true">App settings</span>
       </button>
       <button type="button" class="icon-btn" id="btn-fullscreen" aria-label="Full screen" aria-pressed="false" hidden>
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
@@ -68,6 +68,7 @@
 
     <section class="panel" aria-label="Game controls">
       <div class="chips" role="group" aria-label="Rules for the next run">
+        <button type="button" class="chip" id="chip-look" data-open="dlg-setup" data-focus="snakecolour"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="9" cy="10" r="1"/><circle cx="14" cy="9" r="1"/><circle cx="15" cy="14" r="1"/></svg><strong>Look</strong></button>
         <button type="button" class="chip" id="chip-edges" data-open="dlg-setup" data-focus="edges"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h13l-3-3M19 16H6l3 3"/></svg><span><span class="label">Edges</span> <strong id="edges-name">Wrap</strong></span></button>
         <button type="button" class="chip" id="chip-board" data-open="dlg-setup" data-focus="board"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg><strong id="chip-board-name">Clear</strong></button>
         <button type="button" class="chip" id="chip-lives" data-open="dlg-setup" data-focus="lives"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.4A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg><strong id="chip-lives-name">1 life</strong></button>
@@ -87,7 +88,7 @@
       </div>
 
       <div class="setup">
-        <button type="button" class="btn btn-setup" id="btn-setup" data-open="dlg-setup">Game setup</button>
+        <button type="button" class="btn btn-setup" id="btn-setup" data-open="dlg-setup">Snake settings</button>
         <p id="rules-line" class="rules-line"></p>
         <p id="rules-next" class="rules-line" hidden></p>
       </div>
@@ -110,7 +111,7 @@
     <div class="dlg-scroll" tabindex="0" role="region" aria-labelledby="dlg-help-t">
       <p>Guide the snake to the round fruit. Each one adds a segment and a point. Hitting a maze block or yourself costs a life. With Solid walls, hitting a wall costs a life too. In the default Classic mode, losing a life ends the run.</p>
       <p><strong>Bonus food:</strong> a diamond with a ring appears now and then. The ring empties as time runs out. Eating it gives extra points and does not grow the snake. Missing it costs nothing.</p>
-      <p><strong>Edges and mazes:</strong> with Wrap around, leaving one edge brings you back on the opposite edge. Maze blocks are always solid. Choose these in Game setup before a run.</p>
+      <p><strong>Edges and mazes:</strong> with Wrap around, leaving one edge brings you back on the opposite edge. Maze blocks are always solid. Choose these in Snake settings before a run.</p>
       <p><strong>Steering:</strong> swipe on the board, use the direction buttons, or use the arrow keys or WASD while the board is focused. Space or P pauses and resumes.</p>
       <p>The run starts with your first direction. The game pauses when the tab is hidden, and you resume it yourself.</p>
       <p class="about"><strong>About:</strong> An early version of Classic Games. Gameplay may differ from the originals.</p>
@@ -138,7 +139,7 @@
   </dialog>
 
   <dialog id="dlg-settings" aria-labelledby="dlg-set-t">
-    <h2 id="dlg-set-t" tabindex="-1">Settings</h2>
+    <h2 id="dlg-set-t" tabindex="-1">App settings</h2>
     <div class="dlg-scroll">
       <fieldset>
         <legend>Theme</legend>
@@ -146,6 +147,15 @@
         <label class="radio"><input type="radio" name="theme" value="lcd"> LCD</label>
         <label class="radio"><input type="radio" name="theme" value="night"> Night</label>
       </fieldset>
+      <p class="hint">These apply to every game on Classic Games. Settings for Snake itself are in Snake settings, under the board.</p>
+    </div>
+    <form method="dialog" class="dlg-foot"><button class="btn btn-primary">Close</button></form>
+  </dialog>
+
+  <dialog id="dlg-setup" aria-labelledby="dlg-setup-t">
+    <h2 id="dlg-setup-t" tabindex="-1">Snake settings</h2>
+    <div class="dlg-scroll">
+      <p class="hint" id="setup-summary">These rules apply to the next run.</p>
       <fieldset id="fs-snakecolour">
         <legend>Snake colour</legend>
         <div class="swatches">
@@ -158,12 +168,12 @@
         </div>
         <p class="hint" id="colour-note">The LCD theme keeps its own look.</p>
       </fieldset>
-      <fieldset>
+      <fieldset id="fs-snakestyle">
         <legend>Snake style</legend>
         <label class="radio"><input type="radio" name="snakestyle" value="smooth" checked> Smooth</label>
         <label class="radio"><input type="radio" name="snakestyle" value="pixel"> Pixel blocks</label>
       </fieldset>
-      <fieldset>
+      <fieldset id="fs-speed">
         <legend>Speed</legend>
         <label class="radio"><input type="radio" name="speed" value="slow" checked> Slow <small>(300 ms per step)</small></label>
         <label class="radio"><input type="radio" name="speed" value="medium"> Medium <small>(220 ms per step)</small></label>
@@ -171,14 +181,6 @@
         <p class="hint" id="speed-note">Applies to new games.</p>
         <p class="hint">Speed choices are comfort settings, not original game levels.</p>
       </fieldset>
-    </div>
-    <form method="dialog" class="dlg-foot"><button class="btn btn-primary">Close</button></form>
-  </dialog>
-
-  <dialog id="dlg-setup" aria-labelledby="dlg-setup-t">
-    <h2 id="dlg-setup-t" tabindex="-1">Game setup</h2>
-    <div class="dlg-scroll">
-      <p class="hint" id="setup-summary">These rules apply to the next run.</p>
       <fieldset id="fs-board">
         <legend>Board</legend>
         <div class="boards">
@@ -213,7 +215,7 @@
         <legend>Bonus food</legend>
         <label class="radio"><input type="radio" name="bonus" value="on" checked> On</label>
         <label class="radio"><input type="radio" name="bonus" value="off"> Off</label>
-        <p class="hint" id="rules-note">Game setup applies to the next run. Mazes, wrap, lives and bonus food are Classic Games choices, not verified original rules.</p>
+        <p class="hint" id="rules-note">Snake settings: rules apply to the next run. Mazes, wrap, lives and bonus food are Classic Games choices, not verified original rules.</p>
       </fieldset>
     </div>
     <form method="dialog" class="dlg-foot"><button class="btn btn-primary">Close</button></form>

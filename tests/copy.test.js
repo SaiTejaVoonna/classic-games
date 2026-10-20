@@ -42,26 +42,29 @@ test('visible copy does not mention a phone brand', () => {
 
 const dialog = (id) => html.slice(html.indexOf('id="' + id + '"'), html.indexOf('</dialog>', html.indexOf('id="' + id + '"')));
 
-test('Settings holds presentation choices only (Theme and Speed)', () => {
+test('App settings hold app-wide choices only (Theme); game choices live in Snake settings', () => {
   const settings = dialog('dlg-settings');
-  assert.ok(settings.includes('Speed choices are comfort settings, not original game levels.'));
-  for (const name of ['theme', 'speed']) {
-    assert.ok(new RegExp('name="' + name + '"').test(settings), name);
-    assert.equal((settings.match(new RegExp('name="' + name + '"[^>]*checked', 'g')) || []).length, 1, name + ' has one default');
+  assert.ok(settings.includes('App settings'));
+  assert.ok(new RegExp('name="theme"').test(settings));
+  assert.equal((settings.match(/name="theme"[^>]*checked/g) || []).length, 1, 'theme has one default');
+  for (const game of ['speed', 'snakecolour', 'snakestyle', 'board', 'edges', 'lives', 'bonus']) {
+    assert.ok(!new RegExp('name="' + game + '"').test(settings), game + ' is not an app setting');
   }
-  for (const rule of ['board', 'edges', 'lives', 'bonus']) {
-    assert.ok(!new RegExp('name="' + rule + '"').test(settings), rule + ' is not in Settings');
-  }
-  assert.ok(!/maze|wrap|lives|bonus|edges|game setup/i.test(settings.replace(/<[^>]*>/g, ' ')), 'no gameplay rule wording in Settings');
+  assert.ok(!/maze|wrap|lives|bonus|edges/i.test(settings.replace(/<[^>]*>/g, ' ')), 'no gameplay rule wording in App settings');
 });
 
-test('Game setup holds the game rules (Board, Edges, Lives, Bonus) with safe defaults', () => {
+test('Snake settings hold the look, speed and rules with safe defaults', () => {
   const setup = dialog('dlg-setup');
+  assert.ok(setup.includes('Snake settings'));
+  assert.ok(setup.includes('Speed choices are comfort settings, not original game levels.'));
+  for (const name of ['speed', 'snakecolour', 'snakestyle']) {
+    assert.equal((setup.match(new RegExp('name="' + name + '"[^>]*checked', 'g')) || []).length, 1, name + ' has one default');
+  }
+  assert.ok(!/name="theme"/.test(setup), 'theme is an app setting');
   for (const name of ['board', 'edges', 'lives', 'bonus']) {
     assert.ok(new RegExp('name="' + name + '"').test(setup), name);
     assert.equal((setup.match(new RegExp('name="' + name + '"[^>]*checked', 'g')) || []).length, 1, name + ' has one default');
   }
-  for (const other of ['theme', 'speed']) assert.ok(!new RegExp('name="' + other + '"').test(setup), other + ' is not in Game setup');
   assert.ok(/name="board" value="clear" checked/.test(setup), 'Clear field is the default');
   assert.ok(/name="edges" value="wrap" checked/.test(setup), 'Wrap around is the default');
   assert.ok(/name="edges" value="walls"> Solid walls/.test(setup), 'Solid walls stays available');
@@ -70,15 +73,15 @@ test('Game setup holds the game rules (Board, Edges, Lives, Bonus) with safe def
   assert.ok(/value="unlimited"> Unlimited <small>\(assist mode\)<\/small>/.test(setup), 'Unlimited is labelled as an assist');
   assert.ok(setup.includes('Unlimited is an optional assist. Collisions never end the run.'));
   assert.ok(setup.includes('Solid walls cost a life when you touch the edge. Maze blocks are always solid.'));
-  assert.ok(setup.includes('Game setup applies to the next run.'));
+  assert.ok(setup.includes('rules apply to the next run.'));
   assert.ok(setup.includes('Classic Games choices, not verified original rules'));
   assert.ok(setup.includes('These rules apply to the next run.'));
 });
 
-test('Game setup is a named action next to the New game controls', () => {
+test('Snake settings is a named action next to the New game controls', () => {
   const panel = html.slice(html.indexOf('<section class="panel"'), html.indexOf('</section>', html.indexOf('<section class="panel"')));
   assert.ok(panel.includes('id="btn-new"'));
-  assert.ok(/id="btn-setup" data-open="dlg-setup">Game setup</.test(panel));
+  assert.ok(/id="btn-setup" data-open="dlg-setup">Snake settings</.test(panel));
   assert.ok(panel.includes('id="rules-line"'));
   assert.ok(panel.includes('id="edges-name"'));
 });
@@ -87,7 +90,7 @@ test('header utility navigation: inline SVG icons with persistent names and tool
   const nav = html.slice(html.indexOf('<nav class="header-actions"'), html.indexOf('</nav>'));
   const buttons = nav.match(/<button[\s\S]*?<\/button>/g);
   assert.equal(buttons.length, 4);
-  const expected = [['dlg-top', 'Top score'], ['dlg-help', 'Instructions'], ['dlg-settings', 'Settings'], [null, 'Full screen']];
+  const expected = [['dlg-top', 'Top score'], ['dlg-help', 'Instructions'], ['dlg-settings', 'App settings'], [null, 'Full screen']];
   buttons.forEach((b, i) => {
     assert.ok(b.includes('class="icon-btn"'), 'icon button ' + i);
     if (expected[i][0]) assert.ok(b.includes('data-open="' + expected[i][0] + '"'), expected[i][1]);
@@ -124,7 +127,7 @@ test('instructions explain bonus food, wrap, mazes and lives in short plain sent
   assert.ok(help.includes('Missing it costs nothing.'));
   assert.ok(help.includes('with Wrap around, leaving one edge brings you back on the opposite edge'));
   assert.ok(help.includes('Maze blocks are always solid.'));
-  assert.ok(help.includes('Choose these in Game setup before a run.'));
+  assert.ok(help.includes('Choose these in Snake settings before a run.'));
   assert.ok(/costs a life/.test(help));
 });
 
