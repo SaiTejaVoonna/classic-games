@@ -86,14 +86,15 @@ test('Game setup is a named action next to the New game controls', () => {
 test('header utility navigation: inline SVG icons with persistent names and tooltip labels', () => {
   const nav = html.slice(html.indexOf('<nav class="header-actions"'), html.indexOf('</nav>'));
   const buttons = nav.match(/<button[\s\S]*?<\/button>/g);
-  assert.equal(buttons.length, 3);
-  const expected = [['dlg-top', 'Top score'], ['dlg-help', 'Instructions'], ['dlg-settings', 'Settings']];
+  assert.equal(buttons.length, 4);
+  const expected = [['dlg-top', 'Top score'], ['dlg-help', 'Instructions'], ['dlg-settings', 'Settings'], [null, 'Full screen']];
   buttons.forEach((b, i) => {
     assert.ok(b.includes('class="icon-btn"'), 'icon button ' + i);
-    assert.ok(b.includes('data-open="' + expected[i][0] + '"'), expected[i][1]);
+    if (expected[i][0]) assert.ok(b.includes('data-open="' + expected[i][0] + '"'), expected[i][1]);
+    else assert.ok(b.includes('id="btn-fullscreen"') && b.includes(' hidden>'), 'full screen is hidden until supported');
     assert.ok(b.includes('aria-label="' + expected[i][1] + '"'), 'aria-label ' + expected[i][1]);
     assert.ok(/<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">/.test(b), 'inline svg');
-    assert.ok(b.includes('<span class="tip" aria-hidden="true">' + expected[i][1] + '</span>'), 'tooltip text');
+    assert.ok(b.includes('aria-hidden="true"') && b.includes('>' + expected[i][1] + '</span>'), 'tooltip text');
   });
   assert.ok(!/<img|<link[^>]*icon|\.svg"|\.png"/.test(nav), 'no image files or icon libraries');
   assert.ok(!/class="btn btn-quiet"/.test(html));
@@ -134,13 +135,13 @@ test('the panel shows the lives, rules summary and bonus timer slots', () => {
 });
 
 test('score copy uses 0 or No score yet, never dash placeholders', () => {
-  assert.ok(html.includes('<dd id="score">0</dd>'));
-  assert.ok(html.includes('<dd id="best">0</dd>'));
+  assert.ok(html.includes('<b id="score">0</b>'));
+  assert.ok(html.includes('<b id="best">0</b>'));
   assert.ok(main.includes("'No score yet.'"));
   assert.ok(main.includes("'Game over. Score '"));
   assert.ok(main.includes("'Board full. Score '"));
 });
 
 test('Slow is the default speed in markup', () => {
-  assert.ok(html.includes('<strong id="speed-name">Slow</strong>'));
+  assert.ok(html.includes('<b id="speed-name">Slow</b>'));
 });

@@ -19,6 +19,8 @@
   var SPEED_KEY = 'classic-games.speed';
   var RULES_KEY = 'classic-games.rules'; // v1, read only
   var RULES_KEY_V2 = 'classic-games.rules.v2';
+  var SKIN_KEY = 'classic-games.skin';
+  var UI_KEY = 'classic-games.ui';
 
   function hasOwn(obj, k) { return Object.prototype.hasOwnProperty.call(obj, k); }
 
@@ -151,6 +153,50 @@
     return { load: load, set: set, get: get, isPersistent: function () { return persistent; } };
   }
 
+  // Generic choices (for example snake colour and style, or the D-pad setting). Same idea as
+  // the rules preference: only explicit choices are stored, {v:1, chosen:{field:value}},
+  // under `key`; every field is validated against schema {field: [allowed values]}.
+  function createChoicePref(storage, key, schema, defaults) {
+    var value = {};
+    var chosen = {};
+    Object.keys(schema).forEach(function (f) { value[f] = defaults[f]; });
+    var persistent = false;
+
+    function load() {
+      if (!storage) { persistent = false; return; }
+      var r = readJson(storage, key);
+      persistent = r.ok;
+      var v = r.value;
+      if (v && typeof v === 'object' && v.v === 1 && v.chosen && typeof v.chosen === 'object') {
+        Object.keys(schema).forEach(function (f) {
+          var x = v.chosen[f];
+          if (typeof x === 'string' && schema[f].indexOf(x) >= 0) { value[f] = x; chosen[f] = x; }
+        });
+      }
+    }
+
+    function set(field, next) {
+      if (!hasOwn(schema, field) || schema[field].indexOf(next) < 0) return;
+      value[field] = next;
+      chosen[field] = next;
+      try {
+        if (!storage) throw new Error('no storage');
+        storage.setItem(key, JSON.stringify({ v: 1, chosen: chosen }));
+        persistent = true;
+      } catch {
+        persistent = false; // keep the choice for this session only
+      }
+    }
+
+    function get() {
+      var out = {};
+      Object.keys(schema).forEach(function (f) { out[f] = value[f]; });
+      return out;
+    }
+
+    return { load: load, set: set, get: get, isPersistent: function () { return persistent; } };
+  }
+
   // The selected prototype speed preference (a key such as "medium").
   function createSpeedPref(storage, allowed, fallback) {
     var value = fallback;
@@ -191,8 +237,11 @@
     SPEED_KEY: SPEED_KEY,
     RULES_KEY: RULES_KEY,
     RULES_KEY_V2: RULES_KEY_V2,
+    SKIN_KEY: SKIN_KEY,
+    UI_KEY: UI_KEY,
     createBestStore: createBestStore,
     createSpeedPref: createSpeedPref,
-    createRulesPref: createRulesPref
+    createRulesPref: createRulesPref,
+    createChoicePref: createChoicePref
   };
 });

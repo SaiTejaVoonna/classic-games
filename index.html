@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="styles.css">
   <script src="src/engine.js" defer></script>
   <script src="src/storage.js" defer></script>
+  <script src="src/skins.js" defer></script>
   <script src="src/render.js" defer></script>
   <script src="src/main.js" defer></script>
 </head>
@@ -27,41 +28,62 @@
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="5.5"/><circle cx="12" cy="12" r="2"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/></svg>
         <span class="tip" aria-hidden="true">Settings</span>
       </button>
+      <button type="button" class="icon-btn" id="btn-fullscreen" aria-label="Full screen" aria-pressed="false" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+        <span class="tip" aria-hidden="true" id="fullscreen-tip">Full screen</span>
+      </button>
     </nav>
   </header>
 
-  <main class="layout">
-    <section class="game" aria-labelledby="game-title">
+  <main class="layout" id="layout" data-shape="wide">
+    <section class="game" id="game" aria-labelledby="game-title">
       <div class="game-head">
-        <div class="title-block">
-          <h1 id="game-title">Snake</h1>
-          <p class="tagline">Inspired by classic mobile games.</p>
-        </div>
-        <dl class="scores">
-          <div><dt>Score</dt><dd id="score">0</dd></div>
-          <div><dt>Best <small id="best-note"></small></dt><dd id="best">0</dd></div>
-        </dl>
+        <h1 id="game-title">Snake</h1>
+        <p class="tagline">Inspired by classic mobile games.</p>
+      </div>
+
+      <div class="hud" id="hud">
+        <div class="cell"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="7"/><path d="M12 6c0-1.2.6-2.2 1.6-2.8"/></svg><b id="score">0</b><small>Score</small></div>
+        <div class="cell"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M12 13v4M9 20h6"/></svg><b id="best">0</b><small>Best <span id="best-note"></span></small></div>
+        <div class="cell"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 18c4 0 4-5 8-5s3-6 6-6"/><circle cx="19.5" cy="6.5" r="1.2"/></svg><b id="length">3</b><small>Length</small></div>
+        <div class="cell"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.4A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg><b id="lives">1</b><small>Lives</small></div>
+        <button type="button" class="cell cell-btn" id="btn-speed" aria-label="Speed: Slow. Tap to change."><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17a8 8 0 1 1 16 0"/><path d="M12 17l4-5"/></svg><b id="speed-name">Slow</b><small>Speed <span class="speed-dots" id="speed-dots" data-level="1" aria-hidden="true"><i></i><i></i><i></i></span></small></button>
+        <div class="cell cell-bonus" id="bonus-item" hidden><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4l7 8-7 8-7-8z"/></svg><b id="bonus-time">0</b><small>Bonus</small></div>
       </div>
 
       <div class="board-wrap">
         <div class="board" id="board" tabindex="0" role="img"
-             aria-label="Snake board. Focus here to play with arrow keys or WASD; Space or P pauses.">
+             aria-label="Snake board. Focus here to play with arrow keys or WASD; Space or P pauses. Swipe on the board to steer.">
           <canvas id="canvas" width="630" height="420"></canvas>
           <div class="overlay" id="overlay" hidden>
             <p id="overlay-text"></p>
+            <div class="ov-btns">
+              <button type="button" class="bigbtn" id="ov-primary" hidden></button>
+              <button type="button" class="bigbtn alt" id="ov-secondary" hidden></button>
+            </div>
           </div>
         </div>
       </div>
     </section>
 
     <section class="panel" aria-label="Game controls">
-      <p class="state-line"><span><span class="label">State</span> <strong id="state-name">Menu</strong></span> <span><span class="label">Speed</span> <strong id="speed-name">Slow</strong> <span class="speed-dots" id="speed-dots" data-level="1" aria-hidden="true"><i></i><i></i><i></i></span></span> <span><span class="label">Length</span> <span id="length">3</span></span> <span><span class="label">Lives</span> <strong id="lives">1</strong></span> <span><span class="label">Edges</span> <strong id="edges-name">Wrap</strong></span> <span id="bonus-item" hidden><span class="label">Bonus</span> <strong id="bonus-time">0</strong></span></p>
+      <div class="chips" role="group" aria-label="Rules for the next run">
+        <button type="button" class="chip" id="chip-edges" data-open="dlg-setup" data-focus="edges"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h13l-3-3M19 16H6l3 3"/></svg><span><span class="label">Edges</span> <strong id="edges-name">Wrap</strong></span></button>
+        <button type="button" class="chip" id="chip-board" data-open="dlg-setup" data-focus="board"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg><strong id="chip-board-name">Clear</strong></button>
+        <button type="button" class="chip" id="chip-lives" data-open="dlg-setup" data-focus="lives"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.4A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg><strong id="chip-lives-name">1 life</strong></button>
+        <button type="button" class="chip" id="chip-bonus" data-open="dlg-setup" data-focus="bonus"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4l7 8-7 8-7-8z"/></svg><strong id="chip-bonus-name">Bonus</strong></button>
+      </div>
+
+      <p class="state-line"><span class="label">State</span> <strong id="state-name">Menu</strong></p>
       <p id="status" class="status" role="status" aria-live="polite">Press New game to start.</p>
 
       <div class="actions">
         <button type="button" class="btn btn-primary" id="btn-new">New game</button>
         <button type="button" class="btn" id="btn-pause" disabled>Pause</button>
-        <button type="button" class="btn" id="btn-continue" disabled>Continue</button>
+        <button type="button" class="btn" id="btn-continue" disabled hidden>Continue</button>
+        <button type="button" class="btn btn-dpad-toggle" id="btn-dpad" aria-label="Show direction buttons" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v5M12 15v5M4 12h5M15 12h5"/></svg>
+        </button>
       </div>
 
       <div class="setup">
@@ -70,7 +92,7 @@
         <p id="rules-next" class="rules-line" hidden></p>
       </div>
 
-      <div class="dpad" role="group" aria-label="Direction buttons">
+      <div class="dpad" id="dpad" role="group" aria-label="Direction buttons">
         <button type="button" class="btn dpad-btn up" data-dir="Up" aria-label="Up"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6l7 9H5z"/></svg></button>
         <button type="button" class="btn dpad-btn left" data-dir="Left" aria-label="Left"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12l9-7v14z"/></svg></button>
         <button type="button" class="btn dpad-btn right" data-dir="Right" aria-label="Right"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 12l-9 7V5z"/></svg></button>
@@ -89,8 +111,8 @@
       <p>Guide the snake to the round fruit. Each one adds a segment and a point. Hitting a maze block or yourself costs a life. With Solid walls, hitting a wall costs a life too. In the default Classic mode, losing a life ends the run.</p>
       <p><strong>Bonus food:</strong> a diamond with a ring appears now and then. The ring empties as time runs out. Eating it gives extra points and does not grow the snake. Missing it costs nothing.</p>
       <p><strong>Edges and mazes:</strong> with Wrap around, leaving one edge brings you back on the opposite edge. Maze blocks are always solid. Choose these in Game setup before a run.</p>
-      <p><strong>Keys:</strong> use the arrow keys or WASD while the board is focused. Space or P pauses and resumes. On touch screens, use the direction buttons.</p>
-      <p>The run starts with your first direction key. The game pauses when the tab is hidden, and you resume it yourself.</p>
+      <p><strong>Steering:</strong> swipe on the board, use the direction buttons, or use the arrow keys or WASD while the board is focused. Space or P pauses and resumes.</p>
+      <p>The run starts with your first direction. The game pauses when the tab is hidden, and you resume it yourself.</p>
       <p class="about"><strong>About:</strong> An early version of Classic Games. Gameplay may differ from the originals.</p>
     </div>
     <form method="dialog" class="dlg-foot"><button class="btn btn-primary">Close</button></form>
@@ -124,6 +146,23 @@
         <label class="radio"><input type="radio" name="theme" value="lcd"> LCD</label>
         <label class="radio"><input type="radio" name="theme" value="night"> Night</label>
       </fieldset>
+      <fieldset id="fs-snakecolour">
+        <legend>Snake colour</legend>
+        <div class="swatches">
+          <label class="radio sw"><input type="radio" name="snakecolour" value="green" checked><span class="chipdot" data-colour="green"></span> Green</label>
+          <label class="radio sw"><input type="radio" name="snakecolour" value="cyan"><span class="chipdot" data-colour="cyan"></span> Cyan</label>
+          <label class="radio sw"><input type="radio" name="snakecolour" value="blue"><span class="chipdot" data-colour="blue"></span> Blue</label>
+          <label class="radio sw"><input type="radio" name="snakecolour" value="violet"><span class="chipdot" data-colour="violet"></span> Violet</label>
+          <label class="radio sw"><input type="radio" name="snakecolour" value="pink"><span class="chipdot" data-colour="pink"></span> Pink</label>
+          <label class="radio sw"><input type="radio" name="snakecolour" value="lime"><span class="chipdot" data-colour="lime"></span> Lime</label>
+        </div>
+        <p class="hint" id="colour-note">The LCD theme keeps its own look.</p>
+      </fieldset>
+      <fieldset>
+        <legend>Snake style</legend>
+        <label class="radio"><input type="radio" name="snakestyle" value="smooth" checked> Smooth</label>
+        <label class="radio"><input type="radio" name="snakestyle" value="pixel"> Pixel blocks</label>
+      </fieldset>
       <fieldset>
         <legend>Speed</legend>
         <label class="radio"><input type="radio" name="speed" value="slow" checked> Slow <small>(300 ms per step)</small></label>
@@ -140,27 +179,37 @@
     <h2 id="dlg-setup-t" tabindex="-1">Game setup</h2>
     <div class="dlg-scroll">
       <p class="hint" id="setup-summary">These rules apply to the next run.</p>
-      <fieldset>
+      <fieldset id="fs-board">
         <legend>Board</legend>
-        <label class="radio"><input type="radio" name="board" value="clear" checked> Clear field</label>
-        <label class="radio"><input type="radio" name="board" value="pillars"> Pillars maze</label>
-        <label class="radio"><input type="radio" name="board" value="gate"> Gate maze</label>
-        <label class="radio"><input type="radio" name="board" value="frame"> Frame maze</label>
+        <div class="boards">
+          <label class="radio tile"><input type="radio" name="board" value="clear" checked><canvas class="thumb" width="84" height="56" aria-hidden="true"></canvas><span>Clear field</span></label>
+          <label class="radio tile"><input type="radio" name="board" value="pillars"><canvas class="thumb" width="84" height="56" aria-hidden="true"></canvas><span>Pillars maze</span></label>
+          <label class="radio tile"><input type="radio" name="board" value="gate"><canvas class="thumb" width="84" height="56" aria-hidden="true"></canvas><span>Gate maze</span></label>
+          <label class="radio tile"><input type="radio" name="board" value="frame"><canvas class="thumb" width="84" height="56" aria-hidden="true"></canvas><span>Frame maze</span></label>
+          <label class="radio tile"><input type="radio" name="board" value="corners"><canvas class="thumb" width="84" height="56" aria-hidden="true"></canvas><span>Corners maze</span></label>
+          <label class="radio tile"><input type="radio" name="board" value="tunnels"><canvas class="thumb" width="84" height="56" aria-hidden="true"></canvas><span>Tunnels maze</span></label>
+          <label class="radio tile"><input type="radio" name="board" value="zigzag"><canvas class="thumb" width="84" height="56" aria-hidden="true"></canvas><span>Zigzag maze</span></label>
+          <label class="radio tile"><input type="radio" name="board" value="rooms"><canvas class="thumb" width="84" height="56" aria-hidden="true"></canvas><span>Rooms maze</span></label>
+          <label class="radio tile"><input type="radio" name="board" value="diamond"><canvas class="thumb" width="84" height="56" aria-hidden="true"></canvas><span>Diamond maze</span></label>
+          <label class="radio tile"><input type="radio" name="board" value="islands"><canvas class="thumb" width="84" height="56" aria-hidden="true"></canvas><span>Islands maze</span></label>
+          <label class="radio tile"><input type="radio" name="board" value="staircase"><canvas class="thumb" width="84" height="56" aria-hidden="true"></canvas><span>Staircase maze</span></label>
+          <label class="radio tile"><input type="radio" name="board" value="bars"><canvas class="thumb" width="84" height="56" aria-hidden="true"></canvas><span>Bars maze</span></label>
+        </div>
       </fieldset>
-      <fieldset>
+      <fieldset id="fs-edges">
         <legend>Edges</legend>
         <label class="radio"><input type="radio" name="edges" value="wrap" checked> Wrap around</label>
         <label class="radio"><input type="radio" name="edges" value="walls"> Solid walls</label>
         <p class="hint">Solid walls cost a life when you touch the edge. Maze blocks are always solid.</p>
       </fieldset>
-      <fieldset>
+      <fieldset id="fs-lives">
         <legend>Lives</legend>
         <label class="radio"><input type="radio" name="lives" value="classic" checked> Classic <small>(one life)</small></label>
         <label class="radio"><input type="radio" name="lives" value="extra"> Extra lives <small>(three lives)</small></label>
         <label class="radio"><input type="radio" name="lives" value="unlimited"> Unlimited <small>(assist mode)</small></label>
         <p class="hint">Unlimited is an optional assist. Collisions never end the run.</p>
       </fieldset>
-      <fieldset>
+      <fieldset id="fs-bonus">
         <legend>Bonus food</legend>
         <label class="radio"><input type="radio" name="bonus" value="on" checked> On</label>
         <label class="radio"><input type="radio" name="bonus" value="off"> Off</label>

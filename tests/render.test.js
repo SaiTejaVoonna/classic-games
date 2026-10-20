@@ -227,3 +227,47 @@ test('draw: state is not mutated and call count stays linear in the snake length
   const big = mockCtx(); R.draw(big, game(long), PALETTE, W, H);
   assert.ok((big.log.length - small.log.length) / 57 < 30, `calls per extra cell ${(big.log.length - small.log.length) / 57}`);
 });
+
+// ---------- pixel style ----------
+test('pixel style: one square per cell, inside its cell, head and eyes on the front', () => {
+  const s = game([[10, 7], [9, 7], [8, 7], [7, 7]]);
+  const g = R.pixelGeometry(s, W, H);
+  assert.equal(g.cells.length, 4);
+  g.cells.forEach((c, i) => {
+    const cx = s.snake[i].x * 30, cy = s.snake[i].y * 30;
+    assert.ok(c.x >= cx && c.y >= cy && c.x + c.size <= cx + 30 && c.y + c.size <= cy + 30, 'inside the cell ' + i);
+    assert.equal(c.head, i === 0);
+    assert.ok(c.size >= 24, 'a solid block');
+  });
+  assert.equal(g.eyes.length, 2);
+  for (const e of g.eyes) assert.ok(e.x + e.size / 2 > 10.5 * 30 - 1, 'eyes toward the front (right)');
+});
+
+test('pixel style: draws squares (no round body), uses the palette and keeps the grid, food and blocks', () => {
+  const ctx = mockCtx();
+  const state = E.createGame({ seed: 3, board: 'pillars', wrap: false });
+  R.draw(ctx, Object.assign({}, state, { snake: cells([[10, 7], [9, 7], [8, 7]]), dir: 'right' }), Object.assign({}, PALETTE, { style: 'pixel' }), W, H);
+  const rects = ctx.log.filter((c) => c.op === 'fillRect');
+  assert.equal(rects.length, 3 + 2, 'three cells and two eyes');
+  assert.ok(rects.slice(0, 3).every((c) => c.fillStyle === '#snake' || c.fillStyle === '#head'));
+  assert.equal(rects[0].fillStyle, '#head');
+  assert.ok(!ctx.log.some((c) => c.op === 'arc' && c.fillStyle === '#snake'), 'no round body');
+  assert.ok(ctx.log.some((c) => c.op === 'fill' && c.fillStyle === '#food'), 'fruit still drawn');
+  assert.ok(ctx.log.some((c) => c.op === 'fill' && c.fillStyle === '#obstacle'), 'blocks still drawn');
+});
+
+test('smooth is the default style and pixel does not change the cells', () => {
+  const s = game([[8, 7], [7, 7], [6, 7]]);
+  const a = mockCtx(); R.draw(a, s, PALETTE, W, H);
+  assert.ok(a.log.some((c) => c.op === 'arc'), 'smooth uses circles');
+  const g1 = R.snakeGeometry(s, W, H), g2 = R.pixelGeometry(s, W, H);
+  g1.joints.forEach((j, i) => assert.ok(g2.cells[i].x < j.x && j.x < g2.cells[i].x + g2.cells[i].size, 'same cell ' + i));
+});
+
+test('tall board geometry keeps square cells and fits the canvas', () => {
+  const g = R.snakeGeometry(Object.assign({}, E.createGame({ seed: 3, shape: 'tall' })), 420, 630);
+  assert.equal(g.layout.cols, 14); assert.equal(g.layout.rows, 21);
+  assert.equal(g.layout.cell, 30);
+  assert.equal(g.head.ux, 0); assert.equal(g.head.uy, 1);
+  for (const e of g.eyes) assert.ok(e.y > g.head.y, 'eyes toward the front (down)');
+});

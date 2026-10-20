@@ -10,16 +10,17 @@ const st = (p) => p.evaluate(() => window.classicGamesDebug.state());
 const waitMode = (p, m, t = 8000) => p.waitForFunction((mm) => window.classicGamesDebug.state().mode === mm, m, { timeout: t });
 const waitFor = (p, fn, arg, t = 8000) => p.waitForFunction(fn, arg, { timeout: t, polling: 20 });
 
-async function open(browser, { rules, speed, query, viewport, touch } = {}) {
+async function open(browser, { rules, speed, query, viewport, touch, dpad } = {}) {
   const ctx = await browser.newContext({ viewport: viewport || { width: 1366, height: 768 }, hasTouch: !!touch });
   const p = await ctx.newPage();
   const errs = []; p.on('pageerror', e => errs.push(String(e)));
-  await p.addInitScript(([r, sp]) => {
+  await p.addInitScript(([r, sp, dp]) => {
     if (sessionStorage.getItem('seeded')) return;
     sessionStorage.setItem('seeded', '1');
     if (r) localStorage.setItem('classic-games.rules.v2', JSON.stringify({ v: 2, chosen: r }));
     if (sp) localStorage.setItem('classic-games.speed', sp);
-  }, [rules || null, speed || null]);
+    if (dp) localStorage.setItem('classic-games.ui', JSON.stringify({ v: 1, chosen: { dpad: 'on' } }));
+  }, [rules || null, speed || null, !!(dpad || touch)]);
   await p.goto(INDEX + '?debug=1' + (query || ''));
   return { ctx, p, errs };
 }
@@ -241,8 +242,8 @@ const pick = (p, name, value) => p.click(`label.radio:has(input[name=${name}][va
 
   // ---- touch with maze + wrap ----
   {
-    const { ctx, p, errs } = await open(browser, { speed: 'fast', rules: { board: 'pillars', edges: 'wrap', lives: 'extra' }, viewport: { width: 390, height: 844 }, touch: true, query: '&seed=3' });
-    const tap = async (sel) => { const b = await p.locator(sel).boundingBox(); await p.touchscreen.tap(b.x + b.width / 2, b.y + b.height / 2); };
+    const { ctx, p, errs } = await open(browser, { speed: 'fast', rules: { board: 'pillars', edges: 'wrap', lives: 'extra' }, viewport: { width: 390, height: 844 }, touch: true, query: '&seed=3&shape=wide' });
+    const tap = async (sel) => { await p.locator(sel).scrollIntoViewIfNeeded(); const b = await p.locator(sel).boundingBox(); await p.touchscreen.tap(b.x + b.width / 2, b.y + b.height / 2); };
     await tap('#btn-new'); await tap('.dpad .up');
     let s = await st(p); ok('touch: D-pad starts a maze run with wrap and extra lives', s.mode === 'running' && s.game.board === 'pillars' && s.game.wrap && s.game.lives === 3);
     await tap('#btn-pause'); await tap('#btn-continue'); s = await st(p); ok('touch: pause and continue still work', s.mode === 'running');

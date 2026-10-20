@@ -298,3 +298,55 @@ test('rules preference: get returns a copy', () => {
   p.get().board = 'frame';
   assert.equal(p.get().board, 'clear');
 });
+
+// ---- generic choice preference (snake colour and style, D-pad) ----
+const K2 = require('../src/skins.js');
+const SKIN_SCHEMA = { colour: K2.COLOURS, style: K2.STYLES };
+const SKIN_DEFAULTS = { colour: K2.DEFAULT_COLOUR, style: K2.DEFAULT_STYLE };
+const skinPref = (st) => S.createChoicePref(st, S.SKIN_KEY, SKIN_SCHEMA, SKIN_DEFAULTS);
+
+test('choice preference: defaults, nothing written until a choice, only chosen fields stored', () => {
+  const st = fake();
+  const p = skinPref(st);
+  p.load();
+  assert.deepEqual(p.get(), { colour: 'green', style: 'smooth' });
+  assert.equal(st.m.has(S.SKIN_KEY), false);
+  p.set('colour', 'violet');
+  assert.deepEqual(JSON.parse(st.m.get(S.SKIN_KEY)), { v: 1, chosen: { colour: 'violet' } });
+  const again = skinPref(st);
+  again.load();
+  assert.deepEqual(again.get(), { colour: 'violet', style: 'smooth' });
+});
+
+test('choice preference: invalid, unknown and corrupt values fall back', () => {
+  for (const raw of ['not json', 'null', '{"v":2,"chosen":{"colour":"pink"}}', '{"v":1,"chosen":{"colour":"red","style":5}}', '{"v":1}']) {
+    const p = skinPref(fake({ [S.SKIN_KEY]: raw }));
+    p.load();
+    assert.deepEqual(p.get(), SKIN_DEFAULTS, raw);
+  }
+  const p = skinPref(fake());
+  p.load();
+  p.set('colour', 'red'); p.set('shape', 'x'); p.set('style', '__proto__');
+  assert.deepEqual(p.get(), SKIN_DEFAULTS);
+});
+
+test('choice preference: throwing and null storage keep the session choice', () => {
+  for (const st of [throwing(), null]) {
+    const p = skinPref(st);
+    p.load();
+    p.set('style', 'pixel');
+    assert.equal(p.get().style, 'pixel');
+    assert.equal(p.isPersistent(), false);
+  }
+});
+
+test('choice preference: the D-pad setting defaults to auto and remembers the first swipe', () => {
+  const st = fake();
+  const p = S.createChoicePref(st, S.UI_KEY, { dpad: ['auto', 'on', 'off'], swiped: ['no', 'yes'] }, { dpad: 'auto', swiped: 'no' });
+  p.load();
+  assert.deepEqual(p.get(), { dpad: 'auto', swiped: 'no' });
+  p.set('swiped', 'yes');
+  const q = S.createChoicePref(st, S.UI_KEY, { dpad: ['auto', 'on', 'off'], swiped: ['no', 'yes'] }, { dpad: 'auto', swiped: 'no' });
+  q.load();
+  assert.equal(q.get().swiped, 'yes');
+});

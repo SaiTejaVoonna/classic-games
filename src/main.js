@@ -37,6 +37,25 @@
     var radio = document.querySelector('input[name="theme"][value="' + t + '"]');
     if (radio) radio.checked = true;
     draw();
+    drawThumbs();
+  }
+
+  // Small previews of each board in Game setup.
+  function drawThumbs() {
+    var p = basePalette();
+    Array.prototype.forEach.call(document.querySelectorAll('.tile'), function (tile) {
+      var c = tile.querySelector('canvas.thumb');
+      var name = tile.querySelector('input').value;
+      var g = c.getContext('2d');
+      var cell = Math.floor(Math.min(c.width / 21, c.height / 14));
+      var ox = Math.floor((c.width - cell * 21) / 2);
+      var oy = Math.floor((c.height - cell * 14) / 2);
+      g.clearRect(0, 0, c.width, c.height);
+      g.fillStyle = cssVar('--board');
+      g.fillRect(ox, oy, cell * 21, cell * 14);
+      g.fillStyle = p.obstacle;
+      E.mazeCells(name, 'wide').forEach(function (m) { g.fillRect(ox + m.x * cell, oy + m.y * cell, cell, cell); });
+    });
   }
 
   // ---------- Game state ----------
@@ -44,7 +63,10 @@
   var mode = 'menu';
   var game;
   var SPEED_LABELS = { slow: 'Slow', medium: 'Medium', fast: 'Fast' };
-  var BOARD_LABELS = { clear: 'Clear field', pillars: 'Pillars maze', gate: 'Gate maze', frame: 'Frame maze' };
+  var BOARD_LABELS = { clear: 'Clear field' };
+  E.MAZE_ORDER.forEach(function (b) {
+    if (b !== 'clear') BOARD_LABELS[b] = b.charAt(0).toUpperCase() + b.slice(1) + ' maze';
+  });
   var LIVES_LABELS = { classic: 'Classic', extra: 'Extra lives', unlimited: 'Unlimited' };
   var EDGES_LABELS = { walls: 'Solid walls', wrap: 'Wrap around' };
   var RULE_SCHEMA = {
@@ -68,16 +90,32 @@
   speedPref.load();
   var rulesPref = S.createRulesPref(storage, RULE_SCHEMA, RULE_DEFAULTS);
   rulesPref.load();
+  var K = window.SnakeSkins;
+  var skinPref = S.createChoicePref(storage, S.SKIN_KEY, { colour: K.COLOURS, style: K.STYLES },
+    { colour: K.DEFAULT_COLOUR, style: K.DEFAULT_STYLE });
+  skinPref.load();
+  var uiPref = S.createChoicePref(storage, S.UI_KEY, { dpad: ['on', 'off'] }, { dpad: 'off' });
+  uiPref.load();
   var readyNote = ''; // set after a lost life
   var rafId = 0;
   var lastTime = null;
   var acc = 0;
   var MAX_STEPS = E.DEFAULTS.maxCatchUpSteps;
 
+  // The board is tall on narrow portrait screens (the same 294 cells, so scores stay
+  // comparable) and wide elsewhere. It only changes between runs.
+  var tallQuery = window.matchMedia ? window.matchMedia('(max-width: 640px) and (orientation: portrait)') : null;
+  function wantedShape() {
+    var q = params.get('shape');
+    if (q === 'tall' || q === 'wide') return q;
+    return tallQuery && tallQuery.matches ? 'tall' : 'wide';
+  }
+  var currentShape = wantedShape();
+
   // Options for a new run from the saved speed and rules choices.
   function gameOptions() {
     var r = rulesPref.get();
-    var o = { speed: speedPref.get(), board: r.board, wrap: r.edges === 'wrap', lives: r.lives, bonus: r.bonus === 'on' };
+    var o = { shape: currentShape, speed: speedPref.get(), board: r.board, wrap: r.edges === 'wrap', lives: r.lives, bonus: r.bonus === 'on' };
     if (params.get('debug') === '1') { // test hooks: bonus tuning for browser checks
       ['bonusEvery', 'bonusTicks', 'bonusPoints'].forEach(function (k) {
         var v = parseInt(params.get(k), 10);
@@ -103,6 +141,14 @@
   function cssVar(name) { return getComputedStyle(root).getPropertyValue(name).trim(); }
 
   function palette() {
+    var p = basePalette();
+    var skin = K.resolve(root.getAttribute('data-theme'), skinPref.get().colour);
+    if (skin) { p.snake = skin.snake; p.snakeHead = skin.snakeHead; p.snakeEdge = skin.snakeEdge; }
+    p.style = skinPref.get().style;
+    return p;
+  }
+
+  function basePalette() {
     return {
       boardLine: cssVar('--board-line'), snake: cssVar('--snake'), snakeHead: cssVar('--snake-head'),
       snakeEdge: cssVar('--snake-edge'), shine: cssVar('--shine'), eye: cssVar('--eye'),
@@ -136,8 +182,8 @@
 
   function statusText() {
     switch (mode) {
-      case 'menu': return 'Press New game to start.';
-      case 'ready': return readyNote || 'Ready. Press an arrow key, WASD or a direction button to start.';
+      case 'menu': return 'Press Play or New game to start.';
+      case 'ready': return readyNote || 'Ready. Swipe, or press an arrow key, WASD or a direction button to start.';
       case 'running': return 'Playing.';
       case 'paused': return 'Paused. Press Continue, or Space or P on the board, to resume.';
       case 'over': return 'Game over. Score ' + game.score + '.';
@@ -147,13 +193,42 @@
 
   function overlayText() {
     switch (mode) {
-      case 'menu': return 'Press New game';
-      case 'ready': return readyNote ? 'Press a direction to continue' : 'Press a direction to start';
+      case 'menu': return 'Snake';
+      case 'ready': return readyNote ? 'Swipe or press a direction to continue' : 'Swipe or press a direction to start';
       case 'paused': return 'Paused';
       case 'over': return 'Game over. Score ' + game.score + '.';
       case 'won': return 'Board full. Score ' + game.score + '.';
       default: return '';
     }
+  }
+
+  // Big buttons on the board: Play at the start, Continue and New game when paused,
+  // Play again at the end. The ready state needs none (steer to start).
+  var OV = {
+    menu: [['Play', startNewGame]],
+    paused: [['Continue', function () { if (resume()) $('board').focus(); }], ['New game', requestNewGame]],
+    over: [['Play again', startNewGame]],
+    won: [['Play again', startNewGame]]
+  };
+  var ovHandlers = [null, null];
+  function renderOverlayButtons() {
+    var defs = OV[mode] || [];
+    ['ov-primary', 'ov-secondary'].forEach(function (id, i) {
+      var b = $(id);
+      b.hidden = !defs[i];
+      if (defs[i]) { b.textContent = defs[i][0]; ovHandlers[i] = defs[i][1]; }
+    });
+  }
+  $('ov-primary').addEventListener('click', function () { if (ovHandlers[0]) ovHandlers[0](); });
+  $('ov-secondary').addEventListener('click', function () { if (ovHandlers[1]) ovHandlers[1](); });
+
+  // The chips show the choices for the next run.
+  function renderChips() {
+    var o = gameOptions();
+    $('edges-name').textContent = o.wrap ? 'Wrap' : 'Walls';
+    $('chip-board-name').textContent = o.board === 'clear' ? 'Clear' : BOARD_LABELS[o.board].replace(' maze', '');
+    $('chip-lives-name').textContent = o.lives === 'unlimited' ? 'Unlimited' : o.lives === 'extra' ? '3 lives' : '1 life';
+    $('chip-bonus-name').textContent = o.bonus ? 'Bonus on' : 'Bonus off';
   }
 
   function renderBest() {
@@ -210,15 +285,19 @@
     overlay.hidden = !text;
     overlay.setAttribute('data-kind', mode);
     $('overlay-text').textContent = text;
+    renderOverlayButtons();
     $('score').textContent = String(game.score);
     $('length').textContent = String(game.snake.length);
     $('lives').textContent = game.lives === null ? 'Unlimited' : String(game.lives);
-    $('edges-name').textContent = game.wrap ? 'Wrap' : 'Walls';
     $('speed-dots').setAttribute('data-level', String({ slow: 1, medium: 2, fast: 3 }[game.speed]));
+    $('btn-speed').setAttribute('aria-label', 'Speed: ' + SPEED_LABELS[game.speed] + '. Tap to change for the next game.');
     renderRules();
     renderBonus();
     btnPause.disabled = mode !== 'running';
+    btnPause.hidden = mode === 'paused';
     btnContinue.disabled = mode !== 'paused';
+    btnContinue.hidden = mode !== 'paused';
+    renderChips();
     var active = mode === 'ready' || mode === 'running';
     Array.prototype.forEach.call(dpadButtons, function (b) { b.disabled = !active; });
     renderBest();
@@ -282,11 +361,17 @@
   // ---------- Commands ----------
   function startNewGame() {
     stopLoop();
+    currentShape = wantedShape();
+    applyShape();
     game = newGame();
     readyNote = '';
     mode = 'ready';
     updateUI();
     $('board').focus(); // so keys work immediately after an explicit start
+  }
+
+  function applyShape() {
+    $('layout').setAttribute('data-shape', currentShape);
   }
 
   function pause() {
@@ -374,6 +459,71 @@
     }
   });
 
+  // Swipe steering. A drag of at least SWIPE_PX along one axis turns the snake; the start
+  // point then moves to the finger, so one long drag can chain turns. Shorter movements
+  // are ignored. The board has touch-action: none, so this never scrolls the page.
+  var SWIPE_PX = 24;
+  var swipe = null;
+  var boardEl = $('board');
+  boardEl.addEventListener('pointerdown', function (e) {
+    if (e.target.closest && e.target.closest('button')) return;
+    swipe = { id: e.pointerId, x: e.clientX, y: e.clientY };
+    try { boardEl.setPointerCapture(e.pointerId); } catch { /* not supported: fine */ }
+  });
+  boardEl.addEventListener('pointermove', function (e) {
+    if (!swipe || swipe.id !== e.pointerId) return;
+    var dx = e.clientX - swipe.x;
+    var dy = e.clientY - swipe.y;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < SWIPE_PX) return;
+    input(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'));
+    swipe.x = e.clientX;
+    swipe.y = e.clientY;
+  });
+  ['pointerup', 'pointercancel'].forEach(function (ev) {
+    boardEl.addEventListener(ev, function (e) { if (swipe && swipe.id === e.pointerId) swipe = null; });
+  });
+
+  // Optional direction buttons.
+  function renderDpad() {
+    var on = uiPref.get().dpad === 'on';
+    $('layout').classList.toggle('dpad-on', on);
+    $('btn-dpad').setAttribute('aria-pressed', String(on));
+    $('btn-dpad').setAttribute('aria-label', on ? 'Hide direction buttons' : 'Show direction buttons');
+  }
+  $('btn-dpad').addEventListener('click', function () {
+    uiPref.set('dpad', uiPref.get().dpad === 'on' ? 'off' : 'on');
+    renderDpad();
+  });
+
+  // Tapping the speed cell picks the next speed (it applies from the next game).
+  $('btn-speed').addEventListener('click', function () {
+    var order = E.SPEED_ORDER;
+    var next = order[(order.indexOf(speedPref.get()) + 1) % order.length];
+    speedPref.set(next);
+    adoptSettings();
+    if (runInProgress()) {
+      $('status').textContent = SPEED_LABELS[next] + ' starts with your next new game.';
+    } else {
+      $('status').textContent = 'Speed: ' + SPEED_LABELS[next] + '.';
+    }
+  });
+
+  // Full screen where the browser supports it (not on iPhone Safari).
+  var fsBtn = $('btn-fullscreen');
+  if (document.fullscreenEnabled && root.requestFullscreen) {
+    fsBtn.hidden = false;
+    fsBtn.addEventListener('click', function () {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else root.requestFullscreen().catch(function () { /* refused: stay as is */ });
+    });
+    document.addEventListener('fullscreenchange', function () {
+      var on = !!document.fullscreenElement;
+      fsBtn.setAttribute('aria-pressed', String(on));
+      fsBtn.setAttribute('aria-label', on ? 'Exit full screen' : 'Full screen');
+      $('fullscreen-tip').textContent = on ? 'Exit full screen' : 'Full screen';
+    });
+  }
+
   // ---------- Dialogs and settings ----------
   Array.prototype.forEach.call(document.querySelectorAll('[data-open]'), function (b) {
     b.addEventListener('click', function () {
@@ -401,13 +551,26 @@
       var body = dlg.querySelector('.dlg-scroll');
       if (body) body.scrollTop = 0;
       var h = dlg.querySelector('h2');
-      if (h) h.focus({ preventScroll: true });
+      var want = b.getAttribute('data-focus');
+      var target = want && dlg.querySelector('#fs-' + want + ' input:checked');
+      if (target) { target.focus(); target.scrollIntoView({ block: 'center' }); }
+      else if (h) h.focus({ preventScroll: true });
     });
   });
 
   Array.prototype.forEach.call(document.querySelectorAll('input[name="theme"]'), function (r) {
     r.addEventListener('change', function () {
       if (r.checked) { applyTheme(r.value); saveTheme(r.value); }
+    });
+  });
+
+  ['snakecolour', 'snakestyle'].forEach(function (name) {
+    Array.prototype.forEach.call(document.querySelectorAll('input[name="' + name + '"]'), function (r) {
+      r.addEventListener('change', function () {
+        if (!r.checked) return;
+        skinPref.set(name === 'snakecolour' ? 'colour' : 'style', r.value);
+        draw();
+      });
     });
   });
 
@@ -428,7 +591,9 @@
   function syncSettingsControls() {
     var sel = speedPref.get();
     var rules = rulesPref.get();
-    var checks = { speed: sel, board: rules.board, edges: rules.edges, lives: rules.lives, bonus: rules.bonus };
+    var skin = skinPref.get();
+    var checks = { speed: sel, board: rules.board, edges: rules.edges, lives: rules.lives, bonus: rules.bonus,
+      snakecolour: skin.colour, snakestyle: skin.style };
     Object.keys(checks).forEach(function (name) {
       var radio = document.querySelector('input[name="' + name + '"][value="' + checks[name] + '"]');
       if (radio) radio.checked = true;
@@ -499,6 +664,19 @@
     };
   }
   game = newGame();
+  applyShape();
+  renderDpad();
+  if (tallQuery && tallQuery.addEventListener) {
+    // rotating a fresh page adopts the matching board; a run in progress keeps its own
+    tallQuery.addEventListener('change', function () {
+      if (mode === 'menu' || (mode === 'ready' && !runInProgress())) {
+        currentShape = wantedShape();
+        applyShape();
+        game = newGame();
+        updateUI(false);
+      }
+    });
+  }
   applyTheme(readTheme());
   syncSettingsControls();
   updateUI();

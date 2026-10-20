@@ -82,6 +82,23 @@
     };
   }
 
+  // Blocky snake: one square per cell (the classic pixel look). Same cells as the smooth snake.
+  function pixelGeometry(state, w, h) {
+    var l = layout(state.cols, state.rows, w, h);
+    var u = UNIT[state.dir] || UNIT.right;
+    var p = { x: -u.y, y: u.x };
+    var cells = state.snake.map(function (s, i) {
+      var inset = l.cell * (i === 0 ? 0.04 : 0.1);
+      return { x: l.ox + s.x * l.cell + inset, y: l.oy + s.y * l.cell + inset, size: l.cell - 2 * inset, head: i === 0 };
+    });
+    var hc = cellCenter(l, state.snake[0].x, state.snake[0].y);
+    var eyes = [-1, 1].map(function (side) {
+      var e = l.cell * 0.14;
+      return { x: hc.x + u.x * l.cell * 0.16 + p.x * side * l.cell * 0.2 - e / 2, y: hc.y + u.y * l.cell * 0.16 + p.y * side * l.cell * 0.2 - e / 2, size: e };
+    });
+    return { layout: l, cells: cells, eyes: eyes };
+  }
+
   function roundRect(ctx, x, y, w, h, r) {
     ctx.beginPath();
     ctx.moveTo(x + r, y);
@@ -216,6 +233,17 @@
       ctx.stroke();
     }
 
+    if (palette.style === 'pixel') {
+      var pg = pixelGeometry(state, w, h);
+      pg.cells.forEach(function (c) {
+        ctx.fillStyle = c.head ? palette.snakeHead : palette.snake;
+        ctx.fillRect(c.x, c.y, c.size, c.size);
+      });
+      ctx.fillStyle = palette.eye;
+      pg.eyes.forEach(function (e) { ctx.fillRect(e.x, e.y, e.size, e.size); });
+      return g;
+    }
+
     // snake: soft shadow for subtle depth, body, highlight, then head and eyes
     ctx.save();
     ctx.globalAlpha = 0.35;
@@ -260,6 +288,6 @@
   return {
     BODY_R: BODY_R, TAIL_R: TAIL_R, HEAD_R: HEAD_R, TAPER_CELLS: TAPER_CELLS,
     layout: layout, cellCenter: cellCenter, bodyRadius: bodyRadius,
-    snakeGeometry: snakeGeometry, draw: draw
+    snakeGeometry: snakeGeometry, pixelGeometry: pixelGeometry, draw: draw
   };
 });

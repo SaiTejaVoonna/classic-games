@@ -45,9 +45,23 @@
     clear: [],
     pillars: [[4, 2, 2, 2], [15, 2, 2, 2], [4, 10, 2, 2], [15, 10, 2, 2]],
     gate: [[10, 0, 1, 5], [10, 9, 1, 5]],
-    frame: [[6, 3, 9, 1], [6, 10, 9, 1]]
+    frame: [[6, 3, 9, 1], [6, 10, 9, 1]],
+    // More Classic Games prototype layouts (same rules: solid blocks, start row clear).
+    corners: [[1, 1, 4, 1], [1, 2, 1, 2], [16, 1, 4, 1], [19, 2, 1, 2], [1, 12, 4, 1], [1, 10, 1, 2], [16, 12, 4, 1], [19, 10, 1, 2]],
+    tunnels: [[2, 4, 7, 1], [12, 4, 7, 1], [2, 10, 7, 1], [12, 10, 7, 1]],
+    zigzag: [[6, 0, 1, 5], [10, 9, 1, 5], [14, 0, 1, 5], [18, 9, 1, 5]],
+    rooms: [[3, 3, 7, 1], [11, 3, 7, 1], [3, 10, 7, 1], [11, 10, 7, 1], [3, 4, 1, 2], [17, 4, 1, 2], [3, 8, 1, 2], [17, 8, 1, 2]],
+    diamond: [[10, 2, 1, 1], [9, 3, 1, 1], [11, 3, 1, 1], [8, 4, 1, 1], [12, 4, 1, 1], [10, 12, 1, 1], [9, 11, 1, 1], [11, 11, 1, 1], [8, 10, 1, 1], [12, 10, 1, 1]],
+    islands: [[4, 3, 2, 1], [9, 2, 2, 1], [15, 3, 2, 1], [3, 10, 2, 1], [8, 11, 2, 1], [14, 10, 2, 1], [17, 6, 1, 2], [12, 5, 1, 2]],
+    staircase: [[2, 1, 1, 1], [3, 2, 1, 1], [4, 3, 1, 1], [5, 4, 1, 1], [6, 5, 1, 1], [14, 8, 1, 1], [15, 9, 1, 1], [16, 10, 1, 1], [17, 11, 1, 1], [18, 12, 1, 1]],
+    bars: [[5, 0, 1, 4], [5, 10, 1, 4], [15, 0, 1, 4], [15, 10, 1, 4]]
   };
-  var MAZE_ORDER = ['clear', 'pillars', 'gate', 'frame'];
+  var MAZE_ORDER = ['clear', 'pillars', 'gate', 'frame', 'corners', 'tunnels', 'zigzag', 'rooms', 'diamond', 'islands', 'staircase', 'bars'];
+
+  // Board shape. 'wide' is 21 by 14. 'tall' is the same board turned on its side (14 by 21):
+  // every layout, the start cells and the start heading are transposed, so both shapes play
+  // the same (294 cells, same rules) and best scores are comparable.
+  var SHAPES = ['wide', 'tall'];
   var DEFAULT_BOARD = 'clear';
 
   var DELTA = {
@@ -70,10 +84,14 @@
     return [((t ^ (t >>> 14)) >>> 0) / 4294967296, s];
   }
 
-  function mazeCells(board) {
+  function mazeCells(board, shape) {
     var out = [];
     (MAZES[board] || []).forEach(function (r) {
-      for (var dx = 0; dx < r[2]; dx++) for (var dy = 0; dy < r[3]; dy++) out.push({ x: r[0] + dx, y: r[1] + dy });
+      for (var dx = 0; dx < r[2]; dx++) {
+        for (var dy = 0; dy < r[3]; dy++) {
+          out.push(shape === 'tall' ? { x: r[1] + dy, y: r[0] + dx } : { x: r[0] + dx, y: r[1] + dy });
+        }
+      }
     });
     return out;
   }
@@ -112,19 +130,27 @@
     return typeof v === 'number' && isFinite(v) && v >= 1 && Math.floor(v) === v ? v : fallback;
   }
 
-  function startSnake(cols, rows, length) {
+  function startSnake(cols, rows, length, shape) {
+    var snake = [];
+    var i;
+    if (shape === 'tall') { // the wide start turned on its side, heading down
+      var x = Math.floor(cols / 2);
+      var headY = Math.min(rows - 1, length + 4);
+      for (i = 0; i < length; i++) snake.push({ x: x, y: headY - i });
+      return snake;
+    }
     var headX = Math.min(cols - 1, length + 4); // fixed start cell
     var y = Math.floor(rows / 2);
-    var snake = [];
-    for (var i = 0; i < length; i++) snake.push({ x: headX - i, y: y });
+    for (i = 0; i < length; i++) snake.push({ x: headX - i, y: y });
     return snake;
   }
 
   // status: 'ready' (not started, or waiting after a lost life), 'running', 'over', 'won'
   function createGame(options) {
     var opt = options || {};
-    var cols = opt.cols || DEFAULTS.cols;
-    var rows = opt.rows || DEFAULTS.rows;
+    var shape = opt.shape === 'tall' ? 'tall' : 'wide';
+    var cols = opt.cols || (shape === 'tall' ? DEFAULTS.rows : DEFAULTS.cols);
+    var rows = opt.rows || (shape === 'tall' ? DEFAULTS.cols : DEFAULTS.rows);
     var startLength = opt.startLength || DEFAULTS.startLength;
     var seed = opt.seed !== undefined ? opt.seed | 0 : 1;
     var speed = hasOwn(SPEEDS, opt.speed) ? opt.speed : DEFAULT_SPEED;
@@ -132,10 +158,10 @@
     var board = hasOwn(MAZES, opt.board) ? opt.board : DEFAULT_BOARD;
     var wrap = opt.wrap !== false; // wrap is the default; pass wrap:false for solid walls
     var bonus = opt.bonus !== false;
-    var obstacles = mazeCells(board);
+    var obstacles = mazeCells(board, shape);
     var blocked = {};
     obstacles.forEach(function (c) { blocked[key(c.x, c.y)] = true; });
-    var snake = startSnake(cols, rows, startLength);
+    var snake = startSnake(cols, rows, startLength, shape);
     var f = placeFood(snake, cols, rows, seed, obstacles);
     return {
       cols: cols, rows: rows,
@@ -151,7 +177,8 @@
       bonusGrows: opt.bonusGrows === true,
       profile: profileKey({ speed: speed, lives: livesMode, board: board, wrap: wrap, bonus: bonus }),
       startLength: startLength,
-      snake: snake, dir: 'right', queue: [],
+      shape: shape, startDir: shape === 'tall' ? 'down' : 'right',
+      snake: snake, dir: shape === 'tall' ? 'down' : 'right', queue: [],
       food: f[0], rng: f[1],
       bonusItem: null, foodEaten: 0,
       score: 0, ticks: 0, status: 'ready', reason: null
@@ -190,7 +217,7 @@
       return { state: copy(state, { status: 'over', reason: reason, dir: dir, queue: queue, lives: 0 }),
                events: [{ type: 'over', reason: reason }] };
     }
-    var snake = startSnake(state.cols, state.rows, state.startLength);
+    var snake = startSnake(state.cols, state.rows, state.startLength, state.shape);
     var lives = state.lives === null ? null : state.lives - 1;
     var food = state.food;
     var rng = state.rng;
@@ -202,7 +229,7 @@
     }
     var bonusItem = onSnake(state.bonusItem) ? null : state.bonusItem;
     return {
-      state: copy(state, { status: 'ready', reason: reason, snake: snake, dir: 'right', queue: [],
+      state: copy(state, { status: 'ready', reason: reason, snake: snake, dir: state.startDir, queue: [],
                            lives: lives, food: food, rng: rng, bonusItem: bonusItem }),
       events: [{ type: 'lifeLost', reason: reason, lives: lives }]
     };
@@ -307,6 +334,7 @@
     DEFAULT_EDGES: DEFAULT_EDGES,
     MAZES: MAZES,
     MAZE_ORDER: MAZE_ORDER,
+    SHAPES: SHAPES,
     DEFAULT_BOARD: DEFAULT_BOARD,
     BONUS_DEFAULTS: BONUS_DEFAULTS,
     DEFAULTS: DEFAULTS,

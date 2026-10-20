@@ -35,14 +35,14 @@ const tipInfo = (p, i) => p.evaluate((idx) => {
 
 (async () => {
   const browser = await chromium.launch({ executablePath: CHROMIUM });
-  const NAMES = ['Top score', 'Instructions', 'Settings'];
+  const NAMES = ['Top score', 'Instructions', 'Settings', 'Full screen'];
 
   // ---- header icon navigation ----
   for (const [w, h, touch] of [[1366, 768, false], [390, 844, true], [320, 568, true]]) {
     const { ctx, p, errs } = await open(browser, { viewport: { width: w, height: h }, touch });
     const tag = `${w}x${h}`;
     const info = await p.evaluate(() => [...document.querySelectorAll('.header-actions > *')].map(b => { const r = b.getBoundingClientRect(); return { tag: b.tagName, name: b.getAttribute('aria-label'), w: Math.round(r.width), h: Math.round(r.height), svg: !!b.querySelector('svg[aria-hidden=true]'), text: [...b.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent.trim()).join('') }; }));
-    ok(`[${tag}] header has three icon buttons with persistent names and inline SVG`, info.length === 3 && info.every((b, i) => b.tag === 'BUTTON' && b.name === NAMES[i] && b.svg && b.text === ''), JSON.stringify(info));
+    ok(`[${tag}] header has four icon buttons with persistent names and inline SVG`, info.length === 4 && info.every((b, i) => b.tag === 'BUTTON' && b.name === NAMES[i] && b.svg && b.text === ''), JSON.stringify(info));
     ok(`[${tag}] each icon target is at least 44x44`, info.every(b => b.w >= 44 && b.h >= 44), JSON.stringify(info.map(b => b.w + 'x' + b.h)));
     for (const n of NAMES) ok(`[${tag}] "${n}" is exposed to assistive technology by its name`, await p.getByRole('button', { name: n, exact: true }).count() === 1);
     ok(`[${tag}] no horizontal overflow with the icon header`, await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
@@ -96,7 +96,7 @@ const tipInfo = (p, i) => p.evaluate((idx) => {
     const { ctx, p } = await open(browser);
     await p.click('[data-open=dlg-settings]');
     const settings = await p.evaluate(() => [...new Set([...document.querySelectorAll('#dlg-settings input')].map(i => i.name))]);
-    ok('Settings holds Theme and Speed only', settings.sort().join(',') === 'speed,theme', settings.join(','));
+    ok('Settings holds Theme, Snake colour, Snake style and Speed only', settings.sort().join(',') === 'snakecolour,snakestyle,speed,theme', settings.join(','));
     ok('Settings has no gameplay rule wording', !/maze|wrap|lives|bonus|edges/i.test(await p.evaluate(() => document.getElementById('dlg-settings').textContent)));
     await p.keyboard.press('Escape');
     await p.click('#btn-setup');
@@ -117,7 +117,7 @@ const tipInfo = (p, i) => p.evaluate((idx) => {
     for (const [id, trigger] of dlgs) {
       const tag = `[${w}x${h}] ${id}`;
       const pageScroll0 = await p.evaluate(() => document.scrollingElement.scrollTop);
-      await p.click(trigger); await sleep(120);
+      await p.evaluate((t) => document.querySelector(t).click(), trigger); await sleep(120);
       const m = await p.evaluate((dlgId) => {
         const d = document.getElementById(dlgId);
         const r = d.getBoundingClientRect();

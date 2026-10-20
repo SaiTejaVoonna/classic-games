@@ -364,10 +364,11 @@ test('wrap setting changes only the edge rule, not the simulation elsewhere', ()
 });
 
 // ---------- maze layouts ----------
-test('maze layouts: the table lists a clear field and three mazes', () => {
-  assert.deepEqual(E.MAZE_ORDER, ['clear', 'pillars', 'gate', 'frame']);
+test('maze layouts: the table lists a clear field and eleven mazes', () => {
+  assert.deepEqual(E.MAZE_ORDER, ['clear', 'pillars', 'gate', 'frame', 'corners', 'tunnels', 'zigzag', 'rooms', 'diamond', 'islands', 'staircase', 'bars']);
   assert.equal(E.mazeCells('clear').length, 0);
-  for (const name of ['pillars', 'gate', 'frame']) assert.ok(E.mazeCells(name).length > 0, name);
+  for (const name of E.MAZE_ORDER.slice(1)) assert.ok(E.mazeCells(name).length > 0, name);
+  assert.deepEqual(Object.keys(E.MAZES).sort(), E.MAZE_ORDER.slice().sort());
 });
 
 test('maze layouts: cells are inside the board and leave the start clear', () => {
@@ -552,7 +553,7 @@ test('profile keys separate every rules combination', () => {
     assert.ok(E.isProfileKey(g.profile), g.profile);
     keys.add(g.profile);
   }
-  assert.equal(keys.size, 3 * 3 * 4 * 2 * 2);
+  assert.equal(keys.size, 3 * 3 * E.MAZE_ORDER.length * 2 * 2);
   assert.equal(E.createGame({ seed: 1 }).profile, 'slow|classic|clear|wrap|bonus', 'the default play wraps at the edges');
   assert.equal(E.createGame({ seed: 1, wrap: false }).profile, 'slow|classic|clear|walls|bonus');
 });
@@ -684,4 +685,98 @@ test('bonus: no bonus when the board has no free cell', () => {
   assert.deepEqual(r.state.food, { x: 2, y: 1 }, 'the last free cell holds the food');
   assert.equal(r.state.bonusItem, null);
   assert.equal(r.state.status, 'running');
+});
+
+// ---------- tall board (phones in portrait) ----------
+const T = (board, over) => Object.assign({}, E.createGame({ seed: 7, shape: 'tall', wrap: false, board }), over);
+
+test('tall board: 14 by 21, same cell count, start turned on its side heading down', () => {
+  const w = E.createGame({ seed: 1, wrap: false });
+  const t = E.createGame({ seed: 1, shape: 'tall', wrap: false });
+  assert.equal(w.shape, 'wide'); assert.equal(t.shape, 'tall');
+  assert.equal(t.cols * t.rows, w.cols * w.rows);
+  assert.deepEqual([t.cols, t.rows], [14, 21]);
+  assert.deepEqual(w.snake.map((c) => [c.y, c.x]), t.snake.map((c) => [c.x, c.y]), 'the start is the wide start transposed');
+  assert.equal(t.dir, 'down'); assert.equal(t.startDir, 'down');
+  assert.equal(E.createGame({ seed: 1, shape: 'bogus' }).shape, 'wide');
+});
+
+test('tall board: every layout is the wide layout transposed, start clear, all free cells reachable', () => {
+  for (const name of E.MAZE_ORDER) {
+    const w = E.mazeCells(name, 'wide');
+    const t = E.mazeCells(name, 'tall');
+    assert.deepEqual(t.map((c) => c.x + ',' + c.y).sort(), w.map((c) => c.y + ',' + c.x).sort(), name);
+    const g = E.createGame({ seed: 1, shape: 'tall', board: name });
+    for (const c of g.obstacles) {
+      assert.ok(c.x >= 0 && c.x < 14 && c.y >= 0 && c.y < 21, `${name} inside`);
+      assert.ok(!g.snake.some((s) => s.x === c.x && s.y === c.y), `${name} start clear`);
+      assert.ok(!(c.x === 7 && c.y <= 14), `${name} keeps the start column clear`);
+    }
+    const free = [];
+    for (let y = 0; y < g.rows; y++) for (let x = 0; x < g.cols; x++) if (!g.blocked[x + ',' + y]) free.push(x + ',' + y);
+    const seen = new Set([g.snake[0].x + ',' + g.snake[0].y]);
+    const queue = [[g.snake[0].x, g.snake[0].y]];
+    while (queue.length) {
+      const [x, y] = queue.shift();
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = x + dx, ny = y + dy, k = nx + ',' + ny;
+        if (nx < 0 || ny < 0 || nx >= g.cols || ny >= g.rows || g.blocked[k] || seen.has(k)) continue;
+        seen.add(k); queue.push([nx, ny]);
+      }
+    }
+    assert.equal(seen.size, free.length, name + ' reachable');
+  }
+});
+
+test('every wide layout keeps the start row clear and every free cell reachable', () => {
+  for (const name of E.MAZE_ORDER) {
+    const g = E.createGame({ seed: 1, board: name });
+    for (const c of g.obstacles) assert.ok(!(c.y === 7 && c.x <= 14), `${name} start row`);
+    assert.ok(g.obstacles.every((c) => c.x >= 0 && c.x < 21 && c.y >= 0 && c.y < 14), name);
+  }
+});
+
+test('tall board plays like the wide board turned on its side (transposition symmetry)', () => {
+  const swap = { up: 'left', down: 'right', left: 'up', right: 'down' };
+  const script = ['right', null, null, 'up', null, 'left', null, 'down', null, null, 'right', null];
+  for (const board of ['clear', 'gate', 'rooms', 'staircase']) {
+    for (const wrap of [false, true]) {
+      let w = E.createGame({ seed: 5, board, wrap, lives: 'extra' });
+      let t = E.createGame({ seed: 5, board, wrap, lives: 'extra', shape: 'tall' });
+      w = Object.assign({}, w, { food: null, bonusEnabled: false });
+      t = Object.assign({}, t, { food: null, bonusEnabled: false });
+      for (const move of script) {
+        if (move) { w = E.turn(w, move); t = E.turn(t, swap[move]); }
+        w = E.step(w).state; t = E.step(t).state;
+        assert.equal(t.status, w.status, `${board} ${wrap} status`);
+        assert.equal(t.lives, w.lives, `${board} ${wrap} lives`);
+        assert.deepEqual(t.snake.map((c) => [c.x, c.y]), w.snake.map((c) => [c.y, c.x]), `${board} ${wrap} path`);
+      }
+    }
+  }
+});
+
+test('tall board: wrap, walls and respawn work on both axes', () => {
+  const base = { status: 'running', queue: [], food: { x: 2, y: 2 } };
+  // leaving the bottom edge wraps to the top at the same column
+  let s = E.step(Object.assign(T('clear', {}), base, { wrap: true, dir: 'down', snake: cells([[3, 20], [3, 19]]) })).state;
+  assert.deepEqual(s.snake[0], { x: 3, y: 0 });
+  // leaving the right edge wraps to the left
+  s = E.step(Object.assign(T('clear', {}), base, { wrap: true, dir: 'right', snake: cells([[13, 4], [12, 4]]) })).state;
+  assert.deepEqual(s.snake[0], { x: 0, y: 4 });
+  // solid walls cost a life; the restart is the tall start, heading down
+  const r = E.step(Object.assign(T('clear', {}), base, { wrap: false, lives: 2, livesMode: 'extra', dir: 'down', snake: cells([[3, 20], [3, 19]]) }));
+  assert.equal(r.state.lives, 1);
+  assert.equal(r.state.dir, 'down');
+  assert.deepEqual(r.state.snake, E.createGame({ seed: 7, shape: 'tall' }).snake);
+});
+
+test('tall board: food and bonus never land on blocks or the snake', () => {
+  for (const name of E.MAZE_ORDER) {
+    for (let seed = 0; seed < 60; seed++) {
+      const g = E.createGame({ seed, shape: 'tall', board: name });
+      assert.ok(!g.blocked[g.food.x + ',' + g.food.y], `${name} ${seed}`);
+      assert.ok(g.food.x < 14 && g.food.y < 21);
+    }
+  }
 });
