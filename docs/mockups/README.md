@@ -20,3 +20,6 @@ Open choices: a portrait board on phones needs its own maze layouts; the full sc
 - `styles.html`: the source (`?sheet=styles`, `?sheet=mazes`, `?sheet=colours`).
 - `sheets/sheet-1-three-looks.png`, `sheets/sheet-2-phone-flow.png`: combined views of the layout mockups.
 Proposal only. None of this is in the game yet.
+
+## Launcher (several games)
+- `sheets/sheet-6-launcher.png`: A shelf with Snake as the hero, B arcade list, C desktop. Bounce and Space Impact are shown as "Coming soon" with illustrative art only. Includes a Daily challenge card (same seeded run for everyone, shared as text, no server). Source: `launcher.html`. Proposal only.
