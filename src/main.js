@@ -40,7 +40,7 @@
     drawThumbs();
   }
 
-  // Small previews of each board in Snake settings.
+  // Small previews of each board in Game settings.
   function drawThumbs() {
     var p = basePalette();
     Array.prototype.forEach.call(document.querySelectorAll('.tile'), function (tile) {
@@ -222,15 +222,6 @@
   $('ov-primary').addEventListener('click', function () { if (ovHandlers[0]) ovHandlers[0](); });
   $('ov-secondary').addEventListener('click', function () { if (ovHandlers[1]) ovHandlers[1](); });
 
-  // The chips show the choices for the next run.
-  function renderChips() {
-    var o = gameOptions();
-    $('edges-name').textContent = o.wrap ? 'Wrap' : 'Walls';
-    $('chip-board-name').textContent = o.board === 'clear' ? 'Clear' : BOARD_LABELS[o.board].replace(' maze', '');
-    $('chip-lives-name').textContent = o.lives === 'unlimited' ? 'Unlimited' : o.lives === 'extra' ? '3 lives' : '1 life';
-    $('chip-bonus-name').textContent = o.bonus ? 'Bonus on' : 'Bonus off';
-  }
-
   function renderBest() {
     $('best').textContent = String(best.get(game.profile));
     $('best-note').textContent = '(this setup' + (best.isPersistent() ? '' : ', this session') + ')';
@@ -297,7 +288,6 @@
     btnPause.hidden = mode === 'paused';
     btnContinue.disabled = mode !== 'paused';
     btnContinue.hidden = mode !== 'paused';
-    renderChips();
     var active = mode === 'ready' || mode === 'running';
     Array.prototype.forEach.call(dpadButtons, function (b) { b.disabled = !active; });
     renderBest();
@@ -604,7 +594,7 @@
     }
     if (!speedPref.isPersistent()) note += ' Not saved on this device.';
     $('speed-note').textContent = note;
-    var rulesNote = 'Snake settings: rules apply to the next run. Mazes, wrap, lives and bonus food are Classic Games choices, not verified original rules.';
+    var rulesNote = 'Game settings: rules apply to the next run. Mazes, wrap, lives and bonus food are Classic Games choices, not verified original rules.';
     var now = gameOptions();
     var same = game.board === now.board && game.wrap === now.wrap && game.livesMode === now.lives && game.bonusEnabled === now.bonus;
     if ((mode === 'running' || mode === 'paused') && !same) {

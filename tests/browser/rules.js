@@ -34,7 +34,7 @@ const pick = (p, name, value) => p.click(`label.radio:has(input[name=${name}][va
   {
     const { ctx, p, errs } = await open(browser, { query: '&seed=3' });
     ok('defaults: 1 life, clear field, wrap around edges, bonus on (summary visible before a run)', (await p.textContent('#rules-line')) === 'Next game: 1 life, clear field, wrap around edges, bonus food on.', await p.textContent('#rules-line'));
-    ok('defaults: Lives shows 1, Edges shows Wrap, Unlimited is off by default', (await p.textContent('#lives')) === '1' && (await p.textContent('#edges-name')) === 'Wrap');
+    ok('defaults: Lives shows 1, Edges shows Wrap, Unlimited is off by default', (await p.textContent('#lives')) === '1' && (await p.textContent('#rules-line')).includes('wrap around'));
     await openSetup(p);
     ok('defaults checked in Game setup: clear field, wrap around, classic, bonus on', await p.isChecked('input[name=board][value=clear]') && await p.isChecked('input[name=edges][value=wrap]') && await p.isChecked('input[name=lives][value=classic]') && await p.isChecked('input[name=bonus][value=on]') && !(await p.isChecked('input[name=lives][value=unlimited]')));
     ok('Solid walls is available as an explicit choice', await p.locator('input[name=edges][value=walls]').count() === 1);
@@ -45,7 +45,7 @@ const pick = (p, name, value) => p.click(`label.radio:has(input[name=${name}][va
     await pick(p, 'board', 'pillars'); await pick(p, 'edges', 'walls'); await pick(p, 'lives', 'extra'); await pick(p, 'bonus', 'off');
     const saved = JSON.parse(await p.evaluate(() => localStorage.getItem('classic-games.rules.v2')));
     ok('only explicit choices are saved (v2)', saved.v === 2 && saved.chosen.board === 'pillars' && saved.chosen.edges === 'walls' && saved.chosen.lives === 'extra' && saved.chosen.bonus === 'off', JSON.stringify(saved));
-    ok('menu adopts the rules at once (summary, Lives and Edges update)', (await p.textContent('#rules-line')) === 'Next game: 3 lives, pillars maze, solid walls, bonus food off.' && (await p.textContent('#lives')) === '3' && (await p.textContent('#edges-name')) === 'Walls', await p.textContent('#rules-line'));
+    ok('menu adopts the rules at once (summary, Lives and Edges update)', (await p.textContent('#rules-line')) === 'Next game: 3 lives, pillars maze, solid walls, bonus food off.' && (await p.textContent('#lives')) === '3' && (await p.textContent('#rules-line')).includes('solid walls'), await p.textContent('#rules-line'));
     await p.keyboard.press('Escape');
     await p.reload(); await p.waitForFunction(() => window.classicGamesDebug);
     await openSetup(p);
@@ -71,7 +71,7 @@ const pick = (p, name, value) => p.click(`label.radio:has(input[name=${name}][va
     ok('note says the run keeps its rules', (await p.textContent('#rules-note')).startsWith('This run keeps its board, edges, lives and bonus.'), await p.textContent('#rules-note'));
     ok('setup summary names what the next run will use', (await p.textContent('#setup-summary')) === 'Selected for the next run: 1 life, gate maze, solid walls, bonus food on.', await p.textContent('#setup-summary'));
     let s = await st(p);
-    ok('the run in progress is unchanged (board, edges)', s.game.board === 'clear' && s.game.wrap === true && (await p.textContent('#edges-name')) === 'Wrap');
+    ok('the run in progress is unchanged (board, edges)', s.game.board === 'clear' && s.game.wrap === true && (await p.textContent('#rules-line')).includes('wrap around'));
     ok('rules line separates this run from the next game', (await p.textContent('#rules-line')) === 'This run: 1 life, clear field, wrap around edges, bonus food on.' && (await p.locator('#rules-next').isVisible()) && (await p.textContent('#rules-next')) === 'Next game: 1 life, gate maze, solid walls, bonus food on.', await p.textContent('#rules-next'));
     await p.keyboard.press('Escape');
     await p.click('#btn-continue'); await sleep(300);
@@ -80,7 +80,7 @@ const pick = (p, name, value) => p.click(`label.radio:has(input[name=${name}][va
     await p.click('#btn-new'); await p.click('#dlg-confirm button[value=confirm]');
     await waitMode(p, 'ready');
     s = await st(p);
-    ok('the next New game uses the new rules', s.game.board === 'gate' && s.game.wrap === false && (await p.textContent('#rules-line')).includes('gate maze') && (await p.textContent('#rules-line')).startsWith('Next game:') && (await p.textContent('#edges-name')) === 'Walls');
+    ok('the next New game uses the new rules', s.game.board === 'gate' && s.game.wrap === false && (await p.textContent('#rules-line')).includes('gate maze') && (await p.textContent('#rules-line')).startsWith('Next game:') && (await p.textContent('#rules-line')).includes('solid walls'));
     await ctx.close();
   }
 
@@ -104,7 +104,7 @@ const pick = (p, name, value) => p.click(`label.radio:has(input[name=${name}][va
   }
   {
     const { ctx, p } = await open(browser, { speed: 'fast', rules: { edges: 'walls' }, query: '&seed=3' });
-    ok('explicit solid walls: Edges shows Walls and the summary says so', (await p.textContent('#edges-name')) === 'Walls' && (await p.textContent('#rules-line')).includes('solid walls'));
+    ok('explicit solid walls: Edges shows Walls and the summary says so', (await p.textContent('#rules-line')).includes('solid walls') && (await p.textContent('#rules-line')).includes('solid walls'));
     await p.click('#btn-new'); await p.keyboard.press('ArrowRight');
     await waitMode(p, 'over', 6000);
     const s = await st(p);
@@ -121,7 +121,7 @@ const pick = (p, name, value) => p.click(`label.radio:has(input[name=${name}][va
   }
   {
     const { ctx, p } = await open(browser, { speed: 'fast', rules: { board: 'gate' }, query: '&seed=3' });
-    ok('maze blocks stay solid with wrap on (default edges)', (await p.textContent('#edges-name')) === 'Wrap');
+    ok('maze blocks stay solid with wrap on (default edges)', (await p.textContent('#rules-line')).includes('wrap around'));
     await p.click('#btn-new'); await p.keyboard.press('ArrowUp');
     await waitFor(p, () => window.classicGamesDebug.state().game.snake[0].y <= 3);
     await p.keyboard.press('ArrowRight');

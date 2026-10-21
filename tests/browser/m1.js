@@ -87,13 +87,13 @@ async function drag(p, cdp, from, to) {
     await p.tap('#btn-speed'); await sleep(120); await p.tap('#btn-speed'); await sleep(120); s = await st(p);
     ok('speed cell wraps back to Slow', (await p.textContent('#speed-name')) === 'Slow' && s.game.speed === 'slow');
 
-    await p.tap('#chip-board');
-    ok('a chip opens Game setup with focus on its group', await p.evaluate(() => document.getElementById('dlg-setup').open && document.activeElement.name === 'board'));
+    await p.tap('#btn-setup');
+    ok('the Game settings button is visible on a phone and opens the dialog', await p.evaluate(() => document.getElementById('dlg-setup').open && document.getElementById('dlg-setup-t').textContent === 'Game settings'));
     const tiles = await p.evaluate(() => [...document.querySelectorAll('.tile')].map(t => t.querySelector('input').value));
     ok('12 boards in the picker', tiles.length === 12 && new Set(tiles).size === 12, tiles.join(','));
     ok('board thumbnails are drawn', await p.evaluate(() => [...document.querySelectorAll('canvas.thumb')].filter(c => c.getContext('2d').getImageData(0, 0, c.width, c.height).data.some(v => v)).length === 12));
     await p.click('label.radio:has(input[name=board][value=zigzag])');
-    ok('picking a board updates the chip and the next run', (await p.textContent('#chip-board-name')) === 'Zigzag' && (await st(p)).game.board === 'zigzag');
+    ok('picking a board updates the rules line and the next run', (await p.textContent('#rules-line')).includes('zigzag maze') && (await st(p)).game.board === 'zigzag');
     await p.keyboard.press('Escape');
 
     await p.evaluate(() => document.getElementById('btn-setup').click());

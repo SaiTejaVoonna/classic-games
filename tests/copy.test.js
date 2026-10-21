@@ -42,7 +42,7 @@ test('visible copy does not mention a phone brand', () => {
 
 const dialog = (id) => html.slice(html.indexOf('id="' + id + '"'), html.indexOf('</dialog>', html.indexOf('id="' + id + '"')));
 
-test('App settings hold app-wide choices only (Theme); game choices live in Snake settings', () => {
+test('App settings hold app-wide choices only (Theme); game choices live in Game settings', () => {
   const settings = dialog('dlg-settings');
   assert.ok(settings.includes('App settings'));
   assert.ok(new RegExp('name="theme"').test(settings));
@@ -53,9 +53,9 @@ test('App settings hold app-wide choices only (Theme); game choices live in Snak
   assert.ok(!/maze|wrap|lives|bonus|edges/i.test(settings.replace(/<[^>]*>/g, ' ')), 'no gameplay rule wording in App settings');
 });
 
-test('Snake settings hold the look, speed and rules with safe defaults', () => {
+test('Game settings hold the look, speed and rules with safe defaults', () => {
   const setup = dialog('dlg-setup');
-  assert.ok(setup.includes('Snake settings'));
+  assert.ok(setup.includes('Game settings'));
   assert.ok(setup.includes('Speed choices are comfort settings, not original game levels.'));
   for (const name of ['speed', 'snakecolour', 'snakestyle']) {
     assert.equal((setup.match(new RegExp('name="' + name + '"[^>]*checked', 'g')) || []).length, 1, name + ' has one default');
@@ -78,12 +78,11 @@ test('Snake settings hold the look, speed and rules with safe defaults', () => {
   assert.ok(setup.includes('These rules apply to the next run.'));
 });
 
-test('Snake settings is a named action next to the New game controls', () => {
+test('Game settings is a named action next to the New game controls', () => {
   const panel = html.slice(html.indexOf('<section class="panel"'), html.indexOf('</section>', html.indexOf('<section class="panel"')));
   assert.ok(panel.includes('id="btn-new"'));
-  assert.ok(/id="btn-setup" data-open="dlg-setup">Snake settings</.test(panel));
+  assert.ok(/id="btn-setup" data-open="dlg-setup">Game settings</.test(panel));
   assert.ok(panel.includes('id="rules-line"'));
-  assert.ok(panel.includes('id="edges-name"'));
 });
 
 test('header utility navigation: inline SVG icons with persistent names and tooltip labels', () => {
@@ -127,7 +126,7 @@ test('instructions explain bonus food, wrap, mazes and lives in short plain sent
   assert.ok(help.includes('Missing it costs nothing.'));
   assert.ok(help.includes('with Wrap around, leaving one edge brings you back on the opposite edge'));
   assert.ok(help.includes('Maze blocks are always solid.'));
-  assert.ok(help.includes('Choose these in Snake settings before a run.'));
+  assert.ok(help.includes('Choose these in Game settings before a run.'));
   assert.ok(/costs a life/.test(help));
 });
 

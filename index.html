@@ -67,14 +67,6 @@
     </section>
 
     <section class="panel" aria-label="Game controls">
-      <div class="chips" role="group" aria-label="Rules for the next run">
-        <button type="button" class="chip" id="chip-look" data-open="dlg-setup" data-focus="snakecolour"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="9" cy="10" r="1"/><circle cx="14" cy="9" r="1"/><circle cx="15" cy="14" r="1"/></svg><strong>Look</strong></button>
-        <button type="button" class="chip" id="chip-edges" data-open="dlg-setup" data-focus="edges"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h13l-3-3M19 16H6l3 3"/></svg><span><span class="label">Edges</span> <strong id="edges-name">Wrap</strong></span></button>
-        <button type="button" class="chip" id="chip-board" data-open="dlg-setup" data-focus="board"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg><strong id="chip-board-name">Clear</strong></button>
-        <button type="button" class="chip" id="chip-lives" data-open="dlg-setup" data-focus="lives"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.4A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg><strong id="chip-lives-name">1 life</strong></button>
-        <button type="button" class="chip" id="chip-bonus" data-open="dlg-setup" data-focus="bonus"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4l7 8-7 8-7-8z"/></svg><strong id="chip-bonus-name">Bonus</strong></button>
-      </div>
-
       <p class="state-line"><span class="label">State</span> <strong id="state-name">Menu</strong></p>
       <p id="status" class="status" role="status" aria-live="polite">Press New game to start.</p>
 
@@ -88,7 +80,7 @@
       </div>
 
       <div class="setup">
-        <button type="button" class="btn btn-setup" id="btn-setup" data-open="dlg-setup">Snake settings</button>
+        <button type="button" class="btn btn-setup" id="btn-setup" data-open="dlg-setup">Game settings</button>
         <p id="rules-line" class="rules-line"></p>
         <p id="rules-next" class="rules-line" hidden></p>
       </div>
@@ -111,7 +103,7 @@
     <div class="dlg-scroll" tabindex="0" role="region" aria-labelledby="dlg-help-t">
       <p>Guide the snake to the round fruit. Each one adds a segment and a point. Hitting a maze block or yourself costs a life. With Solid walls, hitting a wall costs a life too. In the default Classic mode, losing a life ends the run.</p>
       <p><strong>Bonus food:</strong> a diamond with a ring appears now and then. The ring empties as time runs out. Eating it gives extra points and does not grow the snake. Missing it costs nothing.</p>
-      <p><strong>Edges and mazes:</strong> with Wrap around, leaving one edge brings you back on the opposite edge. Maze blocks are always solid. Choose these in Snake settings before a run.</p>
+      <p><strong>Edges and mazes:</strong> with Wrap around, leaving one edge brings you back on the opposite edge. Maze blocks are always solid. Choose these in Game settings before a run.</p>
       <p><strong>Steering:</strong> swipe on the board, use the direction buttons, or use the arrow keys or WASD while the board is focused. Space or P pauses and resumes.</p>
       <p>The run starts with your first direction. The game pauses when the tab is hidden, and you resume it yourself.</p>
       <p class="about"><strong>About:</strong> An early version of Classic Games. Gameplay may differ from the originals.</p>
@@ -147,17 +139,17 @@
         <label class="radio"><input type="radio" name="theme" value="lcd"> LCD</label>
         <label class="radio"><input type="radio" name="theme" value="night"> Night</label>
       </fieldset>
-      <p class="hint">These apply to every game on Classic Games. Settings for Snake itself are in Snake settings, under the board.</p>
+      <p class="hint">These apply to every game on Classic Games. Options for the game itself are in Game settings, under the board.</p>
     </div>
     <form method="dialog" class="dlg-foot"><button class="btn btn-primary">Close</button></form>
   </dialog>
 
   <dialog id="dlg-setup" aria-labelledby="dlg-setup-t">
-    <h2 id="dlg-setup-t" tabindex="-1">Snake settings</h2>
+    <h2 id="dlg-setup-t" tabindex="-1">Game settings</h2>
     <div class="dlg-scroll">
       <p class="hint" id="setup-summary">These rules apply to the next run.</p>
       <fieldset id="fs-snakecolour">
-        <legend>Snake colour</legend>
+        <legend>Colour</legend>
         <div class="swatches">
           <label class="radio sw"><input type="radio" name="snakecolour" value="green" checked><span class="chipdot" data-colour="green"></span> Green</label>
           <label class="radio sw"><input type="radio" name="snakecolour" value="cyan"><span class="chipdot" data-colour="cyan"></span> Cyan</label>
@@ -169,7 +161,7 @@
         <p class="hint" id="colour-note">The LCD theme keeps its own look.</p>
       </fieldset>
       <fieldset id="fs-snakestyle">
-        <legend>Snake style</legend>
+        <legend>Style</legend>
         <label class="radio"><input type="radio" name="snakestyle" value="smooth" checked> Smooth</label>
         <label class="radio"><input type="radio" name="snakestyle" value="pixel"> Pixel blocks</label>
       </fieldset>
@@ -182,7 +174,7 @@
         <p class="hint">Speed choices are comfort settings, not original game levels.</p>
       </fieldset>
       <fieldset id="fs-board">
-        <legend>Board</legend>
+        <legend>Map</legend>
         <div class="boards">
           <label class="radio tile"><input type="radio" name="board" value="clear" checked><canvas class="thumb" width="84" height="56" aria-hidden="true"></canvas><span>Clear field</span></label>
           <label class="radio tile"><input type="radio" name="board" value="pillars"><canvas class="thumb" width="84" height="56" aria-hidden="true"></canvas><span>Pillars maze</span></label>
@@ -199,7 +191,7 @@
         </div>
       </fieldset>
       <fieldset id="fs-edges">
-        <legend>Edges</legend>
+        <legend>Walls</legend>
         <label class="radio"><input type="radio" name="edges" value="wrap" checked> Wrap around</label>
         <label class="radio"><input type="radio" name="edges" value="walls"> Solid walls</label>
         <p class="hint">Solid walls cost a life when you touch the edge. Maze blocks are always solid.</p>
@@ -212,10 +204,10 @@
         <p class="hint">Unlimited is an optional assist. Collisions never end the run.</p>
       </fieldset>
       <fieldset id="fs-bonus">
-        <legend>Bonus food</legend>
+        <legend>Bonus</legend>
         <label class="radio"><input type="radio" name="bonus" value="on" checked> On</label>
         <label class="radio"><input type="radio" name="bonus" value="off"> Off</label>
-        <p class="hint" id="rules-note">Snake settings: rules apply to the next run. Mazes, wrap, lives and bonus food are Classic Games choices, not verified original rules.</p>
+        <p class="hint" id="rules-note">Game settings: rules apply to the next run. Mazes, wrap, lives and bonus food are Classic Games choices, not verified original rules.</p>
       </fieldset>
     </div>
     <form method="dialog" class="dlg-foot"><button class="btn btn-primary">Close</button></form>

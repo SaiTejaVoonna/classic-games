@@ -101,11 +101,11 @@ const tipInfo = (p, i) => p.evaluate((idx) => {
     await p.keyboard.press('Escape');
     await p.click('#btn-setup');
     const setup = await p.evaluate(() => [...new Set([...document.querySelectorAll('#dlg-setup input')].map(i => i.name))]);
-    ok('Snake settings hold look, speed and rules', setup.sort().join(',') === 'board,bonus,edges,lives,snakecolour,snakestyle,speed', setup.join(','));
-    ok('Snake settings is titled and says the rules apply to the next run', (await p.textContent('#dlg-setup-t')) === 'Snake settings' && (await p.textContent('#setup-summary')).startsWith('Selected for the next run:'));
+    ok('Game settings hold look, speed and rules', setup.sort().join(',') === 'board,bonus,edges,lives,snakecolour,snakestyle,speed', setup.join(','));
+    ok('Game settings is titled and says the rules apply to the next run', (await p.textContent('#dlg-setup-t')) === 'Game settings' && (await p.textContent('#setup-summary')).startsWith('Selected for the next run:'));
     await p.keyboard.press('Escape');
     const pos = await p.evaluate(() => { const n = document.getElementById('btn-new').getBoundingClientRect(); const g = document.getElementById('btn-setup').getBoundingClientRect(); const panel = document.querySelector('.panel').getBoundingClientRect(); return { dy: g.top - n.bottom, inPanel: g.left >= panel.left && g.right <= panel.right, h: g.height, label: document.getElementById('btn-setup').textContent }; });
-    ok('the Snake settings action sits right below New game, inside the controls panel', pos.dy >= 0 && pos.dy < 24 && pos.inPanel && pos.h >= 44 && pos.label === 'Snake settings', JSON.stringify(pos));
+    ok('the Game settings action sits right below New game, inside the controls panel', pos.dy >= 0 && pos.dy < 24 && pos.inPanel && pos.h >= 44 && pos.label === 'Game settings', JSON.stringify(pos));
     ok('the selected rules are shown before New game, with the next game label', (await p.textContent('#rules-line')).startsWith('Next game: '));
     await ctx.close();
   }
@@ -153,7 +153,7 @@ const tipInfo = (p, i) => p.evaluate((idx) => {
   // ---- edge default and migration ----
   {
     const { ctx, p } = await open(browser);
-    ok('fresh profile starts with Wrap around and Clear field', (await p.textContent('#edges-name')) === 'Wrap' && (await p.textContent('#rules-line')) === 'Next game: 1 life, clear field, wrap around edges, bonus food on.');
+    ok('fresh profile starts with Wrap around and Clear field', (await p.textContent('#rules-line')).includes('wrap around') && (await p.textContent('#rules-line')) === 'Next game: 1 life, clear field, wrap around edges, bonus food on.');
     await p.click('#btn-new'); await p.keyboard.press('ArrowRight');
     const s = await p.evaluate(() => window.classicGamesDebug.state());
     ok('a fresh run is created with wrap on', s.game.wrap === true && s.game.profile === 'slow|classic|clear|wrap|bonus');
@@ -169,18 +169,18 @@ const tipInfo = (p, i) => p.evaluate((idx) => {
     ok('an explicit Solid walls choice is saved with the migrated choices (v2)', v2.v === 2 && v2.chosen.edges === 'walls' && v2.chosen.board === 'gate' && v2.chosen.lives === 'extra' && v2.chosen.bonus === 'off', JSON.stringify(v2));
     await p.keyboard.press('Escape');
     await p.reload(); await p.waitForFunction(() => window.classicGamesDebug);
-    ok('the explicit Solid walls choice survives reload', (await p.textContent('#edges-name')) === 'Walls' && (await p.textContent('#rules-line')).includes('solid walls'));
+    ok('the explicit Solid walls choice survives reload', (await p.textContent('#rules-line')).includes('solid walls') && (await p.textContent('#rules-line')).includes('solid walls'));
     ok('v1 data is still untouched', await p.evaluate(() => localStorage.getItem('classic-games.rules')) === v1);
     await ctx.close();
   }
   {
     const { ctx, p } = await open(browser, { init: { 'classic-games.rules': JSON.stringify({ v: 1, board: 'clear', edges: 'wrap', lives: 'classic', bonus: 'on' }) } });
-    ok('v1 data that already says wrap keeps wrap', (await p.textContent('#edges-name')) === 'Wrap');
+    ok('v1 data that already says wrap keeps wrap', (await p.textContent('#rules-line')).includes('wrap around'));
     await ctx.close();
   }
   {
     const { ctx, p } = await open(browser, { init: { 'classic-games.rules.v2': JSON.stringify({ v: 2, chosen: { edges: 'walls' } }) } });
-    ok('an explicit v2 Solid walls choice is honoured on load', (await p.textContent('#edges-name')) === 'Walls');
+    ok('an explicit v2 Solid walls choice is honoured on load', (await p.textContent('#rules-line')).includes('solid walls'));
     await ctx.close();
   }
 
