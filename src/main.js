@@ -7,6 +7,7 @@
   var E = window.SnakeEngine;
   var S = window.SnakeStorage;
   var R = window.SnakeRender;
+  var FX = window.SnakeFx;
 
   var THEME_KEY = 'classic-games.theme';
   var THEMES = ['colour', 'lcd', 'night'];
@@ -94,7 +95,10 @@
   var skinPref = S.createChoicePref(storage, S.SKIN_KEY, { colour: K.COLOURS, style: K.STYLES },
     { colour: K.DEFAULT_COLOUR, style: K.DEFAULT_STYLE });
   skinPref.load();
-  var uiPref = S.createChoicePref(storage, S.UI_KEY, { dpad: ['on', 'off'] }, { dpad: 'off' });
+  var reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  // Effects follow the phone's Reduce motion setting until the player chooses.
+  var uiPref = S.createChoicePref(storage, S.UI_KEY, { dpad: ['on', 'off'], fx: ['on', 'off'] },
+    { dpad: 'off', fx: reduceMotion ? 'off' : 'on' });
   uiPref.load();
   var readyNote = ''; // set after a lost life
   var rafId = 0;
@@ -166,9 +170,80 @@
     draw();
   }
 
+  var fx = FX.create();
+  function fxOn() { return uiPref.get().fx === 'on'; }
+  var lastFood = '';
+
   function draw() {
     if (!game) return;
-    R.draw(ctx, game, palette(), canvas.width, canvas.height);
+    var w = canvas.width;
+    var h = canvas.height;
+    var pal = palette();
+    if (!fxOn()) { R.draw(ctx, game, pal, w, h); return; }
+    var fk = game.food ? game.food.x + ',' + game.food.y : '';
+    if (fk !== lastFood) { lastFood = fk; if (fk) fx.trigger('spawn', {}); }
+    var live = mode === 'running' || mode === 'ready' || mode === 'menu';
+    var anim = {
+      foodBob: fx.foodBob(), foodScale: fx.foodScale(), headPulse: fx.headPulse(),
+      blink: live && fx.blink(), tongue: live ? fx.tongue() : 0,
+      bulge: fx.bulgeIndex(game.tickMs, game.snake.length)
+    };
+    var l = R.layout(game.cols, game.rows, w, h);
+    var sh = fx.shakeOffset();
+    ctx.clearRect(0, 0, w, h);
+    ctx.save();
+    ctx.translate(sh.x * l.cell, sh.y * l.cell);
+    R.draw(ctx, game, pal, w, h, anim);
+    drawEffects(l, pal);
+    ctx.restore();
+    var fa = fx.flashAlpha();
+    if (fa > 0) { ctx.save(); ctx.globalAlpha = fa; ctx.fillStyle = pal.food; ctx.fillRect(0, 0, w, h); ctx.restore(); }
+  }
+
+  function drawEffects(l, pal) {
+    var st = fx.state;
+    var colors = { food: pal.food, bonus: pal.bonus, snake: pal.snakeHead };
+    st.particles.forEach(function (p) {
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, 1 - p.age / FX.PARTICLE_MS);
+      ctx.fillStyle = colors[p.color] || pal.food;
+      ctx.beginPath();
+      ctx.arc(l.ox + (p.x + 0.5) * l.cell, l.oy + (p.y + 0.5) * l.cell, p.r * l.cell, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    });
+    st.floaters.forEach(function (f) {
+      var k = f.age / FX.FLOAT_MS;
+      ctx.save();
+      ctx.globalAlpha = k < 0.6 ? 1 : Math.max(0, 1 - (k - 0.6) / 0.4);
+      ctx.font = '800 ' + Math.round(l.cell * 0.85) + 'px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.lineWidth = Math.max(2, l.cell * 0.12);
+      ctx.strokeStyle = pal.snakeEdge;
+      ctx.fillStyle = f.kind === 'bonus' ? pal.bonus : '#ffffff';
+      var fx0 = l.ox + (f.x + 0.5) * l.cell;
+      var fy0 = l.oy + (f.y + 0.5) * l.cell - k * l.cell * 1.6 - l.cell * 0.6;
+      ctx.strokeText(f.text, fx0, fy0);
+      ctx.fillText(f.text, fx0, fy0);
+      ctx.restore();
+    });
+  }
+
+  // One animation clock drives idle motion (blink, tongue, fruit bob) and one-off effects.
+  var animRaf = 0;
+  var animLast = null;
+  function animFrame(t) {
+    animRaf = 0;
+    if (!fxOn() || document.hidden) return;
+    fx.update(animLast === null ? 0 : Math.min(50, t - animLast));
+    animLast = t;
+    draw();
+    animRaf = window.requestAnimationFrame(animFrame);
+  }
+  function startAnim() {
+    if (animRaf || !fxOn()) return;
+    animLast = null;
+    animRaf = window.requestAnimationFrame(animFrame);
   }
 
   // ---------- UI ----------
@@ -315,9 +390,18 @@
     acc = r.acc;
     var lifeLost = false;
     for (var i = 0; i < r.steps && game.status === 'running'; i++) {
+      var prev = game;
       var res = E.step(game);
       game = res.state;
-      res.events.forEach(function (e) { if (e.type === 'lifeLost') lifeLost = true; });
+      res.events.forEach(function (e) {
+        if (e.type === 'lifeLost') lifeLost = true;
+        if (!fxOn()) return;
+        if (e.type === 'ate' || e.type === 'bonus') {
+          fx.trigger(e.type, { x: game.snake[0].x, y: game.snake[0].y, points: game.score - prev.score });
+        } else if (e.type === 'lifeLost' || e.type === 'over') {
+          fx.trigger(e.type, { x: prev.snake[0].x, y: prev.snake[0].y });
+        }
+      });
     }
     if (game.status === 'over' || game.status === 'won') {
       finish();
@@ -351,6 +435,7 @@
   // ---------- Commands ----------
   function startNewGame() {
     stopLoop();
+    fx.reset();
     currentShape = wantedShape();
     applyShape();
     game = newGame();
@@ -421,7 +506,7 @@
 
   // Auto-pause when the tab is hidden; resuming is always explicit and never catches up.
   document.addEventListener('visibilitychange', function () {
-    if (document.hidden) pause();
+    if (document.hidden) pause(); else startAnim();
   });
 
   // ---------- Input ----------
@@ -564,6 +649,15 @@
     });
   });
 
+  Array.prototype.forEach.call(document.querySelectorAll('input[name="fx"]'), function (r) {
+    r.addEventListener('change', function () {
+      if (!r.checked) return;
+      uiPref.set('fx', r.value);
+      fx.reset();
+      if (fxOn()) startAnim(); else draw();
+    });
+  });
+
   // ---------- Speed and rules settings ----------
   function profileLabel(key) {
     var p = key.split('|');
@@ -583,7 +677,7 @@
     var rules = rulesPref.get();
     var skin = skinPref.get();
     var checks = { speed: sel, board: rules.board, edges: rules.edges, lives: rules.lives, bonus: rules.bonus,
-      snakecolour: skin.colour, snakestyle: skin.style };
+      snakecolour: skin.colour, snakestyle: skin.style, fx: uiPref.get().fx };
     Object.keys(checks).forEach(function (name) {
       var radio = document.querySelector('input[name="' + name + '"][value="' + checks[name] + '"]');
       if (radio) radio.checked = true;
@@ -650,7 +744,8 @@
   if (params.get('debug') === '1') {
     // Test hook (read-only snapshot); not used by the app.
     window.classicGamesDebug = {
-      state: function () { return JSON.parse(JSON.stringify({ game: game, mode: mode })); }
+      state: function () { return JSON.parse(JSON.stringify({ game: game, mode: mode })); },
+      fx: fx
     };
   }
   game = newGame();
@@ -676,4 +771,5 @@
     window.addEventListener('resize', resizeCanvas);
   }
   resizeCanvas();
+  startAnim();
 })();

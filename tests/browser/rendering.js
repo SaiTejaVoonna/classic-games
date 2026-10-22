@@ -49,7 +49,7 @@ const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p);
     const ctx = await browser.newContext({ viewport: { width: 1366, height: 768 }, deviceScaleFactor: 1 });
     const p = await ctx.newPage(); const errs = [];
     p.on('pageerror', e => errs.push(String(e)));
-    await p.addInitScript(t => localStorage.setItem('classic-games.theme', t), theme);
+    await p.addInitScript(t => { localStorage.setItem('classic-games.theme', t); localStorage.setItem('classic-games.ui', JSON.stringify({ v: 1, chosen: { fx: 'off' } })); }, theme);
     await p.goto(INDEX + '?debug=1&seed=3');
     await p.evaluate(SETUP);
     const T = (name, cond, extra) => ok(`[${theme}] ${name}`, cond, extra);
@@ -206,6 +206,7 @@ const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p);
   {
     const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true });
     const p = await ctx.newPage();
+    await p.addInitScript(() => localStorage.setItem('classic-games.ui', JSON.stringify({ v: 1, chosen: { fx: 'off' } })));
     await p.goto(INDEX + '?debug=1&seed=3');
     await p.evaluate(SETUP);
     const info = await p.evaluate(() => window.__t.draw([[10, 7], [9, 7], [8, 7], [7, 7]], 'right'));

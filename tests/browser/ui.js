@@ -101,7 +101,7 @@ const tipInfo = (p, i) => p.evaluate((idx) => {
     await p.keyboard.press('Escape');
     await p.click('#btn-setup');
     const setup = await p.evaluate(() => [...new Set([...document.querySelectorAll('#dlg-setup input')].map(i => i.name))]);
-    ok('Game settings hold look, speed and rules', setup.sort().join(',') === 'board,bonus,edges,lives,snakecolour,snakestyle,speed', setup.join(','));
+    ok('Game settings hold look, speed and rules', setup.sort().join(',') === 'board,bonus,edges,fx,lives,snakecolour,snakestyle,speed', setup.join(','));
     ok('Game settings is titled and says the rules apply to the next run', (await p.textContent('#dlg-setup-t')) === 'Game settings' && (await p.textContent('#setup-summary')).startsWith('Selected for the next run:'));
     await p.keyboard.press('Escape');
     const pos = await p.evaluate(() => { const n = document.getElementById('btn-new').getBoundingClientRect(); const g = document.getElementById('btn-setup').getBoundingClientRect(); const panel = document.querySelector('.panel').getBoundingClientRect(); return { dy: g.top - n.bottom, inPanel: g.left >= panel.left && g.right <= panel.right, h: g.height, label: document.getElementById('btn-setup').textContent }; });

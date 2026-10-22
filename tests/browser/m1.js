@@ -108,6 +108,25 @@ async function drag(p, cdp, from, to) {
     await ctx.close();
   }
 
+  // ---- animations: on by default, off with Reduce motion, switchable ----
+  {
+    const { ctx, p, errs } = await phone(browser);
+    ok('animations are on by default', await p.evaluate(() => document.querySelector('input[name=fx]:checked').value) === 'on');
+    await p.tap('#ov-primary'); await sleep(100);
+    await p.evaluate(() => { const g = window.classicGamesDebug.state().game.snake[0]; window.classicGamesDebug.fx.trigger('ate', { x: g.x, y: g.y, points: 1 }); });
+    await sleep(80);
+    ok('an eat effect creates sparkles and a floating score', await p.evaluate(() => window.classicGamesDebug.fx.state.particles.length > 0 && window.classicGamesDebug.fx.state.floaters.length > 0));
+    await p.evaluate(() => document.getElementById('btn-setup').click());
+    await p.click('label.radio:has(input[name=fx][value=off])');
+    ok('turning animations off is saved', JSON.parse(await p.evaluate(() => localStorage.getItem('classic-games.ui'))).chosen.fx === 'off');
+    ok('no errors (effects)', errs.length === 0, errs.join('|'));
+    await ctx.close();
+    const c2 = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' });
+    const p2 = await c2.newPage(); await p2.goto(INDEX + '?debug=1&seed=3');
+    ok('Reduce motion turns animations off until chosen', await p2.evaluate(() => document.querySelector('input[name=fx]:checked').value) === 'off' && await p2.evaluate(() => localStorage.getItem('classic-games.ui')) === null);
+    await c2.close();
+  }
+
   // ---- desktop stays wide; game over overlay ----
   {
     const ctx = await browser.newContext({ viewport: { width: 1366, height: 768 } });

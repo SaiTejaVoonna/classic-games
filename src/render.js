@@ -153,7 +153,8 @@
 
   // palette: { boardLine, snake, snakeHead, snakeEdge, shine, eye, pupil, food, bonus,
   //            obstacle, obstacleEdge }
-  function draw(ctx, state, palette, w, h) {
+  function draw(ctx, state, palette, w, h, anim) {
+    anim = anim || {};
     var g = snakeGeometry(state, w, h);
     var l = g.layout;
     var cell = l.cell;
@@ -203,8 +204,10 @@
     // food: a round fruit with a small highlight
     if (state.food) {
       var f = cellCenter(l, state.food.x, state.food.y);
+      f.y += (anim.foodBob || 0) * cell;
+      var fs = typeof anim.foodScale !== 'number' ? 1 : anim.foodScale;
       ctx.fillStyle = palette.food;
-      circle(ctx, f.x, f.y, cell * 0.34);
+      circle(ctx, f.x, f.y, cell * 0.34 * fs);
       ctx.save();
       ctx.globalAlpha = 0.35;
       ctx.fillStyle = '#ffffff';
@@ -274,11 +277,60 @@
     ctx.stroke();
     ctx.restore();
 
+    // eaten food slides down the body as a bulge
+    if (typeof anim.bulge === 'number' && g.joints.length > 1) {
+      var bi = Math.max(0, Math.min(g.joints.length - 1, anim.bulge));
+      var b0 = g.joints[Math.floor(bi)];
+      var b1 = g.joints[Math.min(g.joints.length - 1, Math.ceil(bi))];
+      var bf = bi - Math.floor(bi);
+      if (Math.abs(b0.x - b1.x) < cell * 1.5 && Math.abs(b0.y - b1.y) < cell * 1.5) {
+        ctx.fillStyle = palette.snakeHead;
+        ctx.globalAlpha = 0.9;
+        circle(ctx, b0.x + (b1.x - b0.x) * bf, b0.y + (b1.y - b0.y) * bf, Math.max(b0.r, b1.r) * 1.22);
+        ctx.globalAlpha = 1;
+      }
+    }
+
+    // a quick tongue flick in front of the head
+    if (anim.tongue > 0.02) {
+      var tl = cell * (0.25 + 0.5 * anim.tongue);
+      var tx = g.head.x + g.head.ux * g.head.r;
+      var ty = g.head.y + g.head.uy * g.head.r;
+      var ex = tx + g.head.ux * tl;
+      var ey = ty + g.head.uy * tl;
+      var fx = -g.head.uy;
+      var fy = g.head.ux;
+      ctx.save();
+      ctx.strokeStyle = palette.food;
+      ctx.lineCap = 'round';
+      ctx.lineWidth = Math.max(1.5, cell * 0.07);
+      ctx.beginPath();
+      ctx.moveTo(tx, ty);
+      ctx.lineTo(ex, ey);
+      ctx.moveTo(ex, ey);
+      ctx.lineTo(ex + g.head.ux * cell * 0.12 + fx * cell * 0.1, ey + g.head.uy * cell * 0.12 + fy * cell * 0.1);
+      ctx.moveTo(ex, ey);
+      ctx.lineTo(ex + g.head.ux * cell * 0.12 - fx * cell * 0.1, ey + g.head.uy * cell * 0.12 - fy * cell * 0.1);
+      ctx.stroke();
+      ctx.restore();
+    }
+
     ctx.fillStyle = palette.snakeHead;
-    circle(ctx, g.head.x + g.head.ux * cell * 0.04, g.head.y + g.head.uy * cell * 0.04, g.head.r);
+    circle(ctx, g.head.x + g.head.ux * cell * 0.04, g.head.y + g.head.uy * cell * 0.04, g.head.r * (1 + 0.22 * (anim.headPulse || 0)));
     g.eyes.forEach(function (e) {
       ctx.fillStyle = palette.eye;
       circle(ctx, e.x, e.y, e.r);
+      if (anim.blink) {
+        ctx.strokeStyle = palette.snakeEdge;
+        ctx.lineWidth = Math.max(1, cell * 0.05);
+        ctx.beginPath();
+        ctx.moveTo(e.x - e.r, e.y);
+        ctx.lineTo(e.x + e.r, e.y);
+        ctx.stroke();
+        ctx.fillStyle = palette.snakeHead;
+        ctx.fillRect(e.x - e.r, e.y - e.r, e.r * 2, e.r);
+        return;
+      }
       ctx.fillStyle = palette.pupil;
       circle(ctx, e.pupil.x, e.pupil.y, e.pupil.r);
     });

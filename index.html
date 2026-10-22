@@ -10,6 +10,7 @@
   <script src="src/storage.js" defer></script>
   <script src="src/skins.js" defer></script>
   <script src="src/render.js" defer></script>
+  <script src="src/fx.js" defer></script>
   <script src="src/main.js" defer></script>
 </head>
 <body>
@@ -164,6 +165,12 @@
         <legend>Style</legend>
         <label class="radio"><input type="radio" name="snakestyle" value="smooth" checked> Smooth</label>
         <label class="radio"><input type="radio" name="snakestyle" value="pixel"> Pixel blocks</label>
+      </fieldset>
+      <fieldset id="fs-fx">
+        <legend>Effects</legend>
+        <label class="radio"><input type="radio" name="fx" value="on" checked> Animations on</label>
+        <label class="radio"><input type="radio" name="fx" value="off"> Animations off</label>
+        <p class="hint" id="fx-note">Blinking, sparkles, floating scores and shake on game over. They follow your phone's Reduce motion setting until you choose.</p>
       </fieldset>
       <fieldset id="fs-speed">
         <legend>Speed</legend>
