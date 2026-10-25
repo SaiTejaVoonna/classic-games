@@ -20,7 +20,7 @@ The measurements were made by code, not by ear.
 | Group | Recipes | Notes |
 |---|---|---|
 | Chapter music | 10 themes | Each has 4 layers: base (sub and pad), pulse, lead, climax |
-| Style kits | 3 | Cinematic (default), Piano, Acoustic (handpan and plucks). Same chords, different instruments, so 30 arrangements from 10 pieces of music data |
+| Style kits | 4 | Cinematic (default: strings, horns, taiko), Piano, Acoustic (handpan and plucks), Electronic (kick, clap, hats, synth bass, arpeggio, lead, with the pads ducking to the kick). Same chords, different instruments, so 40 arrangements from 10 pieces of music data |
 | Menus | 3 | Launcher, trip select, journey end |
 | Stingers | 12 | One per chapter change (in the next key), rest stop, crash, journey complete |
 | Ambience beds | 10 | Waves and gulls, meadow wind, city hum, rain, storm and thunder, snow wind, crickets, desert wind, tunnel echo, forest birds |
@@ -51,6 +51,12 @@ About 60 recipes, 0 files. Music data is small (chords and melody per chapter).
 - Events duck music and ambience by about 3 dB for a moment. A compressor keeps loud parts from jumping out.
 - Tonal balance: roughly -3 to -4 dB per octave from 120 Hz to 8 kHz. Do not scoop the mids (500 Hz to 2 kHz) and do not boost bass and treble together (the V shape). High-pass at 32 Hz.
 - Calm mode: about -4 dB overall, a softer top end, no hard transients, no sub below 40 Hz.
+
+## Drums, electronic and "concert level"
+
+- **Drums:** yes. Taiko and a full kit (kick, clap or snare, hats) are synthesised. Chapters can use them: Neon Quarter and Dusk City electronic, Amber Valley soft brushed taps, the finale big taiko.
+- **Electronic:** yes. Synth bass, arpeggios and leads with filters and ducking. A preview (`racer-neon.wav`) was rendered from the lab.
+- **Concert level orchestra:** not with synthesis alone. A synthesised orchestra sounds like a good sketch, not a recorded one. Options, in order of effort: (1) keep the synthesised strings, brass and taiko; (2) add a few sampled instruments (needs sample files with a clear licence, which breaks the 'no files' rule, and adds download size); (3) licensed or commissioned recordings, played by an adaptive player.
 
 ## Limits
 
