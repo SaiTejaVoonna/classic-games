@@ -1,0 +1,122 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Launcher and Racer next</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#0b0e16;color:#eaf1ff;font-family:system-ui,Segoe UI,Roboto,sans-serif;padding:26px;width:1700px}
+h1{font-size:24px;margin:0 0 4px}p.sub{margin:0 0 18px;color:#9fb0cc;font-size:14px}.sec{font-weight:800;margin:26px 0 10px;font-size:16px;letter-spacing:.3px}
+.row{display:flex;gap:22px;align-items:flex-start}
+.ph{width:300px;height:650px;border-radius:36px;border:7px solid #000;overflow:hidden;position:relative;background:#0e1424;box-shadow:0 18px 50px #000a;flex:none}
+.cap{width:300px;font-size:13px;font-weight:800;margin-top:9px}.cap small{display:block;font-weight:400;color:#9fb0cc;font-size:11.5px;line-height:1.4;margin-top:3px}
+.sb{height:28px;padding:8px 22px 0;font-size:11px;color:#ffffffaa;display:flex;justify-content:space-between}
+.pad{padding:0 20px}
+h2{font-size:22px;font-weight:700;margin:6px 0 2px}h3{font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#9fb0cc;margin:16px 0 8px;font-weight:700}
+.sub2{font-size:12px;color:#9fb0cc;margin:0 0 12px}
+.hero{height:250px;border-radius:22px;overflow:hidden;position:relative;margin-bottom:14px;border:1px solid #ffffff22}
+.hero img,.card img{width:100%;height:100%;object-fit:cover;display:block}
+.hero .ov{position:absolute;inset:0;background:linear-gradient(#0000 35%,#050810e8)}
+.hero .tx{position:absolute;left:16px;right:16px;bottom:14px}.hero b{font-size:21px;display:block}.hero small{color:#cfd8ea;font-size:11.5px}
+.btn{display:inline-block;background:#34e39c;color:#04140c;font-weight:800;border-radius:999px;padding:10px 22px;font-size:14px}
+.btn.ghost{background:#ffffff18;color:#fff;border:1px solid #ffffff30}
+.card{height:120px;border-radius:18px;overflow:hidden;position:relative;margin-bottom:12px;border:1px solid #ffffff22;display:flex}
+.card .im{width:42%;position:relative}.card .in{flex:1;padding:14px;display:flex;flex-direction:column;justify-content:center;gap:4px;background:#121a2e}
+.card b{font-size:17px}.card small{font-size:11px;color:#9fb0cc}
+.lock{display:flex;gap:10px}.lock div{flex:1;height:72px;border-radius:14px;background:#141b2e;border:1px dashed #ffffff30;font-size:11px;display:grid;place-items:center;color:#8c9bb8;text-align:center;padding:6px}
+.nav{position:absolute;left:0;right:0;bottom:0;height:60px;background:#0b1020;border-top:1px solid #ffffff15;display:flex;justify-content:space-around;align-items:center;font-size:11px;color:#9fb0cc}.nav i{display:block;width:20px;height:20px;border-radius:6px;background:#34e39c;margin:0 auto 4px}.nav span{text-align:center}.nav .off i{background:#3a4560}
+.seg{display:flex;gap:6px;margin-bottom:12px}.seg div{flex:1;text-align:center;padding:11px 4px;border-radius:14px;background:#161e33;border:1px solid #ffffff18;font-size:13px;font-weight:600}.seg .on{background:#34e39c;color:#04140c;border-color:#34e39c}
+.opt{background:#141c32;border:1px solid #ffffff18;border-radius:16px;padding:12px 14px;margin-bottom:9px;font-size:12px;color:#b9c6de;line-height:1.45}.opt b{display:flex;justify-content:space-between;font-size:15px;color:#fff;margin-bottom:2px}.opt.on{border-color:#34e39c;background:#12261f}
+.hearts{color:#ff5a7a;letter-spacing:2px;font-size:15px}
+.fullimg{position:absolute;inset:0}.fullimg img{width:100%;height:100%;object-fit:cover}
+.hud{position:absolute;left:16px;right:16px;top:30px;display:grid;grid-template-columns:1fr auto 1fr;align-items:start;gap:8px}
+.hud .m b{font-size:28px;font-weight:300;display:block;line-height:1}.hud small{font-size:9px;letter-spacing:2px;color:#ffffffb0}
+.pill{background:#0a0d1899;border:1px solid #ffffff30;border-radius:999px;padding:6px 12px;backdrop-filter:blur(8px)}
+.trip{position:absolute;left:16px;right:16px;top:86px}.trip .bar{height:5px;border-radius:3px;background:#ffffff30;position:relative}.trip .bar u{position:absolute;left:0;top:0;bottom:0;width:32%;border-radius:3px;background:#34e39c}.trip .dots{display:flex;justify-content:space-between;margin-top:-9px}.trip .dots i{width:11px;height:11px;border-radius:50%;background:#0b1020;border:2px solid #ffffff60}.trip .dots i.d{background:#34e39c;border-color:#34e39c}.trip .dots i.f{background:#ffd166;border-color:#ffd166}
+.trip small{display:flex;justify-content:space-between;margin-top:6px;font-size:9px;letter-spacing:1px;color:#ffffffc0;text-shadow:0 1px 4px #000}
+.title{position:absolute;left:0;right:0;top:130px;text-align:center;text-shadow:0 2px 12px #000a}.title small{font-size:10px;letter-spacing:5px;color:#ffffffcc;text-transform:uppercase}.title b{display:block;font-size:22px;font-weight:200;letter-spacing:6px;text-transform:uppercase;margin-top:3px}
+.bot{position:absolute;left:16px;right:16px;bottom:18px;display:flex;justify-content:space-between;align-items:flex-end}.bot .ease{padding:13px 20px;font-size:13px}
+.shield{position:absolute;left:50%;bottom:150px;transform:translateX(-50%);font-size:11px;letter-spacing:2px;color:#9fe9ff;text-shadow:0 0 10px #35e6ff}
+.done{position:absolute;inset:0;background:#050810c0;padding:0 22px}
+.stat{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #ffffff18;font-size:13px}.stat b{font-weight:600}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px}.tile{background:#141c32;border:1px solid #ffffff18;border-radius:14px;padding:10px;font-size:12px;color:#b9c6de;min-height:84px}.tile b{display:block;color:#fff;font-size:14px;margin-bottom:3px}.tile.on{border-color:#34e39c;background:#12261f}.tile em{font-style:normal;font-size:10px;color:#34e39c;letter-spacing:1px}
+.sl{margin:7px 0;font-size:12px;color:#b9c6de}.sl .tr{height:6px;background:#ffffff22;border-radius:3px;position:relative;margin-top:7px}.sl .tr u{position:absolute;left:0;top:0;bottom:0;border-radius:3px;background:#34e39c}.sl .tr i{position:absolute;top:-5px;width:16px;height:16px;border-radius:50%;background:#fff;margin-left:-8px}
+.ba{display:flex;gap:22px;align-items:flex-start}.ba .fr{width:300px;height:540px;border-radius:24px;overflow:hidden;border:5px solid #000;position:relative}.ba img{width:100%;height:100%;object-fit:cover;display:block}
+.tag{position:absolute;top:10px;left:10px;background:#000a;border-radius:999px;font-size:11px;padding:4px 12px;font-weight:700}
+.note{width:330px;background:#121a2e;border:1px solid #ffffff1c;border-radius:18px;padding:16px;font-size:12.5px;line-height:1.55;color:#c4d0e6}.note b{color:#fff}.note li{margin:3px 0}
+.guide{position:absolute;border:1.5px dashed #ff6b9a;border-radius:6px;font-size:9px;color:#ff9ab8;padding:1px 4px}
+.chmap{display:flex;gap:6px;width:1650px;margin-top:6px}.chmap div{flex:1;border-radius:12px;padding:10px 6px;text-align:center;font-size:11px;position:relative;min-height:84px;display:flex;flex-direction:column;justify-content:flex-end;background:linear-gradient(#0000,#000a)}.chmap b{display:block;font-size:12px}.chmap .cp{position:absolute;top:-9px;left:50%;transform:translateX(-50%);background:#ff5a7a;color:#fff;border-radius:999px;font-size:10px;padding:2px 8px;font-weight:700}
+</style></head><body>
+<h1>Classic Games launcher, Racer next steps (mock, nothing built yet)</h1>
+<p class="sub">Screens use real frames from the game. Environment frames are from a scratch copy with the fixes, not from your build.</p>
+
+<div class="sec">1. The main launcher and the new Racer flow</div>
+<div class="row">
+ <div><div class="ph"><div class="sb"><span>11:09</span><span>5G 87%</span></div><div class="pad">
+  <h2>Classic Games</h2><p class="sub2">Pick up where you left off.</p>
+  <div class="hero"><img src="assets/nh-meadow.jpg"><div class="ov"></div><div class="tx"><small>CONTINUE · RACER · JOURNEY</small><b>Chapter 3: Amber Valley</b><small>Best 2,140 m · Easy · ♥♥♥</small><div style="margin-top:10px"><span class="btn">Play</span></div></div></div>
+  <div class="card"><div class="im"><img src="assets/snake-art.jpg" style="object-position:center"></div><div class="in"><b>Snake</b><small>Best 31 · 12 mazes · swipe</small><span class="btn" style="padding:7px 16px;font-size:12px;align-self:flex-start;margin-top:4px">Play</span></div></div>
+  <h3>Today</h3><div class="opt" style="margin-bottom:10px"><b>Daily road <span style="color:#34e39c;font-size:12px">Play</span></b>Same road for everyone. Beat yesterday's distance.</div>
+  <h3>Coming later</h3><div class="lock"><div>Pairs<br>style</div><div>Space<br>shooter</div><div>Bantumi<br>style</div></div>
+ </div><div class="nav"><span><i></i>Games</span><span class="off"><i></i>Awards</span><span class="off"><i></i>App settings</span></div></div>
+ <div class="cap">Launcher<small>One home for every game. Big "continue" card with a live frame of the game, then the other games, a daily road, and locked tiles for what is coming. App settings stay here, game settings stay inside each game.</small></div></div>
+
+ <div><div class="ph"><div class="sb"><span>11:09</span><span>5G 87%</span></div><div class="pad">
+  <h2>Racer</h2><p class="sub2">Choose your trip.</p>
+  <div class="seg"><div class="on">Journey</div><div>Endless</div></div>
+  <div class="opt on"><b>Journey <span style="font-size:11px;color:#34e39c">8 min</span></b>Drive from Dawn Meadow to the Sunrise Coast. 10 chapters, a rest stop every two, and an ending when you arrive.</div>
+  <h3>Difficulty</h3>
+  <div class="opt on"><b>Easy <span class="hearts">♥♥♥</span></b>Sparse traffic, a shield after a bump, a heart back at each rest stop.</div>
+  <div class="opt"><b>Normal <span class="hearts">♥♥</span></b>More cars, shorter shield.</div>
+  <div class="opt"><b>Hard <span class="hearts">♥</span></b>One life, dense traffic, faster.</div>
+  <h3>Speed</h3><div class="seg"><div class="on">Relaxed</div><div>Normal</div><div>Fast</div></div>
+  <div style="text-align:center;margin-top:12px"><span class="btn" style="padding:13px 56px;font-size:16px">Start</span></div>
+ </div></div><div class="cap">Trip and difficulty<small>Journey can be finished. Endless keeps going. Easy gives 3 hearts and a shield, so one mistake does not end the run. Everything fits one screen with room to breathe.</small></div></div>
+
+ <div><div class="ph"><div class="fullimg"><img src="assets/nh-meadow.jpg"></div><div class="sb" style="position:relative"><span>11:09</span><span>5G 87%</span></div>
+  <div class="hud"><div class="m"><b>1,420</b><small>METERS</small></div><div class="pill" style="width:44px;height:44px;display:grid;place-items:center;font-weight:800;padding:0">II</div><div style="text-align:right"><div class="hearts" style="font-size:18px">♥♥♡</div><small>LIVES</small></div></div>
+  <div class="trip"><div class="bar"><u></u></div><div class="dots"><i class="d"></i><i class="d"></i><i class="d"></i><i></i><i></i><i></i><i></i><i></i><i></i><i class="f"></i></div><small><span>DAWN MEADOW</span><span>SUNRISE COAST</span></small></div>
+  <div class="title" style="top:150px"><small>Chapter 3</small><b>Amber Valley</b></div>
+  <div class="shield">SHIELD</div>
+  <div class="bot"><div class="pill ease">Hold to ease off</div><div style="text-align:right"><b style="font-size:28px;font-weight:300">96</b><br><small style="font-size:9px;letter-spacing:2px;color:#ffffffb0">KM/H</small></div></div>
+ </div><div class="cap">In the game<small>Lives as hearts, a trip bar that shows how far you are from the coast, and a checkpoint flag. A bump costs a heart, the shield blinks for two seconds, and the cars ahead drop back so you can recover. Margins are 16 px and tap targets are 44 px.</small></div></div>
+
+ <div><div class="ph"><div class="fullimg"><img src="assets/nh-coast.jpg"></div><div class="done"><div class="sb"><span>11:09</span><span></span></div>
+  <div style="text-align:center;margin-top:36px"><small style="letter-spacing:5px;color:#ffffffcc;font-size:10px">JOURNEY COMPLETE</small><div style="font-size:30px;font-weight:200;letter-spacing:4px;margin:6px 0 2px">YOU MADE IT</div><div style="color:#cfd8ea;font-size:12px">Sunrise Coast · 8 minutes 12 seconds</div></div>
+  <div style="margin-top:22px"><div class="stat"><span>Distance</span><b>9,000 m</b></div><div class="stat"><span>Lives left</span><b class="hearts">♥♥♡</b></div><div class="stat"><span>Close calls</span><b>42</b></div><div class="stat"><span>Scenes seen</span><b>10 / 10</b></div></div>
+  <div class="opt on" style="margin-top:16px"><b>New award <span style="color:#ffd166">★</span></b>Coast to coast. A new car colour is unlocked.</div>
+  <div style="text-align:center;margin-top:16px;display:grid;gap:8px"><span class="btn">Play again</span><span class="btn ghost">Try Endless</span></div>
+ </div></div><div class="cap">The ending<small>A finish with a quiet scene, your stats and an unlock. After it you can replay on a harder level, or switch to Endless.</small></div></div>
+
+ <div><div class="ph"><div class="sb"><span>11:09</span><span>5G 87%</span></div><div class="pad">
+  <h2>Music and sound</h2><p class="sub2">Racer only.</p>
+  <h3>Music style</h3>
+  <div class="tiles">
+   <div class="tile on"><em>SELECTED</em><b>Cinematic</b>Slow strings, deep brass swells, a low pulse</div>
+   <div class="tile"><b>Piano</b>Soft and warm, like Alto's Adventure</div>
+   <div class="tile"><b>Strings</b>Gentle violin and cello</div>
+   <div class="tile"><b>Guitar</b>Plucked and open</div>
+   <div class="tile"><b>Synth</b>Night drive, soft pulse</div>
+   <div class="tile"><b>Handpan</b>Calm and airy</div>
+  </div>
+  <h3>Mix</h3>
+  <div class="sl">Music<div class="tr"><u style="width:62%"></u><i style="left:62%"></i></div></div>
+  <div class="sl">Effects<div class="tr"><u style="width:48%"></u><i style="left:48%"></i></div></div>
+  <div class="sl">Bass<div class="tr"><u style="width:55%"></u><i style="left:55%"></i></div></div>
+  <div class="opt" style="margin-top:12px"><b>Vibration <span style="color:#34e39c">On</span></b>Android only</div>
+  <div class="opt"><b>Calm mode <span style="color:#34e39c">On</span></b>Softer effects, no sudden loud sounds</div>
+ </div></div><div class="cap">Sound options<small>Choose the music style, set music, effects and bass separately, and keep a calm mode. Music follows your chapter (key and tempo change), and you can preview each style.</small></div></div>
+</div>
+
+<div class="sec">2. The line you did not like, fixed, and a better balloon</div>
+<div class="ba">
+ <div><div class="fr"><img src="assets/racer-valley-now.jpg"><div class="tag">NOW</div><div class="guide" style="left:0;right:0;top:44%;height:46px">hard edges of the haze band</div><div class="guide" style="left:0;right:0;top:52%;height:1px;border-color:#ff6b9a"></div></div><div class="cap">Now<small>The haze was drawn as a flat band with hard top and bottom edges, so it cut across the hills.</small></div></div>
+ <div><div class="fr"><img src="assets/nh-valley.jpg"><div class="tag">NEXT</div></div><div class="cap">Next<small>Hills fade into the mist, so there is no visible line. Ground and haze share one colour.</small></div></div>
+ <div><div class="fr"><img src="assets/nh-meadow.jpg"><div class="tag">NEXT · balloon</div></div><div class="cap">Better balloon<small>Shaded envelope with stripes and highlights, ropes, a basket and a warm flame glow. It sways and drifts.</small></div></div>
+ <div class="note"><b>More environment work (planned)</b><ul style="padding-left:18px;margin:6px 0">
+  <li>4 hill layers with real mist between them</li><li>puffier clouds with lit edges</li><li>more tree and house variety, smaller on slopes</li><li>a village, a bridge, a tunnel and a sea cliff as set pieces</li><li>soft sun rays and a warm light on the road at golden hour</li><li>wider margins around the HUD, nothing touching the edges</li></ul>
+  <b>Alive, not cramped</b><br>16 px side margins, 44 px buttons, the car a little higher so the controls never cover it, and short calm stretches with open road.</div>
+</div>
+
+<div class="sec">3. Chapters, rest stops and lives (Journey mode)</div>
+<div class="chmap" id="cm"></div>
+<script>
+const ch=[['Dawn Meadow','nh-meadow'],['Sunset Coast','nh-coast'],['Amber Valley','nh-valley'],['Dusk City','nh-city'],['Neon Quarter','nh-neon'],['Desert Road','nh-meadow'],['Northern Lights','nh-aurora'],['Storm Pass','nh-neon'],['Cherry Hills','nh-meadow'],['Sunrise Coast','nh-coast']];
+document.getElementById('cm').innerHTML=ch.map(([n,i],k)=>`<div style="background:linear-gradient(#0000,#000b),url(assets/${i}.jpg) center/cover">${(k===1||k===3||k===5||k===7)?'<span class="cp">REST STOP +♥</span>':''}${k===9?'<span class="cp" style="background:#ffd166;color:#201800">FINISH</span>':''}<b>${k+1}. ${n}</b></div>`).join('');
+</script>
+</body></html>
