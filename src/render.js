@@ -39,11 +39,27 @@
   }
 
   // Pure description of the snake shapes for a state and canvas size.
-  function snakeGeometry(state, w, h) {
+  // glide (optional): { prev: previous state, alpha: 0..1 }. Each joint slides from where it
+  // was one step ago, so the snake moves smoothly between cells. Rules and cells are
+  // unchanged; a joint that wrapped across an edge simply jumps.
+  function glidePos(state, i, glide) {
+    var c = state.snake[i];
+    if (!glide || !glide.prev) return { x: c.x, y: c.y };
+    var pv = glide.prev;
+    var n = state.snake.length;
+    if (pv.cols !== state.cols || pv.rows !== state.rows || pv.snake.length < n - 1 || pv.snake.length > n) return { x: c.x, y: c.y };
+    var p = pv.snake[Math.min(i, pv.snake.length - 1)];
+    if (Math.abs(c.x - p.x) > 1 || Math.abs(c.y - p.y) > 1) return { x: c.x, y: c.y };
+    var a = Math.max(0, Math.min(1, glide.alpha));
+    return { x: p.x + (c.x - p.x) * a, y: p.y + (c.y - p.y) * a };
+  }
+
+  function snakeGeometry(state, w, h, glide) {
     var l = layout(state.cols, state.rows, w, h);
     var n = state.snake.length;
     var joints = state.snake.map(function (s, i) {
-      var c = cellCenter(l, s.x, s.y);
+      var g = glidePos(state, i, glide);
+      var c = cellCenter(l, g.x, g.y);
       return { x: c.x, y: c.y, r: bodyRadius(i, n, l.cell) };
     });
     var links = [];
@@ -155,7 +171,7 @@
   //            obstacle, obstacleEdge }
   function draw(ctx, state, palette, w, h, anim) {
     anim = anim || {};
-    var g = snakeGeometry(state, w, h);
+    var g = snakeGeometry(state, w, h, anim.glide);
     var l = g.layout;
     var cell = l.cell;
     ctx.clearRect(0, 0, w, h);

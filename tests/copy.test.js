@@ -32,7 +32,7 @@ test('badge and repeated board disclaimer are gone; one About note', () => {
 });
 
 test('unimplemented controls and engineering explanations are not shown', () => {
-  assert.ok(!/sound|vibration|unavailable|not implemented|why are|choose a level/i.test(visible));
+  assert.ok(!/unavailable|not implemented|why are|choose a level/i.test(visible));
   assert.ok(!/sel-level|sel-maze|type="checkbox"/.test(html));
 });
 
@@ -46,6 +46,7 @@ test('App settings hold app-wide choices only (Theme); game choices live in Game
   const settings = dialog('dlg-settings');
   assert.ok(settings.includes('App settings'));
   assert.ok(new RegExp('name="theme"').test(settings));
+  for (const app of ['sound', 'haptics']) assert.equal((settings.match(new RegExp('name="' + app + '"[^>]*checked', 'g')) || []).length, 1, app + ' has one default');
   assert.equal((settings.match(/name="theme"[^>]*checked/g) || []).length, 1, 'theme has one default');
   for (const game of ['speed', 'snakecolour', 'snakestyle', 'board', 'edges', 'lives', 'bonus']) {
     assert.ok(!new RegExp('name="' + game + '"').test(settings), game + ' is not an app setting');

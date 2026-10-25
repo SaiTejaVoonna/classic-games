@@ -8,6 +8,7 @@
   var S = window.SnakeStorage;
   var R = window.SnakeRender;
   var FX = window.SnakeFx;
+  var SFX = window.SnakeSfx;
 
   var THEME_KEY = 'classic-games.theme';
   var THEMES = ['colour', 'lcd', 'night'];
@@ -100,6 +101,23 @@
   var uiPref = S.createChoicePref(storage, S.UI_KEY, { dpad: ['on', 'off'], fx: ['on', 'off'] },
     { dpad: 'off', fx: reduceMotion ? 'off' : 'on' });
   uiPref.load();
+  // App-wide choices (shared by every game): sound and vibration.
+  var appPref = S.createChoicePref(storage, S.APP_KEY, { sound: ['on', 'off'], haptics: ['on', 'off'] },
+    { sound: 'on', haptics: 'on' });
+  appPref.load();
+  var sfx = SFX.create({
+    AudioContext: window.AudioContext || window.webkitAudioContext,
+    vibrate: window.navigator.vibrate ? window.navigator.vibrate.bind(window.navigator) : null
+  });
+  function applyApp() {
+    sfx.setSound(appPref.get().sound === 'on');
+    sfx.setHaptics(appPref.get().haptics === 'on');
+  }
+  applyApp();
+  // Audio can only start after a tap or key press.
+  ['pointerdown', 'keydown', 'touchend'].forEach(function (ev) {
+    document.addEventListener(ev, function () { sfx.unlock(); }, { passive: true });
+  });
   var readyNote = ''; // set after a lost life
   var rafId = 0;
   var lastTime = null;
@@ -173,6 +191,8 @@
   var fx = FX.create();
   function fxOn() { return uiPref.get().fx === 'on'; }
   var lastFood = '';
+  var prevGame = null; // the state one step ago, for the glide between cells
+  var GLIDE_SHARE = 0.7; // the snake arrives within this share of a step and then rests
 
   function draw() {
     if (!game) return;
@@ -188,6 +208,9 @@
       blink: live && fx.blink(), tongue: live ? fx.tongue() : 0,
       bulge: fx.bulgeIndex(game.tickMs, game.snake.length)
     };
+    if (prevGame && (mode === 'running' || mode === 'paused')) {
+      anim.glide = { prev: prevGame, alpha: acc / (game.tickMs * GLIDE_SHARE) };
+    }
     var l = R.layout(game.cols, game.rows, w, h);
     var sh = fx.shakeOffset();
     ctx.clearRect(0, 0, w, h);
@@ -393,8 +416,10 @@
       var prev = game;
       var res = E.step(game);
       game = res.state;
+      prevGame = prev;
       res.events.forEach(function (e) {
-        if (e.type === 'lifeLost') lifeLost = true;
+        if (e.type === 'lifeLost') { lifeLost = true; prevGame = null; }
+        if (e.type === 'ate' || e.type === 'bonus' || e.type === 'lifeLost' || e.type === 'over' || e.type === 'won') sfx.play(e.type);
         if (!fxOn()) return;
         if (e.type === 'ate' || e.type === 'bonus') {
           fx.trigger(e.type, { x: game.snake[0].x, y: game.snake[0].y, points: game.score - prev.score });
@@ -436,6 +461,7 @@
   function startNewGame() {
     stopLoop();
     fx.reset();
+    prevGame = null;
     currentShape = wantedShape();
     applyShape();
     game = newGame();
@@ -471,6 +497,7 @@
     var started = mode === 'ready' && next.status === 'running';
     game = next;
     if (started) {
+      prevGame = null;
       readyNote = '';
       mode = 'running';
       updateUI();
@@ -649,6 +676,17 @@
     });
   });
 
+  ['sound', 'haptics'].forEach(function (name) {
+    Array.prototype.forEach.call(document.querySelectorAll('input[name="' + name + '"]'), function (r) {
+      r.addEventListener('change', function () {
+        if (!r.checked) return;
+        appPref.set(name, r.value);
+        applyApp();
+        if (r.value === 'on') { sfx.unlock(); sfx.play(name === 'sound' ? 'ate' : 'bonus'); } // a short preview
+      });
+    });
+  });
+
   Array.prototype.forEach.call(document.querySelectorAll('input[name="fx"]'), function (r) {
     r.addEventListener('change', function () {
       if (!r.checked) return;
@@ -677,7 +715,8 @@
     var rules = rulesPref.get();
     var skin = skinPref.get();
     var checks = { speed: sel, board: rules.board, edges: rules.edges, lives: rules.lives, bonus: rules.bonus,
-      snakecolour: skin.colour, snakestyle: skin.style, fx: uiPref.get().fx };
+      snakecolour: skin.colour, snakestyle: skin.style, fx: uiPref.get().fx,
+      sound: appPref.get().sound, haptics: appPref.get().haptics };
     Object.keys(checks).forEach(function (name) {
       var radio = document.querySelector('input[name="' + name + '"][value="' + checks[name] + '"]');
       if (radio) radio.checked = true;
@@ -702,6 +741,7 @@
 
   function adoptSettings() {
     if (!runInProgress()) {
+      prevGame = null;
       game = newGame();
       updateUI(false);
     }

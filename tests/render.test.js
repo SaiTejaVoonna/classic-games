@@ -271,3 +271,37 @@ test('tall board geometry keeps square cells and fits the canvas', () => {
   assert.equal(g.head.ux, 0); assert.equal(g.head.uy, 1);
   for (const e of g.eyes) assert.ok(e.y > g.head.y, 'eyes toward the front (down)');
 });
+
+test('glide: joints slide from the previous cells and arrive at the current ones', () => {
+  const R = require('../src/render.js');
+  const mk = (cells) => ({ cols: 10, rows: 10, dir: 'right', snake: cells.map(([x, y]) => ({ x, y })) });
+  const prev = mk([[3, 5], [2, 5], [1, 5]]);
+  const cur = mk([[4, 5], [3, 5], [2, 5]]);
+  const at = (a) => R.snakeGeometry(cur, 100, 100, { prev, alpha: a }).joints.map((j) => j.x);
+  const cell = 10;
+  assert.deepEqual(at(0), [3.5 * cell, 2.5 * cell, 1.5 * cell]);
+  assert.deepEqual(at(0.5), [4 * cell, 3 * cell, 2 * cell]);
+  assert.deepEqual(at(1), [4.5 * cell, 3.5 * cell, 2.5 * cell]);
+  assert.deepEqual(R.snakeGeometry(cur, 100, 100).joints.map((j) => j.x), at(1), 'no glide equals alpha 1');
+});
+
+test('glide: a growing snake keeps its tail still, and a wrap jumps instead of sweeping across the board', () => {
+  const R = require('../src/render.js');
+  const mk = (cells) => ({ cols: 10, rows: 10, dir: 'right', snake: cells.map(([x, y]) => ({ x, y })) });
+  const prev = mk([[3, 5], [2, 5]]);
+  const grown = mk([[4, 5], [3, 5], [2, 5]]);
+  const xs = R.snakeGeometry(grown, 100, 100, { prev, alpha: 0 }).joints.map((j) => j.x);
+  assert.equal(xs[2], 2.5 * 10, 'new tail joint starts where the old tail was');
+  const pw = mk([[9, 5], [8, 5]]);
+  const cw = mk([[0, 5], [9, 5]]);
+  const wx = R.snakeGeometry(cw, 100, 100, { prev: pw, alpha: 0 }).joints.map((j) => j.x);
+  assert.equal(wx[0], 0.5 * 10, 'the head that wrapped is drawn at its new cell');
+});
+
+test('glide is ignored when the previous state does not match', () => {
+  const R = require('../src/render.js');
+  const mk = (cols, cells) => ({ cols, rows: 10, dir: 'right', snake: cells.map(([x, y]) => ({ x, y })) });
+  const cur = mk(10, [[4, 5], [3, 5], [2, 5]]);
+  const other = mk(14, [[1, 1], [0, 1], [0, 0]]);
+  assert.deepEqual(R.snakeGeometry(cur, 100, 100, { prev: other, alpha: 0 }).joints.map((j) => j.x), R.snakeGeometry(cur, 100, 100).joints.map((j) => j.x));
+});

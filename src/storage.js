@@ -21,6 +21,7 @@
   var RULES_KEY_V2 = 'classic-games.rules.v2';
   var SKIN_KEY = 'classic-games.skin';
   var UI_KEY = 'classic-games.ui';
+  var APP_KEY = 'classic-games.app';
 
   function hasOwn(obj, k) { return Object.prototype.hasOwnProperty.call(obj, k); }
 
@@ -239,6 +240,7 @@
     RULES_KEY_V2: RULES_KEY_V2,
     SKIN_KEY: SKIN_KEY,
     UI_KEY: UI_KEY,
+    APP_KEY: APP_KEY,
     createBestStore: createBestStore,
     createSpeedPref: createSpeedPref,
     createRulesPref: createRulesPref,

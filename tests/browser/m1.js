@@ -108,6 +108,26 @@ async function drag(p, cdp, from, to) {
     await ctx.close();
   }
 
+  // ---- sound and vibration settings ----
+  {
+    const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+    const p = await ctx.newPage(); const errs = [];
+    p.on('pageerror', e => errs.push(String(e)));
+    await p.addInitScript(() => { window.__vib = []; navigator.vibrate = (x) => { window.__vib.push(x); return true; }; });
+    await p.goto(INDEX + '?debug=1&seed=3');
+    ok('sound and vibration default to on', await p.evaluate(() => document.querySelector('input[name=sound]:checked').value === 'on' && document.querySelector('input[name=haptics]:checked').value === 'on'));
+    ok('nothing is stored until the player chooses', await p.evaluate(() => localStorage.getItem('classic-games.app')) === null);
+    await p.tap('[data-open=dlg-settings]'); await sleep(200);
+    await p.click('label.radio:has(input[name=haptics][value=off])'); await sleep(100);
+    const stored = JSON.parse(await p.evaluate(() => localStorage.getItem('classic-games.app'))).chosen;
+    ok('turning vibration off is saved in the app key, not a game key', stored.haptics === 'off' && stored.sound === undefined);
+    const before = await p.evaluate(() => window.__vib.length);
+    await p.click('label.radio:has(input[name=haptics][value=on])'); await sleep(100);
+    ok('turning vibration on gives a short preview buzz', (await p.evaluate(() => window.__vib.length)) === before + 1);
+    ok('no errors (sound settings)', errs.length === 0, errs.join('|'));
+    await ctx.close();
+  }
+
   // ---- animations: on by default, off with Reduce motion, switchable ----
   {
     const { ctx, p, errs } = await phone(browser);

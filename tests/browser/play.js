@@ -177,7 +177,7 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
     ok('no em or en dashes in any visible copy (including dialogs)', !/[\u2013\u2014]/.test(bodyText));
     ok('no Early prototype badge or repeated board disclaimer', !/early prototype/i.test(bodyText) && (await p.locator('.badge, .board-note').count()) === 0);
     ok('one About note, inside Instructions', (bodyText.match(/An early version of Classic Games\. Gameplay may differ from the originals\./g) || []).length === 1 && (await p.locator('#dlg-help .about').count()) === 1);
-    ok('Level, Sound and Vibration controls are not shown', !/sound|vibration|unavailable|not implemented|why are|choose a level/i.test(bodyText) && (await p.locator('#sel-level, #sel-maze, input[type=checkbox]').count()) === 0);
+    ok('Level selectors and unfinished-feature wording are not shown', !/unavailable|not implemented|why are|choose a level/i.test(bodyText) && (await p.locator('#sel-level, #sel-maze, input[type=checkbox]').count()) === 0);
     await p.click('[data-open=dlg-top]'); ok('Top score shows No score yet for a fresh profile', (await p.textContent('#top-text')) === 'No score yet.'); await p.keyboard.press('Escape');
     await openSettings(p);
     const labels = await p.evaluate(() => [...document.querySelectorAll('label.radio:has(input[name=speed])')].map(l => l.textContent.replace(/\s+/g, ' ').trim()));

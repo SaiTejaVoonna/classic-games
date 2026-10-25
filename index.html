@@ -11,6 +11,7 @@
   <script src="src/skins.js" defer></script>
   <script src="src/render.js" defer></script>
   <script src="src/fx.js" defer></script>
+  <script src="src/sfx.js" defer></script>
   <script src="src/main.js" defer></script>
 </head>
 <body>
@@ -139,6 +140,17 @@
         <label class="radio"><input type="radio" name="theme" value="colour" checked> Colour</label>
         <label class="radio"><input type="radio" name="theme" value="lcd"> LCD</label>
         <label class="radio"><input type="radio" name="theme" value="night"> Night</label>
+      </fieldset>
+      <fieldset id="fs-sound">
+        <legend>Sound</legend>
+        <label class="radio"><input type="radio" name="sound" value="on" checked> Sound on</label>
+        <label class="radio"><input type="radio" name="sound" value="off"> Sound off</label>
+      </fieldset>
+      <fieldset id="fs-haptics">
+        <legend>Vibration</legend>
+        <label class="radio"><input type="radio" name="haptics" value="on" checked> Vibration on</label>
+        <label class="radio"><input type="radio" name="haptics" value="off"> Vibration off</label>
+        <p class="hint">Vibration works on most Android phones. iPhone does not allow it in the browser.</p>
       </fieldset>
       <p class="hint">These apply to every game on Classic Games. Options for the game itself are in Game settings, under the board.</p>
     </div>

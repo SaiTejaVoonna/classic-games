@@ -96,7 +96,7 @@ const tipInfo = (p, i) => p.evaluate((idx) => {
     const { ctx, p } = await open(browser);
     await p.click('[data-open=dlg-settings]');
     const settings = await p.evaluate(() => [...new Set([...document.querySelectorAll('#dlg-settings input')].map(i => i.name))]);
-    ok('App settings hold Theme only', settings.sort().join(',') === 'theme', settings.join(','));
+    ok('App settings hold Theme, Sound and Vibration only', settings.sort().join(',') === 'haptics,sound,theme', settings.join(','));
     ok('Settings has no gameplay rule wording', !/maze|wrap|lives|bonus|edges/i.test(await p.evaluate(() => document.getElementById('dlg-settings').textContent)));
     await p.keyboard.press('Escape');
     await p.click('#btn-setup');
