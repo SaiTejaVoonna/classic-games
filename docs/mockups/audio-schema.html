@@ -1,0 +1,44 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Audio schema</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#0b0e16;color:#eaf1ff;font-family:system-ui,Segoe UI,Roboto,sans-serif;padding:28px;width:1500px}
+h1{font-size:24px;margin:0 0 4px}p.sub{margin:0 0 18px;color:#9fb0cc;font-size:14px}
+.top{display:grid;grid-template-columns:1fr 1.15fr 2.6fr;gap:14px}
+.box{background:#111830;border:1px solid #ffffff1c;border-radius:18px;padding:16px}.box h2{margin:0 0 2px;font-size:16px}.box .n{font-size:40px;font-weight:200;line-height:1;margin:6px 0 2px}.box small{color:#9fb0cc;font-size:12px}
+.row{display:flex;justify-content:space-between;padding:6px 10px;border-radius:9px;margin:5px 0;font-size:12.5px}.row b{font-weight:700}
+.g{background:#2a3a6a}.s{background:#1e5a4a}.r1{background:#27407a}.r2{background:#1e5a4a}.r3{background:#5a3a6a}.r4{background:#6a4a1e}.r5{background:#6a2a3a}.r6{background:#3a4a5a}
+.total{margin-top:14px;display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.total div{background:#111830;border:1px solid #ffffff1c;border-radius:16px;padding:14px;text-align:center}.total b{font-size:34px;font-weight:200;display:block}.total small{color:#9fb0cc;font-size:12px}
+.sec{font-weight:800;margin:26px 0 8px;font-size:16px}
+table{border-collapse:collapse;width:100%;font-size:12.5px}th,td{border:1px solid #ffffff1c;padding:9px 11px;text-align:left;vertical-align:top}th{background:#16203d;color:#cfe0ff;font-size:11px;letter-spacing:1px;text-transform:uppercase}td{background:#101730;color:#c4d0e6}td b{color:#fff}
+.chips span{display:inline-block;background:#1b274a;border-radius:999px;padding:3px 9px;margin:2px 3px 2px 0;font-size:11.5px}
+.vox{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.vox div{background:#111830;border:1px solid #ffffff1c;border-radius:16px;padding:14px;font-size:12.5px;line-height:1.5;color:#c4d0e6}.vox b{color:#fff;display:block;margin-bottom:4px}
+.tag{font-size:10px;letter-spacing:2px;color:#34e39c;text-transform:uppercase}
+</style></head><body>
+<h1>Classic Games: the whole audio schema</h1><p class="sub">116 recipes, 0 audio files. Everything is built in the browser and has an off switch. Counts match <b>docs/AUDIO_SCHEMA.md</b>.</p>
+<div class="total"><div><b>116</b><small>sound recipes overall</small></div><div><b>0</b><small>audio files shipped (synthesised)</small></div><div><b>0</b><small>songs or vocals by default (instrumental)</small></div><div><b>~140 / 40 MB</b><small>files if you later use recordings</small></div></div>
+<div class="sec">How it divides</div>
+<div class="top">
+ <div class="box"><h2>Global</h2><div class="n">11</div><small>every game</small>
+  <div class="row g"><span>Signature motif</span><b>1</b></div><div class="row g"><span>Interface sounds</span><b>9</b></div><div class="row g"><span>Launcher theme</span><b>1</b></div></div>
+ <div class="box"><h2>Snake</h2><div class="n">17</div><small>quiet and tidy</small>
+  <div class="row s"><span>Music (3 themes)</span><b>3</b></div><div class="row s"><span>Ambience</span><b>2</b></div><div class="row s"><span>Effects</span><b>12</b></div></div>
+ <div class="box"><h2>Racer</h2><div class="n">88</div><small>the big one</small>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 14px"><div>
+  <div class="row r1"><span>Chapter music (10, in 4 kits)</span><b>10</b></div><div class="row r1"><span>Menus</span><b>3</b></div><div class="row r1"><span>Stingers</span><b>12</b></div><div class="row r2"><span>Ambience beds</span><b>10</b></div></div><div>
+  <div class="row r3"><span>Life sounds (balloon, birds...)</span><b>24</b></div><div class="row r4"><span>Car</span><b>9</b></div><div class="row r5"><span>Pickups and events</span><b>20</b></div></div></div></div>
+</div>
+<div class="sec">Racer: the 24 life sounds (the world coming alive)</div>
+<div class="box chips"><span>balloon burner</span><span>songbirds</span><span>gulls</span><span>owl or crow</span><span>crickets</span><span>frogs</span><span>windmill creak</span><span>wind chimes</span><span>flag flap</span><span>bell buoy</span><span>boat horn</span><span>church bell</span><span>distant train</span><span>plane flyover</span><span>thunder close</span><span>thunder far</span><span>rain gust</span><span>tunnel whoosh</span><span>bridge rumble</span><span>siren far</span><span>city horns far</span><span>foghorn</span><span>fireworks</span><span>camera shutter</span></div>
+<div class="sec">Where each sound plays, per Racer chapter</div>
+<table><tr><th>Chapter</th><th>Music kit</th><th>Ambience bed</th><th>Life sounds</th></tr>
+<tr><td><b>1 Dawn Meadow</b></td><td>Piano</td><td>Wind in grass</td><td>songbirds, balloon burner, windmill creak</td></tr>
+<tr><td><b>2 Sunset Coast</b></td><td>Acoustic (handpan)</td><td>Waves</td><td>gulls, bell buoy, boat horn, foghorn, balloon burner</td></tr>
+<tr><td><b>3 Amber Valley</b></td><td>Piano and cello</td><td>Autumn wind</td><td>windmill creak, crow, church bell, crickets</td></tr>
+<tr><td><b>4 Dusk City</b></td><td>Electronic (soft)</td><td>City hum</td><td>siren far, city horns far, plane, train</td></tr>
+<tr><td><b>5 Neon Quarter</b></td><td>Electronic</td><td>Rain</td><td>thunder far, siren far, rain gust</td></tr>
+<tr><td><b>6 Desert Road</b></td><td>Acoustic (plucks)</td><td>Desert wind</td><td>wind chimes, flag flap, crickets</td></tr>
+<tr><td><b>7 Northern Lights</b></td><td>Cinematic pads</td><td>Snow wind</td><td>owl, distant train, wind chimes</td></tr></table>
+<div class="sec">Songs and vocals</div>
+<div class="vox"><div><span class="tag">default</span><b>Instrumental only</b>No songs, no voice-over. Music is built from chords and melody written in code.</div><div><span class="tag">can build</span><b>Wordless choir</b>A synthesised "ooh" for the cinematic finale and the journey end. One recipe.</div><div><span class="tag">needs a person</span><b>A real song or vocals</b>For example for the credits. Needs a recorded, licensed or commissioned track, because I cannot synthesise a real singer.</div></div>
+<div class="sec">Rules that keep it from being loud or messy</div>
+<div class="vox"><div><b>Placed in space</b>Every one-shot has a side or lane and a distance. Far sounds are quieter and duller. Waves sit on the shore side.</div><div><b>Rare life sounds</b>Random, every 8 to 25 seconds, never on top of an event, never in calm mode peaks.</div><div><b>One room, ducking</b>Music, ambience and effects share one soft reverb. Events duck the rest by about 3 dB. Calm mode is 4 dB quieter, with no hard hits.</div></div>
+</body></html>
