@@ -192,7 +192,7 @@
   function fxOn() { return uiPref.get().fx === 'on'; }
   var lastFood = '';
   var prevGame = null; // the state one step ago, for the glide between cells
-  var GLIDE_SHARE = 0.7; // the snake arrives within this share of a step and then rests
+  var GLIDE_SHARE = 1; // the snake keeps moving through the whole step: no stop and go
 
   function draw() {
     if (!game) return;
@@ -208,6 +208,11 @@
       blink: live && fx.blink(), tongue: live ? fx.tongue() : 0,
       bulge: fx.bulgeIndex(game.tickMs, game.snake.length)
     };
+    if (pal.style !== 'pixel' && pal.snake) {
+      anim.crawl = true; // a smooth crawling body with a gentle wave
+      anim.t = fx.state.t;
+      anim.waveAmp = mode === 'running' ? 0.075 : mode === 'ready' || mode === 'menu' ? 0.03 : 0;
+    }
     if (prevGame && (mode === 'running' || mode === 'paused')) {
       anim.glide = { prev: prevGame, alpha: acc / (game.tickMs * GLIDE_SHARE) };
     }

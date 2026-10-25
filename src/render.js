@@ -39,6 +39,114 @@
   }
 
   // Pure description of the snake shapes for a state and canvas size.
+  // Crawling body: one smooth curve through the joints (Catmull-Rom), drawn as many small
+  // overlapping circles whose size follows the taper, with a gentle side to side wave that
+  // travels from the head to the tail. Presentation only; the cells are unchanged.
+  var CRAWL_STEPS = 8;
+  var WAVE_LEN = 4.2; // cells per wave
+  var WAVE_HZ = 1.1;
+
+  function crawlSamples(g, cell, amp, tMs) {
+    var J = g.joints;
+    var runs = [];
+    var cur = [0];
+    for (var i = 1; i < J.length; i++) {
+      if (Math.hypot(J[i].x - J[i - 1].x, J[i].y - J[i - 1].y) > cell * 1.6) { runs.push(cur); cur = []; }
+      cur.push(i);
+    }
+    runs.push(cur);
+    var out = [];
+    runs.forEach(function (run) {
+      var pts = run.map(function (k) { return J[k]; });
+      var m = pts.length;
+      var raw = [];
+      for (var a = 0; a < m; a++) {
+        var last = a === m - 1;
+        var p1 = pts[a];
+        if (last) { raw.push({ x: p1.x, y: p1.y, r: p1.r, u: run[a] }); continue; }
+        var p2 = pts[a + 1];
+        var p0 = a > 0 ? pts[a - 1] : { x: 2 * p1.x - p2.x, y: 2 * p1.y - p2.y };
+        var p3 = a + 2 < m ? pts[a + 2] : { x: 2 * p2.x - p1.x, y: 2 * p2.y - p1.y };
+        for (var k = 0; k < CRAWL_STEPS; k++) {
+          var t = k / CRAWL_STEPS;
+          var t2 = t * t;
+          var t3 = t2 * t;
+          raw.push({
+            x: 0.5 * ((2 * p1.x) + (-p0.x + p2.x) * t + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3),
+            y: 0.5 * ((2 * p1.y) + (-p0.y + p2.y) * t + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3),
+            r: p1.r + (p2.r - p1.r) * t, u: run[a] + t
+          });
+        }
+      }
+      raw.forEach(function (q, idx) {
+        var pa = raw[Math.max(0, idx - 1)];
+        var pb = raw[Math.min(raw.length - 1, idx + 1)];
+        var dx = pb.x - pa.x;
+        var dy = pb.y - pa.y;
+        var len = Math.hypot(dx, dy) || 1;
+        var env = Math.min(1, q.u / 1.6);
+        var off = amp * cell * env * Math.sin(2 * Math.PI * (q.u / WAVE_LEN - tMs / 1000 * WAVE_HZ));
+        out.push({ x: q.x - dy / len * off, y: q.y + dx / len * off, r: q.r, u: q.u });
+      });
+    });
+    return out;
+  }
+
+  function discs(ctx, samples, dx, dy, k) {
+    ctx.beginPath();
+    samples.forEach(function (q) {
+      var r = Math.max(0, q.r * k);
+      ctx.moveTo(q.x + dx + r, q.y + dy);
+      ctx.arc(q.x + dx, q.y + dy, r, 0, Math.PI * 2);
+    });
+    ctx.fill();
+  }
+
+  function drawCrawl(ctx, g, palette, cell, anim) {
+    var smp = crawlSamples(g, cell, anim.waveAmp || 0, anim.t || 0);
+    ctx.save();
+    ctx.globalAlpha = 0.35;
+    ctx.fillStyle = palette.snakeEdge;
+    discs(ctx, smp, 0, cell * 0.06, 1);
+    ctx.restore();
+    ctx.fillStyle = palette.snake;
+    discs(ctx, smp, 0, 0, 1);
+    ctx.save();
+    ctx.globalAlpha = 0.22;
+    ctx.fillStyle = palette.shine;
+    discs(ctx, smp, -cell * 0.08, -cell * 0.1, 0.36);
+    ctx.restore();
+    // scale pattern: faint dots down the middle of the body
+    ctx.save();
+    ctx.globalAlpha = 0.1;
+    ctx.fillStyle = palette.snakeEdge;
+    smp.forEach(function (q, i) { if (i % CRAWL_STEPS === 0 && q.u > 1 && q.r > cell * 0.25) circle(ctx, q.x, q.y, cell * 0.09); });
+    ctx.restore();
+  }
+
+  // the head faces along the neck to head direction, so it turns smoothly while gliding round a bend
+  function crawlHead(g, cell) {
+    var J = g.joints;
+    var h = J[0];
+    var dx = g.head.ux;
+    var dy = g.head.uy;
+    if (J.length > 1 && Math.hypot(h.x - J[1].x, h.y - J[1].y) <= cell * 1.6) {
+      var vx = h.x - J[1].x;
+      var vy = h.y - J[1].y;
+      var len = Math.hypot(vx, vy) || 1;
+      dx = vx / len;
+      dy = vy / len;
+    }
+    var px = -dy;
+    var py = dx;
+    g.head = { x: h.x, y: h.y, r: g.head.r, ux: dx, uy: dy };
+    g.eyes = [-1, 1].map(function (side) {
+      var cx = h.x + dx * cell * 0.12 + px * side * cell * 0.22;
+      var cy = h.y + dy * cell * 0.12 + py * side * cell * 0.22;
+      return { x: cx, y: cy, r: cell * EYE_R, pupil: { x: cx + dx * cell * 0.04, y: cy + dy * cell * 0.04, r: cell * PUPIL_R } };
+    });
+  }
+
   // glide (optional): { prev: previous state, alpha: 0..1 }. Each joint slides from where it
   // was one step ago, so the snake moves smoothly between cells. Rules and cells are
   // unchanged; a joint that wrapped across an edge simply jumps.
@@ -263,35 +371,40 @@
       return g;
     }
 
-    // snake: soft shadow for subtle depth, body, highlight, then head and eyes
-    ctx.save();
-    ctx.globalAlpha = 0.35;
-    ctx.fillStyle = palette.snakeEdge;
-    drawBody(ctx, g, cell * 0.06);
-    circle(ctx, g.head.x, g.head.y + cell * 0.06, g.head.r);
-    ctx.restore();
+    if (anim.crawl) {
+      crawlHead(g, cell);
+      drawCrawl(ctx, g, palette, cell, anim);
+    } else {
+      // snake: soft shadow for subtle depth, body, highlight, then head and eyes
+      ctx.save();
+      ctx.globalAlpha = 0.35;
+      ctx.fillStyle = palette.snakeEdge;
+      drawBody(ctx, g, cell * 0.06);
+      circle(ctx, g.head.x, g.head.y + cell * 0.06, g.head.r);
+      ctx.restore();
 
-    ctx.fillStyle = palette.snake;
-    drawBody(ctx, g, 0);
+      ctx.fillStyle = palette.snake;
+      drawBody(ctx, g, 0);
 
-    // one continuous highlight along the body (a new subpath starts after a board edge)
-    ctx.save();
-    ctx.globalAlpha = 0.22;
-    ctx.strokeStyle = palette.shine;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.lineWidth = Math.max(1, cell * 0.14);
-    ctx.beginPath();
-    var open = -1;
-    g.links.forEach(function (k) {
-      var a = g.joints[k.from];
-      var z = g.joints[k.to];
-      if (open !== k.from) ctx.moveTo(a.x - cell * 0.08, a.y - cell * 0.1);
-      ctx.lineTo(z.x - cell * 0.08, z.y - cell * 0.1);
-      open = k.to;
-    });
-    ctx.stroke();
-    ctx.restore();
+      // one continuous highlight along the body (a new subpath starts after a board edge)
+      ctx.save();
+      ctx.globalAlpha = 0.22;
+      ctx.strokeStyle = palette.shine;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.lineWidth = Math.max(1, cell * 0.14);
+      ctx.beginPath();
+      var open = -1;
+      g.links.forEach(function (k) {
+        var a = g.joints[k.from];
+        var z = g.joints[k.to];
+        if (open !== k.from) ctx.moveTo(a.x - cell * 0.08, a.y - cell * 0.1);
+        ctx.lineTo(z.x - cell * 0.08, z.y - cell * 0.1);
+        open = k.to;
+      });
+      ctx.stroke();
+      ctx.restore();
+    }
 
     // eaten food slides down the body as a bulge
     if (typeof anim.bulge === 'number' && g.joints.length > 1) {
@@ -356,6 +469,6 @@
   return {
     BODY_R: BODY_R, TAIL_R: TAIL_R, HEAD_R: HEAD_R, TAPER_CELLS: TAPER_CELLS,
     layout: layout, cellCenter: cellCenter, bodyRadius: bodyRadius,
-    snakeGeometry: snakeGeometry, pixelGeometry: pixelGeometry, draw: draw
+    snakeGeometry: snakeGeometry, pixelGeometry: pixelGeometry, crawlSamples: crawlSamples, draw: draw
   };
 });

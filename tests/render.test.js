@@ -305,3 +305,37 @@ test('glide is ignored when the previous state does not match', () => {
   const other = mk(14, [[1, 1], [0, 1], [0, 0]]);
   assert.deepEqual(R.snakeGeometry(cur, 100, 100, { prev: other, alpha: 0 }).joints.map((j) => j.x), R.snakeGeometry(cur, 100, 100).joints.map((j) => j.x));
 });
+
+test('crawl: the body is one continuous curve that tapers toward the tail', () => {
+  const R = require('../src/render.js');
+  const st = { cols: 10, rows: 10, dir: 'right', snake: [[5, 5], [4, 5], [3, 5], [3, 4], [3, 3], [4, 3]].map(([x, y]) => ({ x, y })) };
+  const g = R.snakeGeometry(st, 100, 100);
+  const s = R.crawlSamples(g, 10, 0, 0);
+  for (let i = 1; i < s.length; i++) assert.ok(Math.hypot(s[i].x - s[i - 1].x, s[i].y - s[i - 1].y) < 3, 'no gaps between samples');
+  assert.ok(s[0].r > s[s.length - 1].r, 'the tail is thinner than the head end');
+  assert.equal(s[0].x, g.joints[0].x);
+  assert.equal(s[0].y, g.joints[0].y);
+});
+
+test('crawl: the wave moves the body sideways, never the head, and is flat with zero amplitude', () => {
+  const R = require('../src/render.js');
+  const st = { cols: 10, rows: 10, dir: 'right', snake: [[8, 5], [7, 5], [6, 5], [5, 5], [4, 5], [3, 5]].map(([x, y]) => ({ x, y })) };
+  const g = R.snakeGeometry(st, 100, 100);
+  const flat = R.crawlSamples(g, 10, 0, 0);
+  const wavy = R.crawlSamples(g, 10, 0.1, 150);
+  assert.ok(flat.every((q) => Math.abs(q.y - 55) < 1e-6), 'a straight snake stays straight without a wave');
+  assert.equal(wavy[0].y, flat[0].y, 'the head sits on the path');
+  assert.ok(wavy.some((q) => Math.abs(q.y - 55) > 0.3), 'the body sways');
+  assert.ok(wavy.every((q) => Math.abs(q.y - 55) <= 1.0001), 'sway stays within a tenth of a cell');
+  const later = R.crawlSamples(g, 10, 0.1, 400);
+  assert.ok(later.some((q, i) => Math.abs(q.y - wavy[i].y) > 0.2), 'the wave travels over time');
+});
+
+test('crawl: a wrapped snake is drawn as separate runs, not one streak across the board', () => {
+  const R = require('../src/render.js');
+  const st = { cols: 10, rows: 10, dir: 'right', snake: [[0, 5], [9, 5], [8, 5]].map(([x, y]) => ({ x, y })) };
+  const s = R.crawlSamples(R.snakeGeometry(st, 100, 100), 10, 0, 0);
+  assert.ok(s.some((q) => q.x < 10) && s.some((q) => q.x > 80));
+  const crossing = s.filter((q, i) => i > 0 && Math.abs(q.x - s[i - 1].x) > 30);
+  assert.equal(crossing.length, 1, 'exactly one jump (the wrap), not a streak of samples across the board');
+});
