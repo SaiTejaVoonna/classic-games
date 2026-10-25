@@ -58,6 +58,18 @@ About 60 recipes, 0 files. Music data is small (chords and melody per chapter).
 - **Electronic:** yes. Synth bass, arpeggios and leads with filters and ducking. A preview (`racer-neon.wav`) was rendered from the lab.
 - **Concert level orchestra:** not with synthesis alone. A synthesised orchestra sounds like a good sketch, not a recorded one. Options, in order of effort: (1) keep the synthesised strings, brass and taiko; (2) add a few sampled instruments (needs sample files with a clear licence, which breaks the 'no files' rule, and adds download size); (3) licensed or commissioned recordings, played by an adaptive player.
 
+## Instruments and genres
+
+About 26 synthesised instruments in five families: orchestral (strings, tremolo strings, short strings, brass, fanfare brass, timpani, taiko, choir), keys and plucks (piano, handpan, pluck, bell), electronic (sub, 808, synth bass, arpeggio synth, lead, pad), drums (kick, snare, clap, hats, cowbell, shaker), and effects (riser, impact, cymbal swell, whoosh).
+
+Genres I can write in code: cinematic (Zimmer-inspired ostinato, horns, taiko), phonk (sliding 808, cowbell melody, hat rolls), epic fanfare (an original heroic brass theme in a space-adventure spirit, not any real melody), synthwave and electronic, lofi and piano, acoustic and handpan, ambient pads. Previews: `racer-cinematic`, `racer-phonk`, `racer-epic`, `racer-neon`, `racer-piano`, `racer-beach` (rendered files, not in the repo).
+
+## Run time (design)
+
+- A chapter lasts about 60 to 70 seconds. At the Relaxed speed that is roughly 3,600 m per chapter (the prototype uses 900 m so you can see every look quickly).
+- A Journey of 10 chapters is about 11 minutes on Relaxed, about 8 on Normal and about 7 on Fast.
+- Endless has no end. A typical run that ends in a crash lasts 1 to 3 minutes.
+
 ## Limits
 
 I cannot hear any of this, so loudness and taste need your ears. Proper film-level music needs a composer or licensed tracks; this plan builds an adaptive player that could carry them.
