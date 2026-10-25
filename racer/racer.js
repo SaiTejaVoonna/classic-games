@@ -138,9 +138,9 @@
   // Speed choices (game units per second) and difficulty (lives, traffic, shield time).
   var SPEEDS = { relaxed: { start: 34, max: 72 }, normal: { start: 44, max: 92 }, fast: { start: 56, max: 110 } };
   var DIFFS = {
-    easy: { lives: 3, gapMin: 140, gapRand: 70, twoFrom: 99999, twoChance: 0, shield: 2.6 },
-    normal: { lives: 2, gapMin: 95, gapRand: 60, twoFrom: 1800, twoChance: .3, shield: 2 },
-    hard: { lives: 1, gapMin: 75, gapRand: 50, twoFrom: 900, twoChance: .45, shield: 1.4 }
+    easy: { lives: 3, gapMin: 140, gapRand: 70, twoFrom: 99999, twoChance: 0, shield: 2.6, vMin: .5, vVar: .2 },
+    normal: { lives: 2, gapMin: 95, gapRand: 60, twoFrom: 1800, twoChance: .3, shield: 2, vMin: .4, vVar: .3 },
+    hard: { lives: 1, gapMin: 75, gapRand: 50, twoFrom: 900, twoChance: .45, shield: 1.4, vMin: .38, vVar: .3 }
   };
   var REST_STOPS = [2, 4, 6, 8]; // after chapters 2, 4, 6 and 8 of a journey (in chapter lengths)
   var PREFS_KEY = 'classic-games.racer.prefs';
@@ -210,13 +210,17 @@
   function spawnWave(z) {
     var d = DIFFS[prefs.difficulty];
     var n = dist > d.twoFrom && rand() < d.twoChance ? 2 : 1;
-    var lanes = [-1, 0, 1];
+    var busy = {}; var nb = 0;
+    traffic.forEach(function (c) { if (!c.knock && Math.abs(c.z - z) < 26 && !busy[c.lane]) { busy[c.lane] = 1; nb++; } });
+    n = Math.min(n, 2 - nb); if (n <= 0) return false; // always leave one lane open
+    var lanes = [-1, 0, 1].filter(function (l) { return !busy[l]; });
     for (var i = 0; i < n; i++) {
       var k = Math.floor(rand() * lanes.length);
       var ln = lanes.splice(k, 1)[0];
       var kind = CAR_KINDS[Math.floor(rand() * CAR_KINDS.length)];
-      traffic.push({ z: z + i * 6 * rand(), lane: ln, v: speed * (.38 + rand() * .3), kind: kind, col: CAR_COLS[Math.floor(rand() * CAR_COLS.length)], passed: false, minGap: 9 });
+      traffic.push({ z: z + i * 6 * rand(), lane: ln, v: speed * (d.vMin + rand() * d.vVar), kind: kind, col: CAR_COLS[Math.floor(rand() * CAR_COLS.length)], passed: false, minGap: 9 });
     }
+    return true;
   }
 
   // Coins come in short lines, hearts are rare. Positions come from the road distance, so the
@@ -236,6 +240,9 @@
 
   // ---------- road geometry ----------
   var DRAW = 330; // metres drawn
+  var PD = 9;     // metres ahead of the camera where the player car stands
+  var CAR_HALF = 3.4; // a car counts as passed once it is this far behind the player
+  var HIT_AHEAD = 5.5; var HIT_BEHIND = 2.5; // contact window around the player's depth: drawn cars touch about when this fires
   var K = 0.03;   // perspective strength
   var CURVE_A = 1.6e-4;
   function curveAt(s) {
@@ -280,7 +287,6 @@
       ug.addColorStop(0, o.under + 'aa'); ug.addColorStop(1, o.under + '00');
       g.fillStyle = ug; g.beginPath(); g.ellipse(x, by, Wd * .9, Wd * .22, 0, 0, TAU); g.fill();
     }
-    g.fillStyle = '#0b0d12'; rr(x - Wd * .47, by - Wd * .2, Wd * .14, Wd * .2, Wd * .04); g.fill(); rr(x + Wd * .33, by - Wd * .2, Wd * .14, Wd * .2, Wd * .04); g.fill();
     var tail = o.tail || '#ff3a3a';
     if (T.box) {
       var h = Wd;
@@ -302,7 +308,7 @@
       g.fillStyle = gg; g.fill();
       if (T.sp) { g.fillStyle = mix(col, '#000000', .5); rr(x - Wd * .44, by - bh - Wd * .12, Wd * .88, Wd * .045, Wd * .02); g.fill(); }
       if (T.roof) { g.fillStyle = '#fff7a8'; rr(x - Wd * .13, by - bh - ch - Wd * .1, Wd * .26, Wd * .07, Wd * .02); g.fill(); }
-      g.fillStyle = '#1a1d25'; rr(x - Wd * .5, by - Wd * .12, Wd, Wd * .12, Wd * .05); g.fill();
+      g.fillStyle = '#1a1d25'; rr(x - Wd * .36, by - Wd * .12, Wd * .72, Wd * .1, Wd * .04); g.fill();
       g.save(); g.shadowColor = tail; g.shadowBlur = Wd * (o.brake ? .35 : .2); g.fillStyle = tail;
       rr(x - Wd * .47, by - bh * .8, Wd * .24, Wd * .08, Wd * .03); g.fill(); rr(x + Wd * .23, by - bh * .8, Wd * .24, Wd * .08, Wd * .03); g.fill();
       g.globalAlpha = .8; g.fillRect(x - Wd * .22, by - bh * .76, Wd * .44, Wd * .022); g.restore();
@@ -310,6 +316,12 @@
       var sh = g.createLinearGradient(0, by - bh, 0, by - bh * .4); sh.addColorStop(0, 'rgba(255,255,255,.28)'); sh.addColorStop(1, 'rgba(255,255,255,0)');
       g.fillStyle = sh; rr(x - Wd * .46, by - bh - Wd * .04, Wd * .92, bh * .5, Wd * .08); g.fill();
     }
+    [-1, 1].forEach(function (sd) {
+      var tx = sd < 0 ? x - Wd * .54 : x + Wd * .39; var th = Wd * (T.box ? .3 : .27);
+      g.fillStyle = '#07080b'; rr(tx, by - th, Wd * .15, th, Wd * .05); g.fill();
+      g.strokeStyle = 'rgba(205,215,235,.55)'; g.lineWidth = Math.max(1, Wd * .012); rr(tx, by - th, Wd * .15, th, Wd * .05); g.stroke();
+      g.fillStyle = '#4a5266'; rr(tx + (sd < 0 ? Wd * .09 : Wd * .02), by - th * .8, Wd * .04, th * .6, Wd * .02); g.fill();
+    });
     g.restore();
   }
 
@@ -648,9 +660,11 @@
         return;
       }
       if (it.car) {
-        var c = it.car; var x = cx + (xoAt(it.d) + c.lane / 1.7 - camX) * p * RH; var w = W * .3 * p * 1.7 / (dpr > 1 ? 1 : 1);
+        var c = it.car; var x = cx + (xoAt(it.d) + (c.lane + (c.knock || 0) * (c.kx || 0)) / 1.7 - camX) * p * RH; var w = W * .255 * p * 1.7;
         if (S.night > .5) { glowDot(x, y, w * .7, '#ff2a4a'); }
+        if (c.hurt > 0) { glowDot(x, y - w * .3, w * 1.1, Math.sin(tAnim * 40) > 0 ? '#ff3b3b' : '#ffb347'); g.globalAlpha = clamp(c.hurt * 1.6, .25, 1); }
         carRear(x, y, w, c.col, c.kind, { brake: false, tail: '#ff3a3a', under: S.night > .85 ? c.col : null });
+        g.globalAlpha = 1;
         return;
       }
       var s = p * (W / 230) * 1.35; var x2 = cx + (xoAt(it.d) + it.lat - camX) * p * RH;
@@ -660,15 +674,18 @@
     });
   }
 
+  // The player is a normal road object at PD metres ahead of the camera, so it follows the bends and
+  // hills exactly like traffic does. Contact with traffic is tested at the same depth.
+  function playerBox() { var r = rowAt(PD); return { x: r.ct + lane / 1.7 * r.hw, y: r.y, w: r.hw / 1.7 * .8 }; }
   function drawPlayer(S) {
-    var py = H * .875; var pw = W * .44; var tilt = clamp((laneTarget - lane) * .12, -.14, .14);
+    var pb = playerBox(); var py = pb.y; var pw = pb.w; var tilt = clamp((laneTarget - lane) * .12, -.14, .14);
     if (S.night > .5 || S.rain > .3) {
-      var px = cx + (lane / 1.7 - camX) * RH;
+      var px = pb.x;
       g.save(); g.globalCompositeOperation = 'lighter'; g.translate(px, py - pw * .5); g.scale(1, 3.4);
       var hl = g.createRadialGradient(0, 0, 0, 0, 0, W * .26); hl.addColorStop(0, 'rgba(255,244,200,.34)'); hl.addColorStop(1, 'rgba(255,244,200,0)');
       g.fillStyle = hl; g.beginPath(); g.arc(0, 0, W * .26, 0, TAU); g.fill(); g.restore();
     }
-    var x = cx + (lane / 1.7 - camX) * RH;
+    var x = pb.x;
     g.save(); g.translate(x, py); g.rotate(tilt);
     carRear(0, 0, pw, '#eef1f8', 'sport', { under: S.night > .6 ? '#35e6ff' : null, tail: '#ff3355', brake: false });
     g.restore();
@@ -739,7 +756,7 @@
 
   function render() {
     resize();
-    hy = H * .4 + Math.sin(tAnim * .9) * 1.2 * dpr; cx = W / 2; RH = W * .9; camX = lane / 1.7 * .5;
+    hy = H * .4 + Math.sin(tAnim * .9) * 1.2 * dpr; cx = W / 2; RH = W * .9; camX = lane / 1.7 * .75;
     ES = H * .02; e0 = elev(dist);
     buildCurve();
     hyR = hy - (elev(dist + DRAW * .8) - e0) * pOf(DRAW * .8) * ES * .7;
@@ -769,7 +786,7 @@
 
   // ---------- HUD ----------
   var elDist = $('dist'); var elSpd = $('spd'); var elNear = $('near'); var elHearts = $('hearts'); var elCoins = $('coinc');
-  var elChapter = $('chapter'); var elChNum = $('ch-num'); var elChName = $('ch-name'); var elTrip = $('trip'); var elFill = $('trip-fill'); var elDots = $('trip-dots');
+  var elChapter = $('chapter'); var elChNum = $('ch-num'); var elChName = $('ch-name'); var elTrip = $('trip'); var elFill = $('trip-fill'); var elDots = $('trip-dots'); var elTripLabel = $('trip-label');
   var cache = {};
   function setText(el, key, v) { if (cache[key] !== v) { cache[key] = v; el.textContent = v; } }
   function hearts() { var s = ''; var i; for (i = 0; i < lives; i++) s += '♥'; for (i = lives; i < maxLives; i++) s += '♡'; return s; }
@@ -780,7 +797,12 @@
     setText(elCoins, 'c', '● ' + run.coins);
     var showTrip = tripMode === 'journey' && mode === 'run';
     elTrip.hidden = !showTrip;
-    if (showTrip) elFill.style.width = clamp(dist / (JOURNEY_CHAPTERS * chapterLen) * 100, 0, 100).toFixed(1) + '%';
+    if (showTrip) {
+      var tot = JOURNEY_CHAPTERS * chapterLen;
+      elFill.style.width = clamp(dist / tot * 100, 0, 100).toFixed(1) + '%';
+      var left = Math.max(0, tot - dist);
+      setText(elTripLabel, 'tl', 'Chapter ' + Math.min(JOURNEY_CHAPTERS, chapterAt(dist).i + 1) + ' of ' + JOURNEY_CHAPTERS + '  \u00b7  ' + (left >= 1000 ? (left / 1000).toFixed(1) + ' km' : Math.ceil(left / 10) * 10 + ' m') + ' to finish');
+    }
   }
   function buildTrip() {
     elDots.textContent = '';
@@ -838,11 +860,12 @@
       showOverlay('done', { title: 'You made it', sub: (isBest ? 'New best. ' : '') + 'Sunrise Coast reached.', stats: [['Distance', Math.floor(dist) + ' m'], ['Score', String(s)], ['Lives left', hearts()], ['Coins', String(run.coins)], ['Close calls', String(run.near)], ['Bumps', String(run.hits)]] });
     }, 1400);
   }
-  function bump() {
+  function bump(hit) {
     run.hits += 1; lives -= 1; combo = 0; comboTimer = 0;
+    if (hit) { hit.knock = hit.lane === 0 ? (rand() < .5 ? -1 : 1) : hit.lane; hit.kx = 0; hit.hurt = 1.1; hit.v = Math.min(hit.v, speed * .5); }
     if (lives <= 0) { gameOver(); return; }
     shieldT = DIFFS[prefs.difficulty].shield; shake = 12; flashT = .35;
-    traffic = traffic.filter(function (c) { var d = c.z - dist; return d > 90 || d < -12; }); // the road ahead clears so you can recover
+    traffic = traffic.filter(function (c) { var d = c.z - dist; return c === hit || d > 90 || d < PD - 4; }); // the road ahead clears so you can recover, except the car you hit
     nextSpawn = Math.max(nextSpawn, dist + 120);
     burst(cx, H * .8, 14, ['#ffb347', '#ffd166']);
     au('event', 'bump');
@@ -904,10 +927,12 @@
     }
     for (var i = 0; i < traffic.length; i++) {
       var c = traffic[i]; c.z += c.v * dt; var d = c.z - dist; var gap = Math.abs(lane - c.lane);
-      if (Math.abs(d) < 8) c.minGap = Math.min(c.minGap, gap);
-      if (!c.whoosh && d < 16 && d > 0) { c.whoosh = true; au('event', 'pass', { side: c.lane - lane, v: speed }); }
-      if (d < 4.6 && d > -4.6 && gap < .66 && shieldT <= 0) { bump(); if (mode !== 'run') return; break; }
-      if (!c.passed && d < -4.6) {
+      if (c.hurt > 0) c.hurt -= dt; if (c.knock) c.kx += dt * 2.4;
+      if (c.knock) continue;
+      if (Math.abs(d - PD) < 8) c.minGap = Math.min(c.minGap, gap);
+      if (!c.whoosh && d < PD + 16 && d > PD) { c.whoosh = true; au('event', 'pass', { side: c.lane - lane, v: speed }); }
+      if (d - PD < HIT_AHEAD && d - PD > -HIT_BEHIND && gap < .72 && shieldT <= 0) { bump(c); if (mode !== 'run') return; break; }
+      if (!c.passed && d < PD - CAR_HALF) {
         c.passed = true;
         if (c.minGap < 1.35) {
           combo += 1; comboTimer = 3; run.near += 1; run.comboMax = Math.max(run.comboMax || 0, combo); score += 5 * combo;
@@ -1013,6 +1038,7 @@
   if (DEBUG) {
     // test and gallery hook: draw a still frame at a distance with demo traffic, and drive the game
     window.racerDebug = {
+      geo: function (ds) { lastScene = render(); var pb = playerBox(); return { W: W, H: H, dpr: dpr, player: pb, rows: ds.map(function (d) { var r = rowAt(d); return { d: d, y: r.y, ct: r.ct, hw: r.hw }; }), cars: traffic.map(function (c) { var d = c.z - dist; var r = rowAt(Math.max(.5, d)); return { d: d, lane: c.lane, knock: c.knock || 0, kind: c.kind, y: r.y, x: r.ct + c.lane / 1.7 * r.hw, hw: r.hw }; }) }; },
       state: function () { return { paused: paused, braking: braking, prefs: JSON.parse(JSON.stringify(prefs)), mode: mode, dist: dist, speed: speed, lane: lane, laneTarget: laneTarget, combo: combo, score: score, lives: lives, maxLives: maxLives, shield: shieldT, coins: run.coins, hits: run.hits, traffic: traffic.length, chapter: chapterAt(dist).i, chapterLen: chapterLen, tripMode: tripMode, nextStop: nextStop, checkpoint: getCheckpoint(), stats: JSON.parse(JSON.stringify(stats)) }; },
       still: function (d, t, laneV, withTraffic) {
         mode = 'menu'; dist = d; tAnim = t; lane = laneV || 0; laneTarget = lane; speed = 70; traffic = [];
@@ -1021,7 +1047,7 @@
       },
       start: start, pause: pauseGame, resume: resumeGame, elev: elev, backToMenu: backToMenu,
       teleport: function (d) { dist = d; nextSpawn = d + 300; nextStop = 0; while (nextStop < REST_STOPS.length && REST_STOPS[nextStop] * chapterLen <= d) nextStop++; lastChapter = chapterAt(d).i - 1; traffic = []; },
-      addCar: function (ln, ahead) { traffic.push({ z: dist + ahead, lane: ln, v: 0, kind: 'sedan', col: '#2563eb', passed: false, minGap: 9 }); },
+      addCar: function (ln, ahead, kind) { traffic.push({ z: dist + ahead, lane: ln, v: 0, kind: kind || 'sedan', col: '#2563eb', passed: false, minGap: 9 }); },
       setLives: function (n) { lives = n; },
       setLane: function (l) { lane = laneTarget = l; },
       stopSpawning: function () { nextSpawn = 1e9; },
