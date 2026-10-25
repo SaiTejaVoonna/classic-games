@@ -2,7 +2,7 @@
 // Chromium binary. Usage: NODE_PATH=<dir with playwright> node tests/browser/sweep.js <output dir>
 // Optional: CHROMIUM_PATH (default /opt/pw-browsers/chromium).
 const { chromium } = require('playwright');
-const INDEX = require('url').pathToFileURL(require('path').resolve(__dirname, '../../index.html')).href;
+const INDEX = require('url').pathToFileURL(require('path').resolve(__dirname, '../../snake/index.html')).href;
 const CHROMIUM = process.env.CHROMIUM_PATH || '/opt/pw-browsers/chromium';
 const out = process.argv[2];
 const sizes = [[320,568],[390,844],[768,1024],[1366,768],[1440,900]];

@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const html = fs.readFileSync(path.join(__dirname, '..', 'snake', 'index.html'), 'utf8');
 const main = fs.readFileSync(path.join(__dirname, '..', 'src', 'main.js'), 'utf8');
 const body = html.slice(html.indexOf('<body'));
 const visible = body.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ');

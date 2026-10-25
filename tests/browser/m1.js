@@ -1,7 +1,7 @@
 // Browser checks for the phone-first controls: swipe, tall board, overlays, D-pad toggle,
 // speed cell, snake colour and style, board picker. Usage as play.js.
 const { chromium } = require('playwright');
-const INDEX = require('url').pathToFileURL(require('path').resolve(__dirname, '../../index.html')).href;
+const INDEX = require('url').pathToFileURL(require('path').resolve(__dirname, '../../snake/index.html')).href;
 const CHROMIUM = process.env.CHROMIUM_PATH || '/opt/pw-browsers/chromium';
 const R = []; const ok = (name, cond, extra) => { R.push({ name, pass: !!cond, extra }); };
 const st = (p) => p.evaluate(() => window.classicGamesDebug.state());

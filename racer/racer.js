@@ -27,38 +27,51 @@
   }
 
   // ---------- chapters (scene looks); numbers blend, colours blend, lists switch ----------
+  // Ten chapters: a day that runs into night and out to dawn. kit and life are used by the sound.
   var CHAPTERS = [
-    { name: 'Dawn Meadow', balloon: 1, sky: ['#5f9fe6', '#b7d8f7', '#ffe7c8'], sunX: .3, sunY: .55, sunC: '#fff4cf', ground: ['#9bd06f', '#6fb251'], road: '#50586a', edge: '#f0ece0', line: '#fbf7ea', fog: '#d8ecff',
+    { name: 'Dawn Meadow', kit: 'piano', bed: 'meadow', life: ['songbirds', 'balloon', 'windmill'], balloon: 1, sky: ['#5f9fe6', '#b7d8f7', '#ffe7c8'], sunX: .3, sunY: .55, sunC: '#fff4cf', ground: ['#9bd06f', '#6fb251'], road: '#50586a', edge: '#f0ece0', line: '#fbf7ea', fog: '#d8ecff',
       ridge: ['#a9c9d8', '#86b69a', '#5e9a6e'], mist: .5, night: 0, stars: 0, rain: 0, snow: 0, leaves: 0, petals: 1, aurora: 0, heat: 0, skyline: 0, wind: 1, tintC: '#ffd9a0', tintA: .04,
       objs: ['round', 'round', 'pine', 'birch', 'bush', 'round', 'cherry', 'hut'] },
-    { name: 'Sunset Coast', water: 1, sky: ['#5a4fb5', '#ff7f6e', '#ffd09a'], sunX: .5, sunY: .86, sunC: '#fff0b8', ground: ['#e9c792', '#d7b07c'], road: '#4a4a62', edge: '#fbe3c6', line: '#fff0d6', fog: '#ffb08c',
-      ridge: ['#7b5aa8', '#a7607e', '#2f7fb4'], mist: .55, night: 0, stars: 0, rain: 0, snow: 0, leaves: 0, petals: 0, aurora: 0, heat: 0, skyline: 0, wind: 1.4, tintC: '#ff8a50', tintA: .1,
-      objs: ['palm', 'palm', 'bush', 'house', 'palm', 'rock'] },
-    { name: 'Amber Valley', balloon: 1, sky: ['#6b5fb5', '#ff8f7a', '#ffd29a'], sunX: .72, sunY: .78, sunC: '#fff3c4', ground: ['#a8b45a', '#7a9a46'], road: '#5a4f6a', edge: '#f6dcc0', line: '#fff2d6', fog: '#ffc7a0',
-      ridge: ['#9a6f9a', '#7d6a7a', '#5f7d56'], mist: .65, night: .15, stars: 0, rain: 0, snow: 0, leaves: 1, petals: 0, aurora: 0, heat: 0, skyline: 0, wind: 1.2, tintC: '#ff9a50', tintA: .09,
-      objs: ['maple', 'maple', 'pine', 'hut', 'round', 'windmill', 'bush', 'hut'] },
-    { name: 'Dusk City', sky: ['#1b2a5e', '#7a3d7a', '#ff9a6a'], sunX: .22, sunY: .9, sunC: '#ffcf9a', ground: ['#5b6272', '#4c5362'], road: '#2c3040', edge: '#9aa3c0', line: '#ffd98a', fog: '#a5527a',
-      ridge: ['#4a3a70', '#33325e', '#26264a'], mist: .5, night: .6, stars: .4, rain: 0, snow: 0, leaves: 0, petals: 0, aurora: 0, heat: 0, skyline: 1, wind: .4, tintC: '#5a3a7a', tintA: .08,
-      objs: ['tower', 'tower', 'lamp', 'tower', 'house', 'lamp', 'tower'] },
-    { name: 'Neon Quarter', sky: ['#07031a', '#2a0f5e', '#ff4f9a'], sunX: .5, sunY: .95, sunC: '#ff6ec0', ground: ['#120d2a', '#0d0a20'], road: '#171a2c', edge: '#2c3a78', line: '#7fe3ff', fog: '#3b1a6a',
-      ridge: ['#3a1670', '#2a1058', '#190a3c'], mist: .5, night: 1, stars: .8, rain: 1, snow: 0, leaves: 0, petals: 0, aurora: 0, heat: 0, skyline: 1, wind: .2, tintC: '#6a1a9a', tintA: .1,
-      objs: ['neon', 'neon', 'tower', 'tower', 'neon', 'lamp', 'tower'] },
-    { name: 'Desert Road', sky: ['#3f93e8', '#9fd0ff', '#fde7b9'], sunX: .72, sunY: .35, sunC: '#fff7d0', ground: ['#e8c07e', '#d8ac68'], road: '#6a5c54', edge: '#efd9ae', line: '#fff0c2', fog: '#f6dcae',
+    { name: 'Cherry Hills', kit: 'pluck', bed: 'meadow', life: ['songbirds', 'windchimes', 'butterflies'], sky: ['#7fb2f0', '#f6c8e0', '#fff0e0'], sunX: .62, sunY: .5, sunC: '#fff6d8', ground: ['#a4d878', '#80c462'], road: '#58606f', edge: '#fff0f4', line: '#ffffff', fog: '#ffe4ee',
+      ridge: ['#d9a6c6', '#9fc9a0', '#6fb07a'], mist: .6, night: 0, stars: 0, rain: 0, snow: 0, leaves: 0, petals: 1.6, aurora: 0, heat: 0, skyline: 0, wind: 1.2, tintC: '#ffb6d0', tintA: .05,
+      objs: ['cherry', 'cherry', 'cherry', 'round', 'bush', 'hut', 'birch'] },
+    { name: 'Desert Road', kit: 'acoustic', bed: 'desert', life: ['windchimes', 'flag', 'crickets'], sky: ['#3f93e8', '#9fd0ff', '#fde7b9'], sunX: .72, sunY: .35, sunC: '#fff7d0', ground: ['#e8c07e', '#d8ac68'], road: '#6a5c54', edge: '#efd9ae', line: '#fff0c2', fog: '#f6dcae',
       ridge: ['#e3b57a', '#d29f62', '#be8a52'], mist: .5, night: 0, stars: 0, rain: 0, snow: 0, leaves: 0, petals: 0, aurora: 0, heat: 1, skyline: 0, wind: .6, tintC: '#ffd27a', tintA: .07,
       objs: ['cactus', 'rock', 'cactus', 'bush', 'rock', 'cactus', 'hut'] },
-    { name: 'Northern Lights', sky: ['#02040d', '#0b1a3a', '#1d4a6a'], sunX: .2, sunY: .45, sunC: '#f4f1e0', ground: ['#2a4a6a', '#cfdcec'], road: '#2a3350', edge: '#cfe0ff', line: '#e8f1ff', fog: '#2a4a7a',
+    { name: 'Amber Valley', kit: 'cello', bed: 'meadow', life: ['windmill', 'crow', 'churchbell', 'crickets'], balloon: 1, sky: ['#6b5fb5', '#ff8f7a', '#ffd29a'], sunX: .72, sunY: .78, sunC: '#fff3c4', ground: ['#a8b45a', '#7a9a46'], road: '#5a4f6a', edge: '#f6dcc0', line: '#fff2d6', fog: '#ffc7a0',
+      ridge: ['#9a6f9a', '#7d6a7a', '#5f7d56'], mist: .65, night: .15, stars: 0, rain: 0, snow: 0, leaves: 1, petals: 0, aurora: 0, heat: 0, skyline: 0, wind: 1.2, tintC: '#ff9a50', tintA: .09,
+      objs: ['maple', 'maple', 'pine', 'hut', 'round', 'windmill', 'bush', 'hut'] },
+    { name: 'Sunset Coast', kit: 'handpan', bed: 'waves', life: ['gulls', 'bellbuoy', 'boathorn', 'balloon'], water: 1, balloon: 1, sky: ['#5a4fb5', '#ff7f6e', '#ffd09a'], sunX: .5, sunY: .86, sunC: '#fff0b8', ground: ['#e9c792', '#d7b07c'], road: '#4a4a62', edge: '#fbe3c6', line: '#fff0d6', fog: '#ffb08c',
+      ridge: ['#7b5aa8', '#a7607e', '#2f7fb4'], mist: .55, night: 0, stars: 0, rain: 0, snow: 0, leaves: 0, petals: 0, aurora: 0, heat: 0, skyline: 0, wind: 1.4, tintC: '#ff8a50', tintA: .1,
+      objs: ['palm', 'umbrella', 'palm', 'bush', 'umbrella', 'house', 'palm', 'lighthouse', 'rock'] },
+    { name: 'Dusk City', kit: 'electro-soft', bed: 'city', life: ['siren', 'cityhorns', 'plane', 'train'], sky: ['#1b2a5e', '#7a3d7a', '#ff9a6a'], sunX: .22, sunY: .9, sunC: '#ffcf9a', ground: ['#5b6272', '#4c5362'], road: '#2c3040', edge: '#9aa3c0', line: '#ffd98a', fog: '#a5527a',
+      ridge: ['#4a3a70', '#33325e', '#26264a'], mist: .5, night: .6, stars: .4, rain: 0, snow: 0, leaves: 0, petals: 0, aurora: 0, heat: 0, skyline: 1, wind: .4, tintC: '#5a3a7a', tintA: .08,
+      objs: ['tower', 'tower', 'lamp', 'tower', 'house', 'lamp', 'tower'] },
+    { name: 'Neon Quarter', kit: 'electro', bed: 'rain', life: ['thunderfar', 'siren', 'raingust'], sky: ['#07031a', '#2a0f5e', '#ff4f9a'], sunX: .5, sunY: .95, sunC: '#ff6ec0', ground: ['#120d2a', '#0d0a20'], road: '#171a2c', edge: '#2c3a78', line: '#7fe3ff', fog: '#3b1a6a',
+      ridge: ['#3a1670', '#2a1058', '#190a3c'], mist: .5, night: 1, stars: .8, rain: 1, snow: 0, leaves: 0, petals: 0, aurora: 0, heat: 0, skyline: 1, wind: .2, tintC: '#6a1a9a', tintA: .1,
+      objs: ['neon', 'neon', 'tower', 'tower', 'neon', 'lamp', 'tower'] },
+    { name: 'Storm Pass', kit: 'cinematic', bed: 'storm', life: ['thunderclose', 'thunderfar', 'raingust', 'tunnel'], lightning: 1, sky: ['#1a2230', '#3a4658', '#6a7a90'], sunX: .5, sunY: .9, sunC: '#9fb0c8', ground: ['#3a4f40', '#2f4235'], road: '#2a2f3a', edge: '#7d879a', line: '#c9d3e4', fog: '#56657c',
+      ridge: ['#2c3748', '#27402f', '#1f3426'], mist: .7, night: .5, stars: 0, rain: 1, snow: 0, leaves: 0, petals: 0, aurora: 0, heat: 0, skyline: 0, wind: 3, tintC: '#102040', tintA: .12,
+      objs: ['pine', 'pine', 'lamp', 'rock', 'pine', 'bush'] },
+    { name: 'Northern Lights', kit: 'pads', bed: 'snow', life: ['owl', 'windchimes', 'train'], sky: ['#02040d', '#0b1a3a', '#1d4a6a'], sunX: .2, sunY: .45, sunC: '#f4f1e0', ground: ['#2a4a6a', '#cfdcec'], road: '#2a3350', edge: '#cfe0ff', line: '#e8f1ff', fog: '#2a4a7a',
       ridge: ['#16264a', '#0f1c3a', '#0a1430'], mist: .5, night: 1, stars: 1, rain: 0, snow: 1, leaves: 0, petals: 0, aurora: 1, heat: 0, skyline: 0, wind: .8, tintC: '#103a7a', tintA: .1,
-      objs: ['pinesnow', 'pinesnow', 'pinesnow', 'cabin', 'pinesnow'] }
+      objs: ['pinesnow', 'pinesnow', 'pinesnow', 'cabin', 'pinesnow'] },
+    { name: 'Sunrise Coast', kit: 'epic', bed: 'waves', life: ['gulls', 'foghorn', 'balloon', 'fireworks'], water: 1, balloon: 1, sky: ['#3f5fb0', '#ff9a8a', '#ffe0a0'], sunX: .5, sunY: .93, sunC: '#fff2c0', ground: ['#efd3a2', '#e0bb88'], road: '#4d5068', edge: '#fff0dc', line: '#fff6e6', fog: '#ffd0b0',
+      ridge: ['#8c6aa8', '#c0788a', '#3f90c8'], mist: .6, night: 0, stars: 0, rain: 0, snow: 0, leaves: 0, petals: 0, aurora: 0, heat: 0, skyline: 0, wind: 1.4, tintC: '#ffb070', tintA: .08,
+      objs: ['palm', 'umbrella', 'palm', 'bush', 'lighthouse', 'umbrella', 'palm', 'house'] }
   ];
-  var CHAPTER_LEN = 900; // metres per chapter (short on purpose so a prototype shows every look)
+  var JOURNEY_CHAPTERS = CHAPTERS.length;
+  var CHAPTER_LENS = { demo: 900, full: 3600 }; // metres per chapter. Demo shows every look in about 3 minutes.
+  var chapterLen = 900;
+  var tripMode = 'journey'; // journey | endless
 
   function chapterAt(s) {
-    var u = s / CHAPTER_LEN;
+    var u = s / chapterLen;
     var i = Math.floor(u);
     return { i: i, idx: ((i % CHAPTERS.length) + CHAPTERS.length) % CHAPTERS.length, frac: u - i };
   }
 
-  var NUM_KEYS = ['water', 'sunX', 'sunY', 'mist', 'night', 'stars', 'rain', 'snow', 'leaves', 'petals', 'aurora', 'heat', 'skyline', 'wind', 'tintA'];
+  var NUM_KEYS = ['water', 'lightning', 'sunX', 'sunY', 'mist', 'night', 'stars', 'rain', 'snow', 'leaves', 'petals', 'aurora', 'heat', 'skyline', 'wind', 'tintA'];
   var COL_KEYS = ['sunC', 'road', 'edge', 'line', 'fog', 'tintC'];
   // The scene at distance s: the chapter's look, blending into the next one over its last 22%.
   function sceneAt(s) {
@@ -67,6 +80,7 @@
     var b = CHAPTERS[(c.idx + 1) % CHAPTERS.length];
     var t = clamp((c.frac - .78) / .22, 0, 1);
     t = t * t * (3 - 2 * t);
+    if (tripMode === 'journey' && c.i >= JOURNEY_CHAPTERS - 1) t = 0; // the last chapter does not fade into the first
     var o = { name: a.name, chapter: c.i, frac: c.frac, t: t, a: a, b: b };
     NUM_KEYS.forEach(function (k) { o[k] = lerp(a[k] || 0, b[k] || 0, t); });
     COL_KEYS.forEach(function (k) { o[k] = mix(a[k], b[k], t); });
@@ -87,58 +101,115 @@
   }
 
   // ---------- game state ----------
-  var mode = 'menu'; // menu | run | crash
+  var mode = 'menu'; // menu | run | over | done
+  var paused = false;
   var dist = 0;
   var speed = 0;
   var lane = 0; // continuous, lanes at -1, 0, 1
   var laneTarget = 0;
   var tAnim = 0;
   var traffic = [];
-  var nextSpawn = 120;
+  var nextSpawn = 300;
   var combo = 0;
   var comboTimer = 0;
   var score = 0;
-  var best = 0;
+  var lives = 3;
+  var maxLives = 3;
+  var shieldT = 0;
+  var flashT = 0;
+  var lightningT = 0;
   var shake = 0;
-  var crashT = 0;
   var lastChapter = -1;
+  var nextStop = 0; // index into the rest stops
   var particles = [];
   var nearTimer = 0;
-  var BEST_KEY = 'classic-games.racer.best';
-  try { best = parseInt(window.localStorage.getItem(BEST_KEY), 10) || 0; } catch (e) { best = 0; }
+  var chTimer = 0;
+  var braking = false;
+  var coinNote = 0;
+  var coinNoteT = 0;
+  var collected = {};
+  var run = { near: 0, coins: 0, hits: 0 };
 
   var CAR_KINDS = ['hatch', 'sedan', 'suv', 'sport', 'van', 'taxi', 'truck'];
   var CAR_COLS = ['#e11d48', '#2563eb', '#f59e0b', '#7c3aed', '#10b981', '#06b6d4', '#f97316', '#ef4444', '#ec4899'];
   var seedN = 1;
   function rand() { seedN = (seedN * 16807) % 2147483647; return (seedN - 1) / 2147483646; }
 
-  // Speed choices: how fast the run starts and tops out (game units per second).
+  // Speed choices (game units per second) and difficulty (lives, traffic, shield time).
   var SPEEDS = { relaxed: { start: 34, max: 72 }, normal: { start: 44, max: 92 }, fast: { start: 56, max: 110 } };
+  var DIFFS = {
+    easy: { lives: 3, gapMin: 140, gapRand: 70, twoFrom: 99999, twoChance: 0, shield: 2.6 },
+    normal: { lives: 2, gapMin: 95, gapRand: 60, twoFrom: 1800, twoChance: .3, shield: 2 },
+    hard: { lives: 1, gapMin: 75, gapRand: 50, twoFrom: 900, twoChance: .45, shield: 1.4 }
+  };
+  var REST_STOPS = [2, 4, 6, 8]; // after chapters 2, 4, 6 and 8 of a journey (in chapter lengths)
   var PREFS_KEY = 'classic-games.racer.prefs';
-  var prefs = { speed: 'relaxed', music: 'on', sfx: 'on' };
-  try {
-    var saved = JSON.parse(window.localStorage.getItem(PREFS_KEY));
-    if (saved && typeof saved === 'object') {
-      if (Object.prototype.hasOwnProperty.call(SPEEDS, saved.speed)) prefs.speed = saved.speed;
-      if (saved.music === 'on' || saved.music === 'off') prefs.music = saved.music;
-      if (saved.sfx === 'on' || saved.sfx === 'off') prefs.sfx = saved.sfx;
-    }
-  } catch (e) { /* defaults */ }
-  function savePrefs() { try { window.localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)); } catch (e) { /* fine */ } }
-  var braking = false;
-  var paused = false;
-  function startSpeed() { return SPEEDS[prefs.speed].start; }
-  function targetSpeed(d) { var sp = SPEEDS[prefs.speed]; return Math.min(sp.max, sp.start + d * 0.005); }
+  var STATS_KEY = 'classic-games.racer.stats';
+  var BESTS_KEY = 'classic-games.racer.bests';
+  var CHECK_KEY = 'classic-games.racer.checkpoint';
+  var APP_KEY = 'classic-games.app';
+  var STYLES = ['auto', 'cinematic', 'piano', 'electronic', 'acoustic'];
 
-  function reset() {
-    dist = 0; speed = startSpeed(); lane = 0; laneTarget = 0; traffic = []; nextSpawn = 260; combo = 0; comboTimer = 0;
-    score = 0; shake = 0; crashT = 0; particles = []; lastChapter = -1; nearTimer = 0;
+  function readJson(key) { try { var raw = window.localStorage.getItem(key); return raw ? JSON.parse(raw) : null; } catch (e) { return null; } }
+  function writeJson(key, v) { try { window.localStorage.setItem(key, JSON.stringify(v)); } catch (e) { /* storage unavailable: fine */ } }
+  function has(o, k) { return Object.prototype.hasOwnProperty.call(o, k); }
+
+  var prefs = { mode: 'journey', difficulty: 'easy', speed: 'relaxed', length: 'demo', music: 'on', sfx: 'on', style: 'auto', volMusic: 60, volFx: 70, bass: 50, calm: 'off' };
+  (function loadPrefs() {
+    var s = readJson(PREFS_KEY); if (!s || typeof s !== 'object') return;
+    if (s.mode === 'journey' || s.mode === 'endless') prefs.mode = s.mode;
+    if (has(DIFFS, s.difficulty)) prefs.difficulty = s.difficulty;
+    if (has(SPEEDS, s.speed)) prefs.speed = s.speed;
+    if (s.length === 'demo' || s.length === 'full') prefs.length = s.length;
+    if (s.music === 'on' || s.music === 'off') prefs.music = s.music;
+    if (s.sfx === 'on' || s.sfx === 'off') prefs.sfx = s.sfx;
+    if (STYLES.indexOf(s.style) >= 0) prefs.style = s.style;
+    if (s.calm === 'on' || s.calm === 'off') prefs.calm = s.calm;
+    ['volMusic', 'volFx', 'bass'].forEach(function (k) { if (typeof s[k] === 'number' && s[k] >= 0 && s[k] <= 100) prefs[k] = Math.round(s[k]); });
+  })();
+  function savePrefs() { writeJson(PREFS_KEY, prefs); }
+
+  function appChoice(name) { var a = readJson(APP_KEY); return a && a.chosen && a.chosen[name] === 'off' ? 'off' : 'on'; }
+
+  var stats = (function () {
+    var s = readJson(STATS_KEY) || {}; var o = {};
+    ['runs', 'near', 'nearBest', 'coins', 'journeys', 'noHitJourneys', 'maxChapter', 'bestDistance'].forEach(function (k) { o[k] = typeof s[k] === 'number' && isFinite(s[k]) ? s[k] : 0; });
+    return o;
+  })();
+  function saveStats() { writeJson(STATS_KEY, stats); }
+  function bestKey() { return prefs.mode + '|' + prefs.difficulty + (prefs.mode === 'journey' ? '|' + prefs.length : ''); }
+  function getBest() { var b = readJson(BESTS_KEY) || {}; return typeof b[bestKey()] === 'number' ? b[bestKey()] : 0; }
+  function submitBest(sc) { var b = readJson(BESTS_KEY) || {}; var k = bestKey(); var isBest = sc > (typeof b[k] === 'number' ? b[k] : 0); if (isBest) { b[k] = sc; writeJson(BESTS_KEY, b); } return isBest; }
+  function getCheckpoint() {
+    var c = readJson(CHECK_KEY);
+    if (!c || c.mode !== 'journey' || typeof c.chapter !== 'number' || c.chapter < 1 || c.chapter >= JOURNEY_CHAPTERS || !has(DIFFS, c.difficulty) || !has(CHAPTER_LENS, c.length)) return null;
+    return c;
+  }
+
+  function cfgSpeed() { return SPEEDS[prefs.speed]; }
+  function targetSpeed(d) { var sp = cfgSpeed(); return Math.min(sp.max, sp.start + d * 0.005); }
+
+  function applyTrip() {
+    tripMode = prefs.mode; chapterLen = CHAPTER_LENS[prefs.length];
+    maxLives = DIFFS[prefs.difficulty].lives;
+  }
+
+  function reset(fromCheckpoint) {
+    applyTrip();
+    dist = 0; speed = cfgSpeed().start; lane = 0; laneTarget = 0; traffic = []; nextSpawn = 300; combo = 0; comboTimer = 0;
+    score = 0; shake = 0; particles = []; lastChapter = -1; nearTimer = 0; shieldT = 0; flashT = 0; lives = maxLives; nextStop = 0; collected = {};
+    run = { near: 0, coins: 0, hits: 0 }; coinNote = 0; coinNoteT = 0; braking = false; paused = false;
+    if (fromCheckpoint) {
+      dist = fromCheckpoint.chapter * chapterLen; lives = clamp(fromCheckpoint.lives, 1, maxLives); score = fromCheckpoint.score || 0; run.hits = 1;
+      nextSpawn = dist + 260; while (nextStop < REST_STOPS.length && REST_STOPS[nextStop] * chapterLen <= dist) nextStop++;
+    }
     seedN = (Date.now() % 100000) + 7;
     if (params.get('seed')) seedN = parseInt(params.get('seed'), 10) || 7;
   }
 
   function spawnWave(z) {
-    var n = dist > 1800 && rand() < .3 ? 2 : 1;
+    var d = DIFFS[prefs.difficulty];
+    var n = dist > d.twoFrom && rand() < d.twoChance ? 2 : 1;
     var lanes = [-1, 0, 1];
     for (var i = 0; i < n; i++) {
       var k = Math.floor(rand() * lanes.length);
@@ -146,6 +217,21 @@
       var kind = CAR_KINDS[Math.floor(rand() * CAR_KINDS.length)];
       traffic.push({ z: z + i * 6 * rand(), lane: ln, v: speed * (.38 + rand() * .3), kind: kind, col: CAR_COLS[Math.floor(rand() * CAR_COLS.length)], passed: false, minGap: 9 });
     }
+  }
+
+  // Coins come in short lines, hearts are rare. Positions come from the road distance, so the
+  // drawing and the pickup always agree.
+  function coinChunk(cn) {
+    if (rnd(cn, 72) < .35) return null;
+    return { lane: Math.floor(rnd(cn, 71) * 3) - 1, count: 5 + Math.floor(rnd(cn, 73) * 3), start: cn * 90 + 20 };
+  }
+  function heartChunk(hn) {
+    if (rnd(hn, 81) < .45) return null;
+    return { lane: Math.floor(rnd(hn, 82) * 3) - 1, at: hn * 600 + 330 };
+  }
+  function nearStop(pos) { // calm road around rest stops and the finish
+    for (var i = 0; i < REST_STOPS.length; i++) if (Math.abs(pos - REST_STOPS[i] * chapterLen) < 110) return true;
+    return tripMode === 'journey' && pos > JOURNEY_CHAPTERS * chapterLen - 160;
   }
 
   // ---------- road geometry ----------
@@ -280,6 +366,15 @@
       g.fillStyle = on ? '#ffd27a' : '#2a3347';
       if (on) { g.save(); g.shadowColor = '#ffcf70'; g.shadowBlur = 12 * s; g.fillRect(-w * .4, -h * .75, 8 * s, 8 * s); g.fillRect(w * .22, -h * .75, 8 * s, 8 * s); g.restore(); } else { g.fillRect(-w * .4, -h * .75, 8 * s, 8 * s); g.fillRect(w * .22, -h * .75, 8 * s, 8 * s); }
       if (kind !== 'house') { for (var sm = 0; sm < 3; sm++) { var u = (tAnim * .4 + sm / 3 + k * .13) % 1; g.fillStyle = 'rgba(235,235,240,' + (.5 * (1 - u)) + ')'; g.beginPath(); g.arc(w * .2 + u * 10 * s, -h - 18 * s - u * 30 * s, (3 + u * 6) * s, 0, TAU); g.fill(); } }
+    } else if (kind === 'umbrella') {
+      g.fillStyle = '#e8dcc6'; g.beginPath(); g.ellipse(18 * s, -2 * s, 22 * s, 4 * s, 0, 0, TAU); g.fill();
+      g.fillStyle = '#7a5a3a'; g.fillRect(-1.5 * s, -44 * s, 3 * s, 44 * s);
+      var uc = ['#e8483f', '#35a7ff', '#ffd54f', '#7cc67a'][k % 4];
+      for (var us = 0; us < 6; us++) { g.fillStyle = us % 2 ? '#ffffff' : uc; g.beginPath(); g.moveTo(0, -48 * s); g.quadraticCurveTo(-24 * s + us * 8 * s, -52 * s, -24 * s + us * 8 * s + 8 * s, -36 * s); g.lineTo(-24 * s + us * 8 * s, -36 * s); g.fill(); }
+    } else if (kind === 'lighthouse') {
+      g.fillStyle = '#f4f1ea'; g.beginPath(); g.moveTo(-10 * s, 0); g.lineTo(-6 * s, -80 * s); g.lineTo(6 * s, -80 * s); g.lineTo(10 * s, 0); g.fill();
+      g.fillStyle = '#c0392b'; [18, 42, 66].forEach(function (yy) { g.fillRect(-9 * s + (yy / 80) * 3 * s, -yy * s, 18 * s - (yy / 80) * 6 * s, 9 * s); });
+      g.fillStyle = '#2d3440'; g.fillRect(-8 * s, -88 * s, 16 * s, 8 * s); glowDot(0, -92 * s, 30 * s, '#ffe9a0');
     } else if (kind === 'windmill') {
       g.fillStyle = '#efe6d2'; g.beginPath(); g.moveTo(-12 * s, 0); g.lineTo(-7 * s, -44 * s); g.lineTo(7 * s, -44 * s); g.lineTo(12 * s, 0); g.fill();
       g.fillStyle = '#8a5a3a'; g.beginPath(); g.moveTo(-9 * s, -44 * s); g.lineTo(0, -56 * s); g.lineTo(9 * s, -44 * s); g.fill();
@@ -345,11 +440,14 @@
       }
     }
     if (S.a.balloon && S.night < .5) {
-      var lx = ((tAnim * 7 * dpr) % (W * 1.5)) - W * .25; var ly = hy * .45 + Math.sin(tAnim * .4) * 6 * dpr;
-      g.fillStyle = '#ef5350'; g.beginPath(); g.ellipse(lx, ly, 15 * dpr, 18 * dpr, 0, 0, TAU); g.fill();
-      g.fillStyle = '#ffd54f'; g.beginPath(); g.ellipse(lx, ly, 5.5 * dpr, 18 * dpr, 0, 0, TAU); g.fill();
-      g.fillStyle = '#6b4a2e'; g.fillRect(lx - 4 * dpr, ly + 23 * dpr, 8 * dpr, 5 * dpr);
-      g.strokeStyle = 'rgba(40,40,40,.6)'; g.lineWidth = dpr; g.beginPath(); g.moveTo(lx - 9 * dpr, ly + 15 * dpr); g.lineTo(lx - 3 * dpr, ly + 23 * dpr); g.moveTo(lx + 9 * dpr, ly + 15 * dpr); g.lineTo(lx + 3 * dpr, ly + 23 * dpr); g.stroke();
+      var lx = ((tAnim * 6 * dpr) % (W * 1.5)) - W * .25; var ly = hy * .5 + Math.sin(tAnim * .4) * 7 * dpr; var u = dpr; var sway = Math.sin(tAnim * .7) * .05;
+      g.save(); g.translate(lx, ly); g.rotate(sway);
+      var env = g.createRadialGradient(-6 * u, -8 * u, 2 * u, 0, 0, 30 * u); env.addColorStop(0, '#ff8a7a'); env.addColorStop(.6, '#e8483f'); env.addColorStop(1, '#a52a2a');
+      g.fillStyle = env; g.beginPath(); g.moveTo(0, -26 * u); g.bezierCurveTo(26 * u, -24 * u, 28 * u, 10 * u, 6 * u, 24 * u); g.lineTo(-6 * u, 24 * u); g.bezierCurveTo(-28 * u, 10 * u, -26 * u, -24 * u, 0, -26 * u); g.fill();
+      g.save(); g.clip(); g.fillStyle = '#ffd966'; g.beginPath(); g.ellipse(0, 0, 8 * u, 30 * u, 0, 0, TAU); g.fill(); g.fillStyle = '#fff3d0'; g.beginPath(); g.ellipse(0, 0, 2.5 * u, 30 * u, 0, 0, TAU); g.fill(); g.fillStyle = 'rgba(255,255,255,.22)'; g.beginPath(); g.ellipse(-12 * u, -8 * u, 4 * u, 16 * u, .3, 0, TAU); g.fill(); g.restore();
+      g.strokeStyle = 'rgba(60,40,30,.7)'; g.lineWidth = u; g.beginPath(); g.moveTo(-6 * u, 24 * u); g.lineTo(-4 * u, 34 * u); g.moveTo(6 * u, 24 * u); g.lineTo(4 * u, 34 * u); g.stroke();
+      g.fillStyle = '#7a5230'; rr(-6 * u, 34 * u, 12 * u, 8 * u, 2 * u); g.fill(); g.fillStyle = '#5a3a20'; g.fillRect(-6 * u, 36 * u, 12 * u, 2 * u);
+      glowDot(0, 27 * u, 9 * u, '#ffb347'); g.restore();
     }
     if (S.stars > .6) {
       var su = (tAnim % 16) / 16;
@@ -370,14 +468,15 @@
     var far = xoAt(DRAW * .8) * .12; var hySaved = hy; hy = hyR;
     for (var L = 0; L < 3; L++) {
       var amp = H * (.05 + L * .012); var base = hy - H * .008 * (2 - L);
-      g.fillStyle = S.ridge[L]; g.beginPath(); g.moveTo(0, hy + 6);
+      var rgr = g.createLinearGradient(0, base - amp * 1.1, 0, hy + 6); rgr.addColorStop(0, S.ridge[L]); rgr.addColorStop(.7, S.ridge[L]); rgr.addColorStop(1, mix(S.ridge[L], mix(S.ground[0], S.fog, .55), .92));
+      g.fillStyle = rgr; g.beginPath(); g.moveTo(0, hy + 6);
       for (var xx = 0; xx <= W; xx += 8 * dpr) {
         var q = xx / dpr - far * 40 * (.3 + L * .4) + dist * .01 * (L + 1);
         g.lineTo(xx, base - amp * (.5 + .5 * Math.sin(q * .011 + L * 2)) - amp * .4 * Math.sin(q * .027 + L * 5));
       }
       g.lineTo(W, hy + 6); g.fill();
-      var mg = g.createLinearGradient(0, base - amp * 1.2, 0, hy + 8); mg.addColorStop(0, 'rgba(255,255,255,0)'); mg.addColorStop(1, mix(S.fog, '#ffffff', .1) + Math.round(S.mist * (.55 - L * .12) * 255).toString(16).padStart(2, '0'));
-      g.fillStyle = mg; g.fillRect(0, base - amp * 1.2, W, hy + 8 - (base - amp * 1.2));
+      var mg = g.createLinearGradient(0, base - amp * 1.4, 0, hy + 10); mg.addColorStop(0, 'rgba(255,255,255,0)'); mg.addColorStop(.55, mix(S.fog, '#ffffff', .1) + Math.round(S.mist * (.38 - L * .08) * 255).toString(16).padStart(2, '0')); mg.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = mg; g.fillRect(0, base - amp * 1.4, W, hy + 10 - (base - amp * 1.4));
     }
     if (S.skyline > .02) {
       g.globalAlpha = S.skyline;
@@ -407,6 +506,16 @@
       for (var j = 0; j < n; j++) { var r = rows[j]; if (j === 0) g.moveTo(r.ct + sd * r.hw * 1.9, r.y); else g.lineTo(r.ct + sd * r.hw * 1.9, r.y); }
       g.stroke();
     });
+    for (var wv = 0; wv < 16; wv++) {
+      var wd = (((wv * 19 - tAnim * 6) % 300) + 300) % 300 + 2; var rw = rowAt(wd);
+      var wa = clamp(rw.p * 1.7, 0, .6) * clamp(S.water, 0, 1) * (1 - wd / 320);
+      [-1, 1].forEach(function (sd) {
+        var x0 = rw.ct + sd * rw.hw * 1.9; var x1 = sd < 0 ? 0 : W;
+        g.strokeStyle = 'rgba(255,255,255,' + wa + ')'; g.lineWidth = Math.max(1, 2.4 * rw.p * dpr); g.beginPath(); g.moveTo(x0, rw.y);
+        for (var si = 1; si <= 10; si++) g.lineTo(x0 + (x1 - x0) * si / 10, rw.y + Math.sin(tAnim * 1.3 + si * 1.2 + wv) * rw.p * 3.5 * dpr);
+        g.stroke();
+      });
+    }
     g.fillStyle = S.sunC;
     for (var q = 0; q < 26; q++) {
       var rj = rows[Math.floor(rnd(q, 61) * (n - 1) * .85)]; var gx = rj.ct + (q % 2 ? 1 : -1) * rj.hw * (2.1 + rnd(q, 62) * 5);
@@ -423,7 +532,7 @@
   function drawGround(S) {
     var top = Math.min(hyR, rows.length ? rows[rows.length - 1].y : hy);
     var gg = g.createLinearGradient(0, top, 0, H);
-    gg.addColorStop(0, mix(S.ground[0], S.fog, .35)); gg.addColorStop(1, S.ground[1]);
+    gg.addColorStop(0, mix(S.ground[0], S.fog, .55)); gg.addColorStop(.12, mix(S.ground[0], S.fog, .3)); gg.addColorStop(1, S.ground[1]);
     g.fillStyle = gg; g.fillRect(0, top, W, H - top);
     if (S.water > .03) drawWater(S);
   }
@@ -491,12 +600,46 @@
         items.push({ d: md, mound: true, lat: ms * (2.4 + rnd(mk, 53) * 3.5), size: 80 + rnd(mk, 54) * 160, k: mk });
       }
     }
+    var cn; var ci;
+    for (cn = Math.floor(dist / 90); cn <= Math.floor((dist + DRAW) / 90); cn++) {
+      var ck = coinChunk(cn); if (!ck || nearStop(ck.start)) continue;
+      for (ci = 0; ci < ck.count; ci++) { var cd = ck.start + ci * 7 - dist; var cid = cn * 10 + ci; if (cd > 3 && cd < DRAW && !collected[cid]) items.push({ d: cd, coin: true, lat: ck.lane / 1.7, k: cid }); }
+    }
+    for (var hn = Math.floor(dist / 600); hn <= Math.floor((dist + DRAW) / 600); hn++) {
+      var hk = heartChunk(hn); if (!hk || nearStop(hk.at) || collected['h' + hn]) continue;
+      var hd = hk.at - dist; if (hd > 3 && hd < DRAW) items.push({ d: hd, heart: true, lat: hk.lane / 1.7, k: hn });
+    }
+    if (tripMode === 'journey') {
+      REST_STOPS.concat([JOURNEY_CHAPTERS]).forEach(function (cl, i) { var ad = cl * chapterLen - dist; if (ad > 2 && ad < DRAW) items.push({ d: ad, arch: true, finish: i === REST_STOPS.length }); });
+    }
     traffic.forEach(function (c) { var d = c.z - dist; if (d > 1 && d < DRAW) items.push({ d: d, car: c }); });
     items.sort(function (a, b) { return b.d - a.d; });
     var rockC = mix(S.ground[1], '#7a6a5a', .5);
     var S2 = { night: S.night, rockC: rockC };
     items.forEach(function (it) {
       var rw = rowAt(it.d); var p = rw.p; var y = rw.y;
+      if (it.arch) {
+        var as = p * (W / 230) * 1.35; var ac = xoAt(it.d); var ax0 = cx + (ac - 1.12 - camX) * p * RH; var ax1 = cx + (ac + 1.12 - camX) * p * RH; var ah = 96 * as;
+        g.fillStyle = '#2a3350'; g.fillRect(ax0 - 4 * as, y - ah, 8 * as, ah); g.fillRect(ax1 - 4 * as, y - ah, 8 * as, ah);
+        g.fillStyle = it.finish ? '#f4f1ea' : '#1f2a44'; g.fillRect(ax0 - 6 * as, y - ah - 22 * as, ax1 - ax0 + 12 * as, 24 * as);
+        if (it.finish) { g.fillStyle = '#111'; var sq = 8 * as; for (var qx = 0; qx * sq < ax1 - ax0 + 12 * as; qx++) for (var qy = 0; qy < 3; qy++) if ((qx + qy) % 2 === 0) g.fillRect(ax0 - 6 * as + qx * sq, y - ah - 22 * as + qy * sq, sq, sq); }
+        else { g.fillStyle = '#ffd166'; g.font = '800 ' + (13 * as) + 'px system-ui, sans-serif'; g.textAlign = 'center'; g.fillText('REST STOP', (ax0 + ax1) / 2, y - ah - 5 * as); }
+        if (S.night > .4) { glowDot(ax0, y - ah - 10 * as, 22 * as, '#ffd98a'); glowDot(ax1, y - ah - 10 * as, 22 * as, '#ffd98a'); }
+        return;
+      }
+      if (it.heart) {
+        var hx = cx + (xoAt(it.d) + it.lat - camX) * p * RH; var hs = p * (W / 230) * 1.35; var hy2 = y - (16 + Math.sin(tAnim * 3) * 2) * hs;
+        glowDot(hx, hy2, 24 * hs, '#ff6b8a'); g.fillStyle = '#ff4d73'; g.beginPath(); g.moveTo(hx, hy2 + 9 * hs); g.bezierCurveTo(hx - 16 * hs, hy2 - 2 * hs, hx - 9 * hs, hy2 - 14 * hs, hx, hy2 - 6 * hs); g.bezierCurveTo(hx + 9 * hs, hy2 - 14 * hs, hx + 16 * hs, hy2 - 2 * hs, hx, hy2 + 9 * hs); g.fill();
+        g.fillStyle = 'rgba(255,255,255,.4)'; g.beginPath(); g.ellipse(hx - 5 * hs, hy2 - 5 * hs, 2.5 * hs, 1.6 * hs, -.6, 0, TAU); g.fill();
+        return;
+      }
+      if (it.coin) {
+        var kx = cx + (xoAt(it.d) + it.lat - camX) * p * RH; var cs = p * (W / 230) * 1.35; var cr = 8 * cs; var cw = Math.max(.15, Math.abs(Math.cos(tAnim * 3 + it.k * .6))) * cr; var cy = y - 14 * cs;
+        glowDot(kx, cy, cr * 2.2, '#ffd166');
+        var cg = g.createLinearGradient(kx - cw, cy - cr, kx + cw, cy + cr); cg.addColorStop(0, '#fff2a8'); cg.addColorStop(.5, '#ffc933'); cg.addColorStop(1, '#c98a10');
+        g.fillStyle = cg; g.beginPath(); g.ellipse(kx, cy, cw, cr, 0, 0, TAU); g.fill(); g.strokeStyle = '#b87a0c'; g.lineWidth = Math.max(1, cs * .8); g.stroke();
+        return;
+      }
       if (it.mound) {
         var mx = cx + (xoAt(it.d) + it.lat - camX) * p * RH; var mw = it.size * p * (W / 230) * 1.35; var mh = mw * (.26 + rnd(it.k, 55) * .16);
         var mg = g.createLinearGradient(0, y - mh, 0, y); var fogT = clamp((1 - p) * .5, 0, .5);
@@ -529,9 +672,22 @@
     g.save(); g.translate(x, py); g.rotate(tilt);
     carRear(0, 0, pw, '#eef1f8', 'sport', { under: S.night > .6 ? '#35e6ff' : null, tail: '#ff3355', brake: false });
     g.restore();
+    if (shieldT > 0) {
+      var sa = shieldT < .8 ? (Math.sin(tAnim * 30) > 0 ? .5 : .15) : .45;
+      g.save(); g.translate(x, py - pw * .18); g.globalAlpha = sa;
+      var sgr = g.createRadialGradient(0, 0, pw * .1, 0, 0, pw * .62); sgr.addColorStop(0, 'rgba(120,220,255,0)'); sgr.addColorStop(1, 'rgba(120,220,255,.9)');
+      g.fillStyle = sgr; g.beginPath(); g.ellipse(0, 0, pw * .62, pw * .45, 0, 0, TAU); g.fill(); g.restore();
+    }
   }
 
   function drawWeather(S) {
+    if (lightningT > 0) {
+      var la = lightningT / .4;
+      g.fillStyle = 'rgba(235,242,255,' + (.45 * la * (Math.sin(lightningT * 60) > -.3 ? 1 : .4)) + ')'; g.fillRect(0, 0, W, H);
+      g.strokeStyle = 'rgba(245,248,255,' + la + ')'; g.lineWidth = 3 * dpr; g.beginPath(); var bx0 = W * (.3 + rnd(Math.floor(tAnim), 91) * .4); g.moveTo(bx0, 0);
+      for (var bi = 1; bi < 8; bi++) g.lineTo(bx0 + (rnd(bi + Math.floor(tAnim), 92) - .5) * 60 * dpr, bi * hy / 8); g.stroke();
+    }
+    if (flashT > 0 && mode === 'run') { g.fillStyle = 'rgba(255,60,60,' + (.28 * flashT / .35) + ')'; g.fillRect(0, 0, W, H); }
     if (S.rain > .05) {
       g.strokeStyle = 'rgba(200,225,255,' + (.34 * S.rain) + ')'; g.lineWidth = 1.5 * dpr;
       var n = Math.round(90 * S.rain);
@@ -559,8 +715,8 @@
     }
     // fog band at the horizon
     var fg = g.createLinearGradient(0, hy - H * .05, 0, hy + H * .26);
-    fg.addColorStop(0, S.fog + 'ff'); fg.addColorStop(1, S.fog + '00');
-    g.globalAlpha = .55 + S.mist * .2; g.fillStyle = fg; g.fillRect(0, hy - H * .05, W, H * .31); g.globalAlpha = 1;
+    fg.addColorStop(0, S.fog + '00'); fg.addColorStop(.3, S.fog + 'ff'); fg.addColorStop(1, S.fog + '00');
+    g.globalAlpha = .5 + S.mist * .2; g.fillStyle = fg; g.fillRect(0, hyR - H * .06, W, H * .34); g.globalAlpha = 1;
     // speed lines
     if (mode === 'run' && speed > 82) {
       g.save(); g.strokeStyle = 'rgba(255,255,255,' + clamp((speed - 82) / 120, 0, .1) + ')'; g.lineWidth = 1.5 * dpr;
@@ -602,23 +758,98 @@
     vibrate: window.navigator.vibrate ? window.navigator.vibrate.bind(window.navigator) : null,
     setInterval: window.setInterval.bind(window), clearInterval: window.clearInterval.bind(window)
   }) : null;
-  function applyAudioPrefs() { if (A) { A.setMusic(prefs.music === 'on'); A.setSfx(prefs.sfx === 'on'); A.setHaptics(prefs.sfx === 'on'); } }
-  applyAudioPrefs();
+  function au(fn, a, b) { if (A && typeof A[fn] === 'function') { try { return A[fn](a, b); } catch (e) { return undefined; } } return undefined; }
+  function audioPrefs() {
+    au('setPrefs', {
+      music: prefs.music === 'on', sfx: prefs.sfx === 'on', style: prefs.style, volMusic: prefs.volMusic / 100, volFx: prefs.volFx / 100, bass: prefs.bass / 100,
+      calm: prefs.calm === 'on', sound: appChoice('sound') === 'on', haptics: appChoice('haptics') === 'on'
+    });
+  }
+  audioPrefs();
 
   // ---------- HUD ----------
-  var elDist = $('dist'); var elSpd = $('spd'); var elCombo = $('combo'); var elRing = $('ring'); var elNear = $('near');
-  var elChapter = $('chapter'); var elChNum = $('ch-num'); var elChName = $('ch-name'); var chTimer = 0;
+  var elDist = $('dist'); var elSpd = $('spd'); var elNear = $('near'); var elHearts = $('hearts'); var elCoins = $('coinc');
+  var elChapter = $('chapter'); var elChNum = $('ch-num'); var elChName = $('ch-name'); var elTrip = $('trip'); var elFill = $('trip-fill'); var elDots = $('trip-dots');
+  var cache = {};
+  function setText(el, key, v) { if (cache[key] !== v) { cache[key] = v; el.textContent = v; } }
+  function hearts() { var s = ''; var i; for (i = 0; i < lives; i++) s += '♥'; for (i = lives; i < maxLives; i++) s += '♡'; return s; }
   function hud() {
-    elDist.textContent = String(Math.floor(score));
-    elSpd.textContent = String(Math.round(speed * 3.6));
-    elCombo.textContent = 'x' + Math.max(1, combo);
-    elRing.style.setProperty('--p', Math.round(clamp(comboTimer / 3, 0, 1) * 100) + '%');
+    setText(elDist, 'd', String(Math.floor(score)));
+    setText(elSpd, 's', String(Math.round(speed * 3.6)));
+    setText(elHearts, 'h', hearts());
+    setText(elCoins, 'c', '● ' + run.coins);
+    var showTrip = tripMode === 'journey' && mode === 'run';
+    elTrip.hidden = !showTrip;
+    if (showTrip) elFill.style.width = clamp(dist / (JOURNEY_CHAPTERS * chapterLen) * 100, 0, 100).toFixed(1) + '%';
   }
-  function showChapter(i, name) { elChNum.textContent = 'Chapter ' + (i % 10 + 1); elChName.textContent = name; elChapter.classList.add('show'); chTimer = 3.2; }
+  function buildTrip() {
+    elDots.textContent = '';
+    var total = JOURNEY_CHAPTERS * chapterLen;
+    REST_STOPS.concat([JOURNEY_CHAPTERS]).forEach(function (cl, i) {
+      var d = document.createElement('i'); d.className = i === REST_STOPS.length ? 'f' : 'r'; d.style.left = (cl * chapterLen / total * 100) + '%'; elDots.appendChild(d);
+    });
+  }
+  function showChapter(num, name) { elChNum.textContent = num; elChName.textContent = name; elChapter.classList.add('show'); chTimer = 3.2; }
   function showNear(text) { elNear.textContent = text; elNear.classList.add('show'); nearTimer = .9; }
 
+  // ---------- results, stats and checkpoints ----------
+  function endRun(finished) {
+    stats.runs += 1; stats.near += run.near; stats.nearBest = Math.max(stats.nearBest, run.comboMax || 0); stats.coins += run.coins;
+    stats.maxChapter = Math.max(stats.maxChapter, chapterAt(dist).i); stats.bestDistance = Math.max(stats.bestDistance, Math.floor(dist));
+    if (finished) { stats.journeys += 1; if (run.hits === 0) stats.noHitJourneys += 1; }
+    saveStats();
+  }
+  function clearCheckpoint() { try { window.localStorage.removeItem(CHECK_KEY); } catch (e) { /* fine */ } }
+  function saveCheckpoint(chapter) { writeJson(CHECK_KEY, { v: 1, mode: 'journey', difficulty: prefs.difficulty, length: prefs.length, chapter: chapter, lives: lives, score: Math.floor(score) }); }
+
+  var ovTitle = $('ov-title'); var ovSub = $('ov-sub'); var ovStats = $('ov-stats'); var optsBox = $('opts'); var playBtn = $('play'); var contBtn = $('cont');
+  function showOverlay(kind, o) {
+    o = o || {};
+    ovTitle.textContent = o.title || 'Racer'; ovSub.textContent = o.sub || '';
+    ovStats.textContent = '';
+    (o.stats || []).forEach(function (r) { var d = document.createElement('div'); var a = document.createElement('span'); a.textContent = r[0]; var b = document.createElement('b'); b.textContent = r[1]; d.appendChild(a); d.appendChild(b); ovStats.appendChild(d); });
+    ovStats.hidden = !(o.stats && o.stats.length);
+    optsBox.hidden = kind !== 'menu';
+    playBtn.textContent = kind === 'menu' ? 'Play' : 'Play again';
+    var cp = tripMode === 'journey' || kind === 'menu' ? getCheckpoint() : null;
+    contBtn.hidden = !cp; if (cp) contBtn.textContent = 'Continue: chapter ' + (cp.chapter + 1) + '  ' + new Array(cp.lives + 1).join('♥');
+    $('ov').setAttribute('data-kind', kind); $('ov').hidden = false;
+    $('menu-btn').hidden = kind === 'menu';
+  }
+  function gameOver() {
+    mode = 'over'; speed = 0; shake = 18; flashT = .5; braking = false;
+    burst(cx, H * .8, 40, ['#ffb347', '#ff6b4a', '#ffd166', '#888']);
+    au('event', 'crash'); au('stop');
+    endRun(false);
+    var s = Math.floor(score); var isBest = submitBest(s);
+    window.setTimeout(function () {
+      if (mode !== 'over') return;
+      showOverlay('over', { title: 'Crash', sub: isBest ? 'New best!' : 'Best ' + getBest(), stats: [['Distance', Math.floor(dist) + ' m'], ['Score', String(s)], ['Coins', String(run.coins)], ['Close calls', String(run.near)]] });
+    }, 700);
+  }
+  function finishJourney() {
+    mode = 'done'; braking = false; score += lives * 100; flashT = 0;
+    au('event', 'finish'); au('stop');
+    endRun(true); clearCheckpoint();
+    var s = Math.floor(score); var isBest = submitBest(s);
+    burst(cx, H * .5, 50, ['#ffd166', '#ff9ab0', '#9fe9ff', '#fff']);
+    window.setTimeout(function () {
+      if (mode !== 'done') return;
+      showOverlay('done', { title: 'You made it', sub: (isBest ? 'New best. ' : '') + 'Sunrise Coast reached.', stats: [['Distance', Math.floor(dist) + ' m'], ['Score', String(s)], ['Lives left', hearts()], ['Coins', String(run.coins)], ['Close calls', String(run.near)], ['Bumps', String(run.hits)]] });
+    }, 1400);
+  }
+  function bump() {
+    run.hits += 1; lives -= 1; combo = 0; comboTimer = 0;
+    if (lives <= 0) { gameOver(); return; }
+    shieldT = DIFFS[prefs.difficulty].shield; shake = 12; flashT = .35;
+    traffic = traffic.filter(function (c) { var d = c.z - dist; return d > 90 || d < -12; }); // the road ahead clears so you can recover
+    nextSpawn = Math.max(nextSpawn, dist + 120);
+    burst(cx, H * .8, 14, ['#ffb347', '#ffd166']);
+    au('event', 'bump');
+  }
+
   // ---------- loop ----------
-  var last = null;
+  var last = null; var lastScene = null; var sceneTick = 0;
   function burst(x, y, n, cols) {
     for (var i = 0; i < n; i++) { var a = Math.random() * TAU; var v = 40 + Math.random() * 220; particles.push({ x: x, y: y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 60, life: 1, r: 2 + Math.random() * 3, c: cols[i % cols.length] }); }
   }
@@ -628,62 +859,141 @@
     particles.forEach(function (p) { p.x += p.vx * dt * dpr; p.y += p.vy * dt * dpr; p.vy += 300 * dt; p.life -= dt * 1.4; });
     particles = particles.filter(function (p) { return p.life > 0; });
     if (shake > 0) shake = Math.max(0, shake - dt * 40);
+    if (flashT > 0) flashT = Math.max(0, flashT - dt);
+    if (lightningT > 0) lightningT = Math.max(0, lightningT - dt);
     if (chTimer > 0) { chTimer -= dt; if (chTimer <= 0) elChapter.classList.remove('show'); }
     if (nearTimer > 0) { nearTimer -= dt; if (nearTimer <= 0) elNear.classList.remove('show'); }
     lane += (laneTarget - lane) * Math.min(1, dt * 11);
-    if (mode !== 'run') { if (mode === 'menu') { dist += 20 * dt; } return; }
+    if (lastScene && lastScene.lightning > .5 && lightningT <= 0 && Math.random() < dt * .16) { lightningT = .4; au('event', 'thunder'); }
+    if (mode === 'menu') { dist += 20 * dt; return; }
+    if (mode !== 'run') return;
+    shieldT = Math.max(0, shieldT - dt);
     speed += (targetSpeed(dist) * (braking ? .55 : 1) - speed) * Math.min(1, dt * (braking ? 1.6 : .8));
     dist += speed * dt; score += speed * dt * .1;
     if (comboTimer > 0) { comboTimer -= dt; if (comboTimer <= 0) combo = 0; }
-    while (nextSpawn < dist + DRAW) { spawnWave(nextSpawn); nextSpawn += 95 + rand() * 60 - Math.min(25, dist * .002); if (chapterAt(nextSpawn).frac < .1) nextSpawn += 50; }
     var c0 = chapterAt(dist);
-    if (c0.i !== lastChapter) { lastChapter = c0.i; showChapter(c0.i, CHAPTERS[c0.idx].name); if (A) A.setChapter(c0.idx); }
+    if (tripMode === 'journey' && c0.i >= JOURNEY_CHAPTERS) { finishJourney(); return; }
+    if (c0.i !== lastChapter) { lastChapter = c0.i; showChapter('Chapter ' + (c0.i + 1), CHAPTERS[c0.idx].name); au('setChapter', c0.idx); if (c0.i > 0) au('event', 'chapter'); }
+    if (tripMode === 'journey' && nextStop < REST_STOPS.length && dist >= REST_STOPS[nextStop] * chapterLen) {
+      var cpCh = REST_STOPS[nextStop]; nextStop++;
+      if (lives < maxLives) lives++;
+      saveCheckpoint(cpCh); showChapter('Rest stop', 'Heart restored'); au('event', 'rest');
+    }
+    var diff = DIFFS[prefs.difficulty];
+    while (nextSpawn < dist + DRAW) {
+      if (!nearStop(nextSpawn)) spawnWave(nextSpawn);
+      nextSpawn += diff.gapMin + rand() * diff.gapRand - Math.min(25, dist * .002); if (chapterAt(nextSpawn).frac < .08) nextSpawn += 50;
+    }
+    // pickups
+    var cn;
+    for (cn = Math.floor((dist - 4) / 90); cn <= Math.floor((dist + 6) / 90); cn++) {
+      var ck = coinChunk(cn); if (!ck || nearStop(ck.start)) continue;
+      for (var ci = 0; ci < ck.count; ci++) {
+        var id = cn * 10 + ci; if (collected[id]) continue;
+        var cd = ck.start + ci * 7 - dist;
+        if (cd < 2.6 && cd > -2.6 && Math.abs(lane - ck.lane) < .75) {
+          collected[id] = true; run.coins += 1; score += 2;
+          coinNote = tAnim - coinNoteT < 1.6 ? coinNote + 1 : 0; coinNoteT = tAnim; au('event', 'coin', { i: coinNote });
+        }
+      }
+    }
+    var hn = Math.floor((dist + 2) / 600); var hk = heartChunk(hn);
+    if (hk && !nearStop(hk.at) && !collected['h' + hn]) {
+      var hd = hk.at - dist;
+      if (hd < 2.8 && hd > -2.8 && Math.abs(lane - hk.lane) < .75) { collected['h' + hn] = true; if (lives < maxLives) { lives++; au('event', 'heart'); } else { score += 25; au('event', 'coin', { i: 6 }); } }
+    }
     for (var i = 0; i < traffic.length; i++) {
       var c = traffic[i]; c.z += c.v * dt; var d = c.z - dist; var gap = Math.abs(lane - c.lane);
       if (Math.abs(d) < 8) c.minGap = Math.min(c.minGap, gap);
-      if (d < 4.6 && d > -4.6 && gap < .66) { crash(c); return; }
+      if (!c.whoosh && d < 16 && d > 0) { c.whoosh = true; au('event', 'pass', { side: c.lane - lane, v: speed }); }
+      if (d < 4.6 && d > -4.6 && gap < .66 && shieldT <= 0) { bump(); if (mode !== 'run') return; break; }
       if (!c.passed && d < -4.6) {
         c.passed = true;
-        if (c.minGap < 1.35) { combo += 1; comboTimer = 3; score += 5 * combo; showNear(combo > 1 ? 'CLOSE  x' + combo : 'CLOSE'); if (A) A.play('near'); }
+        if (c.minGap < 1.35) {
+          combo += 1; comboTimer = 3; run.near += 1; run.comboMax = Math.max(run.comboMax || 0, combo); score += 5 * combo;
+          showNear(combo > 1 ? 'CLOSE  x' + combo : 'CLOSE'); au('event', 'near', { combo: combo });
+        }
       }
     }
     traffic = traffic.filter(function (c) { return c.z > dist - 30; });
-    if (A) A.setSpeed(speed);
+    au('setSpeed', speed); au('setIntensity', clamp((speed - 30) / 60 + combo * .12 + (shieldT > 0 ? .1 : 0), 0, 1)); au('setBrake', braking);
+    sceneTick = (sceneTick + 1) % 8;
+    if (sceneTick === 0 && lastScene) au('setScene', { water: lastScene.water, rain: lastScene.rain, night: lastScene.night, snow: lastScene.snow, wind: lastScene.wind, heat: lastScene.heat, bed: lastScene.a.bed, nextBed: lastScene.b.bed, t: lastScene.t, life: lastScene.a.life, idx: c0.idx });
     hud();
-  }
-  function crash(c) {
-    mode = 'crash'; shake = 18; crashT = 0; speed = 0;
-    burst(cx, H * .85, 40, ['#ffb347', '#ff6b4a', '#ffd166', '#888']);
-    if (A) { A.play('crash'); A.stop(); }
-    var s = Math.floor(score); var isBest = s > best;
-    if (isBest) { best = s; try { window.localStorage.setItem(BEST_KEY, String(best)); } catch (e) { /* fine */ } }
-    $('ov-title').textContent = 'Crash';
-    $('ov-sub').textContent = 'Distance score ' + s + (isBest ? '. New best!' : '. Best ' + best + '.');
-    $('play').textContent = 'Play again';
-    window.setTimeout(function () { $('opts').hidden = false; $('ov').hidden = false; }, 650);
   }
   function frame(t) {
     if (last === null) last = t;
     var dt = Math.min(.05, (t - last) / 1000); last = t;
-    step(dt); render();
+    step(dt); lastScene = render();
     window.requestAnimationFrame(frame);
   }
 
-  // ---------- input ----------
-  function go(dir) { if (mode !== 'run' || paused) return; var before = laneTarget; laneTarget = clamp(laneTarget + dir, -1, 1); if (A && before !== laneTarget) { A.unlock(); A.play('lane'); } }
-  function start() {
-    reset(); mode = 'run'; paused = false; braking = false; $('ov').hidden = true; $('opts').hidden = true;
-    if (A) { A.unlock(); A.setChapter(0); A.start(); }
-    hud();
+  // ---------- starting, pausing and the menu ----------
+  function start(fromCheckpoint) {
+    if (fromCheckpoint) { prefs.mode = 'journey'; prefs.difficulty = fromCheckpoint.difficulty; prefs.length = fromCheckpoint.length; savePrefs(); }
+    reset(fromCheckpoint); mode = 'run'; $('ov').hidden = true; $('ps').hidden = true; $('ss').hidden = true;
+    buildTrip(); au('unlock'); audioPrefs(); au('setChapter', chapterAt(dist).idx); au('start'); hud();
   }
-  $('play').addEventListener('click', function () { if (paused) resumeGame(); else start(); });
-  document.addEventListener('keydown', function (e) {
-    if (e.key === 'ArrowLeft' || e.key === 'a') { go(-1); e.preventDefault(); }
-    else if (e.key === 'ArrowRight' || e.key === 'd') { go(1); e.preventDefault(); }
-    else if ((e.key === 'Enter' || e.key === ' ') && !$('ov').hidden) { if (paused) resumeGame(); else start(); e.preventDefault(); }
+  function backToMenu() {
+    mode = 'menu'; paused = false; applyTrip(); dist = 0; lastChapter = -1; traffic = []; speed = 0; shieldT = 0; flashT = 0; lives = maxLives; run = { near: 0, coins: 0, hits: 0 }; combo = 0;
+    au('stop'); $('ps').hidden = true; $('ss').hidden = true; elChapter.classList.remove('show'); elNear.classList.remove('show');
+    showOverlay('menu', { title: 'Racer', sub: 'Swipe left or right to change lane. Pass close to traffic for combos.' }); renderOpts(); hud();
+  }
+  function pauseGame() { if (mode !== 'run' || paused) return; paused = true; braking = false; au('pause'); $('ps').hidden = false; $('ps-resume').focus(); }
+  function resumeGame() { if (!paused) return; paused = false; $('ps').hidden = true; $('ss').hidden = true; au('resume'); last = null; }
+  function openSound(from) { $('ss').hidden = false; $('ss').setAttribute('data-from', from); $('ss-close').focus(); }
+  function closeSound() { $('ss').hidden = true; if (paused) $('ps-resume').focus(); }
+
+  function renderOpts() {
+    Array.prototype.forEach.call(document.querySelectorAll('.opt'), function (row) {
+      var name = row.getAttribute('data-opt');
+      Array.prototype.forEach.call(row.querySelectorAll('button'), function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-val') === String(prefs[name]))); });
+    });
+    $('opt-length').hidden = prefs.mode !== 'journey';
+    $('best-line').textContent = 'Best in this mode: ' + getBest();
+    var vm = $('vol-music'); var vf = $('vol-fx'); var vb = $('vol-bass'); vm.value = prefs.volMusic; vf.value = prefs.volFx; vb.value = prefs.bass;
+    var cp = getCheckpoint(); contBtn.hidden = !cp || $('ov').getAttribute('data-kind') !== 'menu'; if (cp) contBtn.textContent = 'Continue: chapter ' + (cp.chapter + 1) + '  ' + new Array(cp.lives + 1).join('♥');
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('.opt button'), function (b) {
+    b.addEventListener('click', function () {
+      var name = b.closest('.opt').getAttribute('data-opt'); var v = b.getAttribute('data-val');
+      prefs[name] = v; savePrefs(); applyTrip(); renderOpts(); audioPrefs(); au('unlock');
+    });
   });
+  [['vol-music', 'volMusic'], ['vol-fx', 'volFx'], ['vol-bass', 'bass']].forEach(function (p) {
+    $(p[0]).addEventListener('input', function () { prefs[p[1]] = parseInt($(p[0]).value, 10); savePrefs(); audioPrefs(); });
+  });
+
+  // ---------- input ----------
+  function go(dir) {
+    if (mode !== 'run' || paused) return;
+    var before = laneTarget; laneTarget = clamp(laneTarget + dir, -1, 1);
+    if (before !== laneTarget) { au('unlock'); au('event', 'lane', { dir: dir }); }
+  }
+  playBtn.addEventListener('click', function () { start(null); });
+  contBtn.addEventListener('click', function () { var cp = getCheckpoint(); if (cp) start(cp); });
+  $('menu-btn').addEventListener('click', backToMenu);
+  $('pause').addEventListener('click', function () { if (paused) resumeGame(); else pauseGame(); });
+  $('ps-resume').addEventListener('click', resumeGame);
+  $('ps-restart').addEventListener('click', function () { start(null); });
+  $('ps-sound').addEventListener('click', function () { openSound('pause'); });
+  $('sound-btn').addEventListener('click', function () { openSound('menu'); });
+  $('ss-close').addEventListener('click', closeSound);
+  var brake = $('brake');
+  function brakeOn(e) { braking = true; brake.setAttribute('aria-pressed', 'true'); if (e && e.pointerId !== undefined) { try { brake.setPointerCapture(e.pointerId); } catch (x) { /* fine */ } } }
+  function brakeOff() { braking = false; brake.setAttribute('aria-pressed', 'false'); }
+  brake.addEventListener('pointerdown', brakeOn); brake.addEventListener('pointerup', brakeOff); brake.addEventListener('pointercancel', brakeOff); brake.addEventListener('lostpointercapture', brakeOff);
+  document.addEventListener('keydown', function (e) {
+    var k = e.key;
+    if (k === 'ArrowLeft' || k === 'a') { go(-1); e.preventDefault(); }
+    else if (k === 'ArrowRight' || k === 'd') { go(1); e.preventDefault(); }
+    else if (k === 'ArrowDown' || k === 's') { if (mode === 'run' && !paused) braking = true; e.preventDefault(); }
+    else if (k === 'p' || k === 'Escape') { if (!$('ss').hidden) closeSound(); else if (paused) resumeGame(); else pauseGame(); }
+    else if (k === 'Enter' && !$('ov').hidden && document.activeElement && document.activeElement.tagName !== 'BUTTON') { start(null); e.preventDefault(); }
+  });
+  document.addEventListener('keyup', function (e) { if (e.key === 'ArrowDown' || e.key === 's') braking = false; });
   var stage = $('stage'); var sw0 = null;
-  stage.addEventListener('pointerdown', function (e) { if (e.target.closest('button,a')) return; sw0 = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: false }; });
+  stage.addEventListener('pointerdown', function (e) { if (e.target.closest('button,a,input,.sheet,.overlay')) return; sw0 = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: false }; });
   stage.addEventListener('pointermove', function (e) {
     if (!sw0 || sw0.id !== e.pointerId) return;
     var dx = e.clientX - sw0.x;
@@ -694,53 +1004,29 @@
     sw0 = null;
   });
   stage.addEventListener('pointercancel', function () { sw0 = null; });
-  // menu options: speed, music, effects
-  function renderOpts() {
-    Array.prototype.forEach.call(document.querySelectorAll('.opt'), function (row) {
-      var name = row.getAttribute('data-opt');
-      Array.prototype.forEach.call(row.querySelectorAll('button'), function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-val') === prefs[name])); });
-    });
-  }
-  Array.prototype.forEach.call(document.querySelectorAll('.opt button'), function (b) {
-    b.addEventListener('click', function () {
-      var name = b.closest('.opt').getAttribute('data-opt'); prefs[name] = b.getAttribute('data-val'); savePrefs(); renderOpts(); applyAudioPrefs();
-      if (A) A.unlock();
-    });
-  });
-  renderOpts();
-
-  function pauseGame() {
-    if (mode !== 'run' || paused) return;
-    paused = true; braking = false; if (A) A.stop();
-    $('ov-title').textContent = 'Paused'; $('ov-sub').textContent = 'Take a breath. Your run is waiting.'; $('play').textContent = 'Resume'; $('opts').hidden = true; $('ov').hidden = false;
-  }
-  function resumeGame() { if (!paused) return; paused = false; $('ov').hidden = true; if (A) { A.unlock(); A.start(); } last = null; }
-  $('pause').addEventListener('click', function () { if (paused) resumeGame(); else pauseGame(); });
-  var brake = $('brake');
-  function brakeOn(e) { braking = true; brake.setAttribute('aria-pressed', 'true'); if (e && e.pointerId !== undefined) { try { brake.setPointerCapture(e.pointerId); } catch (x) { /* fine */ } } }
-  function brakeOff() { braking = false; brake.setAttribute('aria-pressed', 'false'); }
-  brake.addEventListener('pointerdown', brakeOn); brake.addEventListener('pointerup', brakeOff); brake.addEventListener('pointercancel', brakeOff); brake.addEventListener('lostpointercapture', brakeOff);
-  document.addEventListener('keydown', function (e) { if (e.key === 'ArrowDown' || e.key === 's') { braking = true; e.preventDefault(); } else if (e.key === 'p' || e.key === 'Escape') { if (paused) resumeGame(); else pauseGame(); } });
-  document.addEventListener('keyup', function (e) { if (e.key === 'ArrowDown' || e.key === 's') braking = false; });
   document.addEventListener('visibilitychange', function () { last = null; if (document.hidden) pauseGame(); });
   window.addEventListener('resize', render);
+  window.addEventListener('storage', function () { audioPrefs(); });
 
   // ---------- init ----------
-  reset();
+  applyTrip(); reset(null); showOverlay('menu', { title: 'Racer', sub: 'Swipe left or right to change lane. Pass close to traffic for combos.' }); renderOpts(); hud();
   if (DEBUG) {
-    // test and gallery hook: draw a still frame at a distance with demo traffic
+    // test and gallery hook: draw a still frame at a distance with demo traffic, and drive the game
     window.racerDebug = {
-      state: function () { return { paused: paused, braking: braking, prefs: JSON.parse(JSON.stringify(prefs)), mode: mode, dist: dist, speed: speed, lane: lane, laneTarget: laneTarget, combo: combo, score: score, traffic: traffic.length, chapter: chapterAt(dist).i }; },
+      state: function () { return { paused: paused, braking: braking, prefs: JSON.parse(JSON.stringify(prefs)), mode: mode, dist: dist, speed: speed, lane: lane, laneTarget: laneTarget, combo: combo, score: score, lives: lives, maxLives: maxLives, shield: shieldT, coins: run.coins, hits: run.hits, traffic: traffic.length, chapter: chapterAt(dist).i, chapterLen: chapterLen, tripMode: tripMode, nextStop: nextStop, checkpoint: getCheckpoint(), stats: JSON.parse(JSON.stringify(stats)) }; },
       still: function (d, t, laneV, withTraffic) {
         mode = 'menu'; dist = d; tAnim = t; lane = laneV || 0; laneTarget = lane; speed = 70; traffic = [];
         if (withTraffic !== false) [[55, -1], [120, 1], [190, 0]].forEach(function (a, i) { traffic.push({ z: d + a[0], lane: a[1], v: 0, kind: CAR_KINDS[(i * 3 + Math.floor(d / 300)) % CAR_KINDS.length], col: CAR_COLS[(i * 2 + Math.floor(d / 200)) % CAR_COLS.length], passed: false, minGap: 9 }); });
-        $('ov').hidden = true; return render();
+        $('ov').hidden = true; lastScene = render(); return lastScene;
       },
-      start: start,
-      crashNow: function () { crash(traffic[0] || {}); },
-      pause: pauseGame, resume: resumeGame, elev: elev,
-      stage: function () { return stage.getBoundingClientRect(); },
-      setLane: function (l) { lane = laneTarget = l; }
+      start: start, pause: pauseGame, resume: resumeGame, elev: elev, backToMenu: backToMenu,
+      teleport: function (d) { dist = d; nextSpawn = d + 300; nextStop = 0; while (nextStop < REST_STOPS.length && REST_STOPS[nextStop] * chapterLen <= d) nextStop++; lastChapter = chapterAt(d).i - 1; traffic = []; },
+      addCar: function (ln, ahead) { traffic.push({ z: dist + ahead, lane: ln, v: 0, kind: 'sedan', col: '#2563eb', passed: false, minGap: 9 }); },
+      setLives: function (n) { lives = n; },
+      setLane: function (l) { lane = laneTarget = l; },
+      stopSpawning: function () { nextSpawn = 1e9; },
+      advance: function (sec) { var n = Math.round(sec / .02); for (var i = 0; i < n; i++) step(.02); },
+      coinChunk: coinChunk, heartChunk: heartChunk
     };
     if (params.get('still')) { window.racerDebug.still(parseFloat(params.get('still')), parseFloat(params.get('t') || '1'), 0, true); $('ov').hidden = true; }
     else window.requestAnimationFrame(frame);

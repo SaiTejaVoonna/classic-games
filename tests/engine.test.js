@@ -265,7 +265,7 @@ test('clock clamp scales with the speed: a long gap yields at most 2 ticks at an
 });
 
 test('settings markup lists the same speeds as the engine', () => {
-  const html = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'index.html'), 'utf8');
+  const html = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'snake', 'index.html'), 'utf8');
   for (const [name, ms] of Object.entries(E.SPEEDS)) {
     assert.ok(html.includes(`name="speed" value="${name}"`), name);
     assert.ok(html.includes(`(${ms} ms per step)`), `${name} ${ms}`);

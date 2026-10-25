@@ -2,7 +2,7 @@
 // Chromium binary. Usage: NODE_PATH=<dir with playwright> node tests/browser/play.js <output dir>
 // Optional: CHROMIUM_PATH (default /opt/pw-browsers/chromium).
 const { chromium } = require('playwright');
-const INDEX = require('url').pathToFileURL(require('path').resolve(__dirname, '../../index.html')).href;
+const INDEX = require('url').pathToFileURL(require('path').resolve(__dirname, '../../snake/index.html')).href;
 const CHROMIUM = process.env.CHROMIUM_PATH || '/opt/pw-browsers/chromium';
 const url = (q) => INDEX + (q || '');
 const R = []; const ok = (name, cond, extra) => { R.push({ name, pass: !!cond, extra }); };
