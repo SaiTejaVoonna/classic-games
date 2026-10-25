@@ -1,0 +1,112 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Drawer, world and sound</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#0b0e16;color:#eaf1ff;font-family:system-ui,Segoe UI,Roboto,sans-serif;padding:26px;width:1700px}
+h1{font-size:24px;margin:0 0 4px}p.sub{margin:0 0 18px;color:#9fb0cc;font-size:14px}.sec{font-weight:800;margin:28px 0 10px;font-size:16px}
+.row{display:flex;gap:22px;align-items:flex-start}
+.ph{width:300px;height:650px;border-radius:36px;border:7px solid #000;overflow:hidden;position:relative;background:#0e1424;flex:none;box-shadow:0 18px 50px #000a}
+.cap{width:300px;font-size:13px;font-weight:800;margin-top:9px}.cap small{display:block;font-weight:400;color:#9fb0cc;font-size:11.5px;line-height:1.4;margin-top:3px}
+.sb{height:28px;padding:8px 22px 0;font-size:11px;color:#ffffffaa;display:flex;justify-content:space-between;position:relative;z-index:3}
+.pad{padding:0 20px}h2{font-size:22px;margin:6px 0 2px}.sub2{font-size:12px;color:#9fb0cc;margin:0 0 12px}
+.hero{height:210px;border-radius:20px;overflow:hidden;position:relative;margin-bottom:12px;border:1px solid #ffffff22}.hero img,.fullimg img{width:100%;height:100%;object-fit:cover;display:block}.hero .ov{position:absolute;inset:0;background:linear-gradient(#0000 40%,#050810e8)}.hero .tx{position:absolute;left:14px;bottom:12px}.hero b{font-size:18px;display:block}.hero small{font-size:11px;color:#cfd8ea}
+.card{height:92px;border-radius:16px;background:#121a2e;border:1px solid #ffffff1c;padding:14px;margin-bottom:10px;font-size:12px;color:#9fb0cc}.card b{display:block;color:#fff;font-size:16px;margin-bottom:3px}
+.dim{position:absolute;inset:0;background:#02040bb0;z-index:4}
+.drawer{position:absolute;left:0;top:0;bottom:0;width:226px;background:#0f1730;z-index:5;border-right:1px solid #ffffff22;padding:46px 16px 16px;box-shadow:12px 0 40px #000a}
+.drawer h3{margin:0 0 2px;font-size:19px}.drawer .me{font-size:11px;color:#9fb0cc;margin-bottom:14px}
+.item{display:flex;gap:12px;align-items:center;padding:11px 8px;border-radius:12px;font-size:14px}.item i{width:22px;height:22px;border-radius:7px;background:#34e39c;display:block;flex:none}.item.off i{background:#3a4a6a}.item.on{background:#ffffff12}.item small{display:block;font-size:10.5px;color:#9fb0cc}
+.sw{display:flex;gap:6px;margin:6px 8px}.sw div{flex:1;text-align:center;padding:8px 0;border-radius:10px;background:#162040;font-size:11px;border:1px solid #ffffff18}.sw .on{background:#34e39c;color:#04140c;font-weight:700}
+.hr{height:1px;background:#ffffff18;margin:10px 0}
+.fullimg{position:absolute;inset:0}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:#0f1730f2;z-index:5;border-radius:26px 26px 0 0;padding:12px 18px 22px;border-top:1px solid #ffffff22;backdrop-filter:blur(14px)}.sheet .grab{width:44px;height:5px;border-radius:3px;background:#ffffff40;margin:0 auto 12px}
+.sheet h3{margin:0 0 10px;font-size:17px}.btnrow{display:flex;gap:8px;margin:8px 0}.b{flex:1;text-align:center;padding:12px 4px;border-radius:14px;background:#182246;border:1px solid #ffffff18;font-size:13px;font-weight:600}.b.p{background:#34e39c;color:#04140c;border-color:#34e39c}
+.hud{position:absolute;left:16px;right:16px;top:30px;display:flex;justify-content:space-between;z-index:2}.hud b{font-size:26px;font-weight:300}.hud small{display:block;font-size:9px;letter-spacing:2px;color:#ffffffb0}
+.pill{background:#0a0d1899;border:1px solid #ffffff30;border-radius:999px;padding:6px 12px}
+.frame{width:300px;height:560px;border-radius:24px;overflow:hidden;border:5px solid #000;position:relative}.frame img{width:100%;height:100%;object-fit:cover;display:block}
+.tag{position:absolute;left:8px;background:#000b;border-radius:999px;font-size:10.5px;padding:3px 10px;font-weight:700;border:1px solid #ffffff30}
+.note{width:380px;background:#121a2e;border:1px solid #ffffff1c;border-radius:18px;padding:16px;font-size:12.5px;line-height:1.55;color:#c4d0e6}.note b{color:#fff}.note ul{padding-left:18px;margin:6px 0}
+.pk{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;width:980px}.pk div{background:#121a2e;border:1px solid #ffffff1c;border-radius:16px;padding:14px;text-align:center;font-size:12px;color:#b9c6de;line-height:1.4}.pk b{display:block;color:#fff;font-size:14px;margin:8px 0 4px}.pk i{display:block;width:44px;height:44px;border-radius:50%;margin:0 auto}
+.mix{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;width:1640px}.col{background:#111830;border:1px solid #ffffff1c;border-radius:18px;padding:14px}.col h4{margin:0 0 8px;font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#9fb0cc}.lay{border-radius:9px;padding:7px 10px;margin:5px 0;font-size:12px;display:flex;justify-content:space-between}.lay small{opacity:.8}
+.m1{background:#27407a}.m2{background:#4a2b6e}.m3{background:#1e5a4a}.m4{background:#6a4a1e}.m5{background:#6e2a3a}
+.flow{margin-top:12px;background:#111830;border:1px solid #ffffff1c;border-radius:18px;padding:16px;font-size:12.5px;line-height:1.6;color:#c4d0e6;width:1640px;display:grid;grid-template-columns:repeat(3,1fr);gap:20px}.flow b{color:#fff}
+.chap{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;width:1640px;margin-top:8px}.chap div{background:#111830;border:1px solid #ffffff1c;border-radius:14px;padding:10px;font-size:11.5px;color:#b9c6de;line-height:1.45}.chap b{display:block;color:#fff;font-size:12.5px;margin-bottom:3px}
+</style></head><body>
+<h1>Drawer, living world and sound (mock)</h1><p class="sub">Mocks only. The beach frame and coins come from a scratch copy of the game, so they show real drawing. Sound previews are separate audio files.</p>
+
+<div class="sec">1. The drawer (menu) in the launcher, and the pause sheet in the game</div>
+<div class="row">
+ <div><div class="ph"><div class="sb"><span>11:09</span><span>5G 87%</span></div>
+  <div class="pad"><h2>Classic Games</h2><p class="sub2">Pick up where you left off.</p>
+   <div class="hero"><img src="assets/nh-coast.jpg"><div class="ov"></div><div class="tx"><small>CONTINUE · RACER</small><b>Chapter 2: Sunset Coast</b></div></div>
+   <div class="card"><b>Snake</b>Best 31 · 12 mazes</div><div class="card"><b>Daily road</b>Same road for everyone</div></div>
+  <div class="dim"></div>
+  <div class="drawer"><h3>Classic Games</h3><div class="me">Saved on this phone</div>
+   <div class="item on"><i></i><div>Games<small>Snake, Racer</small></div></div>
+   <div class="item"><i></i><div>Awards<small>7 of 40</small></div></div>
+   <div class="item"><i></i><div>Daily road<small>New today</small></div></div>
+   <div class="item"><i></i><div>Best scores<small>Per game and mode</small></div></div>
+   <div class="hr"></div>
+   <div class="item off"><i></i><div>Appearance</div></div><div class="sw"><div>Light</div><div class="on">Dark</div><div>Auto</div></div>
+   <div class="item off"><i></i><div>Sound and haptics</div></div>
+   <div class="item off"><i></i><div>Language</div></div>
+   <div class="hr"></div>
+   <div class="item off"><i></i><div>How to play</div></div><div class="item off"><i></i><div>About</div></div>
+  </div></div><div class="cap">Launcher drawer<small>Slides in from the left. App-wide things only: awards, scores, appearance, sound, help. Game settings live inside each game.</small></div></div>
+
+ <div><div class="ph"><div class="fullimg"><img src="assets/nh-meadow.jpg"></div><div class="sb"><span>11:09</span><span>5G 87%</span></div>
+  <div class="hud"><div><b>1,420</b><small>METERS</small></div><div style="text-align:right;color:#ff5a7a;font-size:18px">♥♥♡<small>LIVES</small></div></div>
+  <div class="dim" style="background:#02040b88"></div>
+  <div class="sheet"><div class="grab"></div><h3>Paused</h3>
+   <div class="btnrow"><div class="b p">Resume</div><div class="b">Restart</div></div>
+   <div class="btnrow"><div class="b">Camera: Chase</div><div class="b">Speed: Relaxed</div></div>
+   <div class="btnrow"><div class="b">Music: Cinematic</div><div class="b">Mix</div></div>
+   <div class="btnrow"><div class="b">Photo mode</div><div class="b">Quit to games</div></div></div>
+ </div><div class="cap">In-game pause sheet<small>A bottom sheet within thumb reach. It never covers the HUD in a way that hides what happened. Photo mode freezes the scene for a screenshot.</small></div></div>
+
+ <div><div class="ph"><div class="fullimg"><img src="assets/ft-coins2.jpg"></div><div class="sb"><span>11:09</span><span>5G 87%</span></div>
+  <div class="hud"><div><b>2,880</b><small>METERS</small></div><div style="text-align:center"><span class="pill" style="color:#ffd166;font-weight:800">● 214</span></div><div style="text-align:right;color:#ff5a7a;font-size:18px">♥♥♥<small>LIVES</small></div></div>
+ </div><div class="cap">Coins<small>Lines and arcs of coins to steer through. Each pickup plays a note of the current chord, so collecting a line plays a little tune.</small></div></div>
+
+ <div style="width:430px"><div class="note"><b>My review of the earlier mock (honest)</b><ul>
+  <li><b>Too much on screen at once:</b> distance, hearts, trip bar, title and speed all compete. Show the chapter title for 3 seconds only, and the trip bar only when it changes.</li>
+  <li><b>Cars are the loudest thing:</b> they are brighter than the scenery. Slightly desaturate traffic far away so the landscape reads first.</li>
+  <li><b>The player's car never changes:</b> add colours, a headlight glow and tyre dust.</li>
+  <li><b>Scenery repeats:</b> the same palm or house at the same spacing reads as a pattern. Use randomised spacing and size, and unique set pieces.</li>
+  <li><b>Static between events:</b> life needs to happen every 5 to 10 seconds, not just chapter changes.</li>
+  <li><b>Hard difficulty ramps:</b> the player should feel mastery, not punishment.</li></ul></div></div>
+</div>
+
+<div class="sec">2. A more alive world: the beach, waves and set pieces</div>
+<div class="row">
+ <div><div class="frame"><img src="assets/ft-coastwaves.jpg"><div class="tag" style="top:10px">SCRATCH BUILD</div></div><div class="cap">Sunset Coast<small>Sea on both sides with moving wave lines, foam at the shore, sun glitter, umbrellas, palms, a lighthouse and a sailboat. Sound: waves and gulls.</small></div></div>
+ <div><div class="frame"><img src="assets/nh-valley.jpg"></div><div class="cap">Amber Valley<small>Soft haze with no hard line, windmills turning, smoke from cottages, leaves in the wind.</small></div></div>
+ <div class="note" style="width:540px"><b>What can make the world feel less static</b>
+  <ul>
+   <li><b>Things that move on their own:</b> waves, boats, a train on a bridge, a plane, hot air balloons (several, different colours), birds, butterflies by day, fireflies at dusk, flags, clothes lines, windmills, a ferris wheel.</li>
+   <li><b>Light that changes:</b> the sun slowly crosses the sky across chapters, long shadows at golden hour, sun glare and god rays, lights switching on at dusk, lightning in storms, aurora at night.</li>
+   <li><b>Weather you can feel:</b> wind that bends the trees harder when it gusts, rain on the road with ripples, mist in valleys, snow settling on the sides.</li>
+   <li><b>3D feel:</b> big near objects that slide past quickly (poles, signs, bridges you drive under), soft shadows under everything, layered hills with haze, a slight camera roll in curves, a gentle FOV widening at speed.</li>
+   <li><b>Set pieces:</b> a bridge, a tunnel with echo, a village square, a harbour, a mountain pass, a canyon, a cliff-top lighthouse.</li>
+   <li><b>Limit:</b> blur effects look great on some phones but are not supported everywhere (some iPhones), so I would fake depth with haze and layers.</li></ul></div>
+</div>
+
+<div class="sec">3. Pickups (and the sound each one makes)</div>
+<div class="pk">
+ <div><i style="background:radial-gradient(#ffe27a,#d99a10)"></i><b>Coin</b>Points. Plays one note of the chord, so lines make a tune.</div>
+ <div><i style="background:radial-gradient(#9fe9ff,#2a8fd0)"></i><b>Gem</b>Rare, big bonus. A bright bell with a long tail.</div>
+ <div><i style="background:radial-gradient(#ff9ab0,#d12f57)"></i><b>Heart</b>+1 life. Two soft bell notes rising.</div>
+ <div><i style="background:radial-gradient(#b8f2ff,#35a7ff)"></i><b>Shield</b>One free bump. A warm rising shimmer.</div>
+ <div><i style="background:radial-gradient(#ffd0a0,#ff6a2a)"></i><b>Boost</b>A few seconds of speed. Bass swell and wind.</div>
+</div>
+
+<div class="sec">4. How the sound is built and mixed (atmospheric mixing)</div>
+<div class="mix">
+ <div class="col"><h4>Music (changes per chapter)</h4><div class="lay m1">Sub bass<small>always</small></div><div class="lay m1">String pad<small>always</small></div><div class="lay m1">Pulse (ostinato)<small>from the 2nd minute</small></div><div class="lay m1">Horns<small>on climbs</small></div><div class="lay m1">Taiko<small>on chapter change</small></div><div class="lay m1">Piano or handpan<small>melody</small></div></div>
+ <div class="col"><h4>Ambience (the place)</h4><div class="lay m3">Waves and gulls<small>coast</small></div><div class="lay m3">Wind in grass<small>meadow</small></div><div class="lay m3">City hum, distant horns<small>city</small></div><div class="lay m3">Rain on road<small>storm</small></div><div class="lay m3">Crickets<small>dusk</small></div><div class="lay m3">Tunnel echo<small>tunnel</small></div></div>
+ <div class="col"><h4>Car</h4><div class="lay m4">Engine<small>pitch with speed</small></div><div class="lay m4">Tyres<small>louder in curves</small></div><div class="lay m4">Wind<small>with speed</small></div><div class="lay m4">Pass-by whoosh<small>when a car goes by</small></div></div>
+ <div class="col"><h4>Events</h4><div class="lay m2">Coin<small>chord note</small></div><div class="lay m2">Near miss<small>whoosh + bass</small></div><div class="lay m2">Lane change<small>soft swish</small></div><div class="lay m2">Bump<small>thud, shield</small></div><div class="lay m2">Heart, chapter<small>bells</small></div></div>
+ <div class="col"><h4>Crash</h4><div class="lay m5">Low boom</div><div class="lay m5">Noise burst</div><div class="lay m5">Glass chimes</div><div class="lay m5">Music ducks and darkens</div></div>
+</div>
+<div class="flow"><div><b>Reverb space.</b> Music and ambience share a large soft room, so everything feels in one place. Effects get a smaller share, so they stay clear.</div><div><b>Ducking.</b> A coin, a near miss or a crash briefly lowers the music and ambience, then lets it return. Sounds then sit in the mix instead of piling up.</div><div><b>Dynamics.</b> A compressor keeps the loud parts from jumping out, and a limiter protects speakers. Calm mode lowers peaks, narrows the bass and removes sudden hits.</div></div>
+<div class="chap">
+ <div><b>1 Dawn Meadow</b>D major, 76 bpm. Piano and soft pad, wind in the grass</div><div><b>2 Sunset Coast</b>G, 88 bpm. Handpan, shaker, waves</div><div><b>3 Amber Valley</b>E minor, 72 bpm. Piano and cello, leaves</div><div><b>4 Dusk City</b>A minor, 90 bpm. Warm synth pad, city hum</div><div><b>5 Neon Quarter</b>F minor, 100 bpm. Pulse and sub, rain</div><div><b>6 Desert Road</b>B minor, 80 bpm. Plucked strings, wind</div><div><b>7 Northern Lights</b>C, 60 bpm. Slow pads and bells, night</div>
+</div>
+</body></html>
