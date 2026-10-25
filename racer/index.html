@@ -6,7 +6,7 @@
   <title>Racer | Classic Games</title>
   <meta name="description" content="Racer, an early playable prototype of a Classic Games road game.">
   <link rel="stylesheet" href="racer.css">
-  <script src="../src/sfx.js" defer></script>
+  <script src="audio.js" defer></script>
   <script src="racer.js" defer></script>
 </head>
 <body>
@@ -18,11 +18,17 @@
       <div class="chapter" id="chapter"><small id="ch-num"></small><b id="ch-name"></b></div>
       <div class="near" id="near"></div>
       <div class="spd"><b id="spd">0</b><small>km/h</small></div>
-      <button class="mute" id="mute" type="button" aria-pressed="false" aria-label="Sound">Sound on</button>
+      <button class="pausebtn" id="pause" type="button" aria-label="Pause">II</button>
+      <button class="brake" id="brake" type="button" aria-pressed="false">Hold to ease off</button>
     </div>
     <div class="overlay" id="ov">
       <p class="ov-title" id="ov-title">Racer</p>
       <p class="ov-sub" id="ov-sub">Swipe left or right to change lane. Pass close to traffic for combos.</p>
+      <div class="opts" id="opts">
+        <div class="opt" data-opt="speed"><span>Speed</span><button type="button" data-val="relaxed">Relaxed</button><button type="button" data-val="normal">Normal</button><button type="button" data-val="fast">Fast</button></div>
+        <div class="opt" data-opt="music"><span>Music</span><button type="button" data-val="on">On</button><button type="button" data-val="off">Off</button></div>
+        <div class="opt" data-opt="sfx"><span>Effects</span><button type="button" data-val="on">On</button><button type="button" data-val="off">Off</button></div>
+      </div>
       <button class="big" id="play" type="button">Play</button>
       <a class="back" href="../index.html">Snake</a>
     </div>

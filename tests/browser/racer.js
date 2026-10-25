@@ -15,6 +15,10 @@ const st = (p) => p.evaluate(() => window.racerDebug.state());
   await p.goto(INDEX + '?debug=1&seed=11');
   ok('menu shows the Play button', await p.isVisible('#play') && (await st(p)).mode === 'menu');
   ok('canvas fills the stage at device resolution', await p.evaluate(() => { const c = document.getElementById('c'); const r = c.getBoundingClientRect(); return c.width === Math.round(r.width * 2) && c.height === Math.round(r.height * 2); }));
+  ok('the menu offers speed, music and effects choices with Relaxed as the default', await p.isVisible('#opts') && (await p.getAttribute('.opt[data-opt=speed] button[data-val=relaxed]', 'aria-pressed')) === 'true' && (await p.getAttribute('.opt[data-opt=music] button[data-val=on]', 'aria-pressed')) === 'true');
+  await p.tap('.opt[data-opt=speed] button[data-val=normal]'); await sleep(80);
+  ok('choosing a speed is saved', JSON.parse(await p.evaluate(() => localStorage.getItem('classic-games.racer.prefs'))).speed === 'normal');
+  await p.tap('.opt[data-opt=speed] button[data-val=relaxed]'); await sleep(80);
   await p.tap('#play'); await sleep(300);
   let s = await st(p);
   ok('Play starts a run', s.mode === 'run' && !(await p.isVisible('#ov')));
@@ -39,7 +43,24 @@ const st = (p) => p.evaluate(() => window.racerDebug.state());
   ok('a long drag can change two lanes (it chains)', s.laneTarget === -1, String(s.laneTarget));
   await p.keyboard.press('ArrowRight'); await p.keyboard.press('ArrowRight'); await sleep(50);
   const d0 = s.dist; await sleep(800); s = await st(p);
-  ok('distance and speed grow while running', s.dist > d0 && s.speed > 40, JSON.stringify(s));
+  ok('distance and speed grow while running', s.dist > d0 && s.speed > 30, JSON.stringify(s));
+  // pause and brake
+  await p.tap('#pause'); await sleep(150); s = await st(p);
+  ok('Pause freezes the run and shows Resume', s.paused && (await p.textContent('#play')) === 'Resume' && await p.isVisible('#ov'));
+  const dp = s.dist; await sleep(400);
+  ok('nothing moves while paused', (await st(p)).dist === dp);
+  await p.tap('#play'); await sleep(200); s = await st(p);
+  ok('Resume continues the same run', !s.paused && s.mode === 'run' && s.dist >= dp);
+  const hold = await p.locator('#brake').boundingBox();
+  await p.evaluate(() => window.racerDebug.state());
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: hold.x + hold.width / 2, y: hold.y + hold.height / 2, id: 2 }] });
+  await sleep(250); s = await st(p);
+  ok('holding the brake button eases off', s.braking === true);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await sleep(100); s = await st(p);
+  ok('letting go releases the brake', s.braking === false);
+  // hills move the road up and down
+  const el = await p.evaluate(() => [0, 150, 300, 450, 600, 750, 900, 1050].map(d => window.racerDebug.elev(d)));
+  ok('the road really has hills (elevation changes by several metres)', Math.max(...el) - Math.min(...el) > 5, el.join(','));
   // crash it
   await p.evaluate(() => window.racerDebug.crashNow()); await sleep(900); s = await st(p);
   ok('a crash ends the run and shows Play again', s.mode === 'crash' && (await p.isVisible('#ov')) && (await p.textContent('#play')) === 'Play again');

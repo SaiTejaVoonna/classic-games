@@ -17,10 +17,19 @@ canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block
 .near.show { opacity: 1; }
 .spd { position: absolute; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); text-align: right; }
 .spd b { font-size: 30px; font-weight: 300; display: block; line-height: 1; }
-.mute { position: absolute; left: 14px; bottom: calc(16px + env(safe-area-inset-bottom)); pointer-events: auto; min-height: 44px; padding: 0 14px; border-radius: 999px; border: 1px solid #ffffff40; background: #0a0d1899; color: #fff; font: inherit; font-size: 12px; backdrop-filter: blur(8px); }
 .overlay { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 14px; text-align: center; padding: 24px; background: #05070cb0; backdrop-filter: blur(3px); }
 .overlay[hidden] { display: none; }
 .ov-title { margin: 0; font-size: 40px; font-weight: 200; letter-spacing: 8px; text-transform: uppercase; }
 .ov-sub { margin: 0; max-width: 28ch; color: #b8c6de; font-size: 14px; line-height: 1.5; }
 .big { min-width: 190px; min-height: 58px; border: 0; border-radius: 999px; background: #34e39c; color: #04140c; font: inherit; font-weight: 800; font-size: 18px; cursor: pointer; touch-action: manipulation; }
 .back { color: #9fb0cc; font-size: 13px; padding: 10px; }
+
+.pausebtn { position: absolute; left: 50%; top: calc(14px + env(safe-area-inset-top)); transform: translateX(-50%); pointer-events: auto; width: 44px; height: 44px; border-radius: 50%; border: 1px solid #ffffff40; background: #0a0d1899; color: #fff; font: inherit; font-weight: 800; letter-spacing: 1px; backdrop-filter: blur(8px); }
+.brake { position: absolute; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom)); transform: translateX(-50%); pointer-events: auto; min-height: 48px; padding: 0 20px; border-radius: 999px; border: 1px solid #ffffff40; background: #0a0d1899; color: #fff; font: inherit; font-size: 13px; backdrop-filter: blur(8px); touch-action: none; user-select: none; }
+.brake[aria-pressed="true"] { background: #34e39c; color: #04140c; border-color: #34e39c; }
+.opts { display: grid; gap: 10px; width: min(320px, 90%); }
+.opts[hidden] { display: none; }
+.opt { display: flex; align-items: center; gap: 6px; }
+.opt span { width: 64px; text-align: left; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: #9fb0cc; }
+.opt button { flex: 1; min-height: 44px; border-radius: 12px; border: 1px solid #ffffff30; background: #ffffff10; color: #eaf1ff; font: inherit; font-size: 13px; cursor: pointer; }
+.opt button[aria-pressed="true"] { background: #34e39c; color: #04140c; border-color: #34e39c; font-weight: 700; }
