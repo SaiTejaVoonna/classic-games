@@ -1069,6 +1069,7 @@
   if (DEBUG) {
     // test and gallery hook: draw a still frame at a distance with demo traffic, and drive the game
     window.racerDebug = {
+      audio: function () { return A && A.info ? A.info() : null; },
       sprites: function () { return { total: spriteList.length, ready: spriteList.filter(function (e) { return e.ready; }).length }; },
       geo: function (ds) { lastScene = render(); var pb = playerBox(); return { W: W, H: H, dpr: dpr, player: pb, rows: ds.map(function (d) { var r = rowAt(d); return { d: d, y: r.y, ct: r.ct, hw: r.hw }; }), cars: traffic.map(function (c) { var d = c.z - dist; var r = rowAt(Math.max(.5, d)); return { d: d, lane: c.lane, knock: c.knock || 0, kind: c.kind, y: r.y, x: r.ct + c.lane / 1.7 * r.hw, hw: r.hw }; }) }; },
       state: function () { return { paused: paused, braking: braking, prefs: JSON.parse(JSON.stringify(prefs)), mode: mode, dist: dist, speed: speed, lane: lane, laneTarget: laneTarget, combo: combo, score: score, lives: lives, maxLives: maxLives, shield: shieldT, coins: run.coins, hits: run.hits, traffic: traffic.length, chapter: chapterAt(dist).i, chapterLen: chapterLen, tripMode: tripMode, nextStop: nextStop, checkpoint: getCheckpoint(), stats: JSON.parse(JSON.stringify(stats)) }; },

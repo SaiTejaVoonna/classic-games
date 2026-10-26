@@ -168,6 +168,20 @@
       applyVolumes();
     }
     function stopBed() { if (bed) { try { bed.src.stop(); bed.lfo.stop(); } catch (e) { /* already stopped */ } bed = null; } }
+    // Physical-model loops (see enginesynth.js). Raw arrays arrive from a worker; AudioBuffers are made per context.
+    var loopRaw = {}, loopBuf = {}, loopAsked = {};
+    function requestLoops(name) {
+      var ES = root.RacerEngineSynth; if (!ES || !ES.PHYS || !ES.PHYS[name] || loopAsked[name]) return;
+      loopAsked[name] = true;
+      ES.generate(name, function (set) { if (!set) return; loopRaw[name] = set; if (eng && eng.name === name && eng.mode !== 'loops') restartEngine(); });
+    }
+    function loopSet(name) {
+      if (!loopRaw[name] || !ctx) return null;
+      if (!loopBuf[name]) loopBuf[name] = loopRaw[name].map(function (l) {
+        var b = ctx.createBuffer(1, l.data.length, 44100); b.copyToChannel(l.data, 0); return { buffer: b, rpm: l.rpm };
+      });
+      return loopBuf[name];
+    }
     var waves = {};
     function engineWave(name) {
       if (waves[name]) return waves[name];
@@ -178,7 +192,7 @@
     function engineName() { return engineOverride || CAR_ENGINE[prefs.car] || 'i4'; }
     function startEngine() {
       if (!ctx || eng) return;
-      var name = engineName(), P = ENGINES[name], t0 = ctx.currentTime;
+      var name = engineName(), P = ENGINES[name], t0 = ctx.currentTime, LS = loopSet(name);
       var o1 = ctx.createOscillator(), o2 = ctx.createOscillator(), sub = ctx.createOscillator();
       o1.setPeriodicWave(engineWave(name)); o2.setPeriodicWave(engineWave(name)); o2.detune.value = P.ev ? 3 : 7; sub.type = 'sine';
       var mix = ctx.createGain(); mix.gain.value = 1;
@@ -191,7 +205,20 @@
       var lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = .9; lp.frequency.value = 900;
       var pk1 = ctx.createBiquadFilter(); pk1.type = 'peaking'; pk1.frequency.value = 240; pk1.gain.value = P.ev ? 1 : 4; pk1.Q.value = 1.1;
       var body = ctx.createGain(); body.gain.value = 0;
-      o1.connect(mix); o2.connect(mix); sub.connect(subG); subG.connect(mix); mix.connect(am); am.connect(sat); sat.connect(lp); lp.connect(pk1); pk1.connect(body);
+      var loops = null;
+      if (LS) { // physical-model loops replace the oscillators; the loops go through the same tone filters
+        var loopSum = ctx.createGain(); loopSum.gain.value = 2.4;
+        loops = LS.map(function (l) { var src = ctx.createBufferSource(); src.buffer = l.buffer; src.loop = true; var gn = ctx.createGain(); gn.gain.value = 0; src.connect(gn); gn.connect(loopSum); src.start(t0); return { src: src, gain: gn, rpm: l.rpm }; });
+        loopSum.connect(sat); sat.connect(lp); lp.connect(pk1); pk1.connect(body); // saturation adds the harmonics that carry the note on a small speaker
+        // exciter: the loops are almost all bass, so a hard-clipped, band-passed copy adds the rasp and edge of a real exhaust
+        var xhp = ctx.createBiquadFilter(); xhp.type = 'highpass'; xhp.frequency.value = 160;
+        var xs = ctx.createWaveShaper(), xc = new Float32Array(257); for (var xi = 0; xi < 257; xi++) { var xx = xi / 128 - 1; xc[xi] = Math.tanh(9 * xx); } xs.curve = xc;
+        var xbp = ctx.createBiquadFilter(); xbp.type = 'bandpass'; xbp.frequency.value = 1500; xbp.Q.value = .6;
+        var xg = ctx.createGain(); xg.gain.value = P.excite == null ? .35 : P.excite;
+        loopSum.connect(xhp); xhp.connect(xs); xs.connect(xbp); xbp.connect(xg); xg.connect(pk1);
+      } else {
+        o1.connect(mix); o2.connect(mix); sub.connect(subG); subG.connect(mix); mix.connect(am); am.connect(sat); sat.connect(lp); lp.connect(pk1); pk1.connect(body);
+      }
       // intake and road/wind noise
       var ns = ctx.createBufferSource(); ns.buffer = noiseBuf; ns.loop = true;
       var ibp = ctx.createBiquadFilter(); ibp.type = 'bandpass'; ibp.frequency.value = 700; ibp.Q.value = .8; var intake = ctx.createGain(); intake.gain.value = 0;
@@ -204,10 +231,11 @@
       body.connect(out); intake.connect(out); wind.connect(out); whG.connect(out);
       route(out, fxBus, 0, .04);
       [o1, o2, sub, lfo, ns, ns2, wh].forEach(function (n) { n.start(t0); });
-      eng = { name: name, P: P, o1: o1, o2: o2, sub: sub, lfo: lfo, ns: ns, ns2: ns2, wh: wh, lp: lp, pk1: pk1, body: body, intake: intake, ibp: ibp, wind: wind, wlp: wlp, whG: whG, out: out, gear: 1, rpm: 900, v: 0, vt: t0, acc: 0, cut: 0, popT: 0 };
+      eng = { name: name, mode: loops ? 'loops' : 'osc', loops: loops, P: P, o1: o1, o2: o2, sub: sub, lfo: lfo, ns: ns, ns2: ns2, wh: wh, lp: lp, pk1: pk1, body: body, intake: intake, ibp: ibp, wind: wind, wlp: wlp, whG: whG, out: out, gear: 1, rpm: 900, v: 0, vt: t0, acc: 0, cut: 0, popT: 0 };
       applyVolumes();
     }
-    function stopEngine() { if (eng) { ['o1', 'o2', 'sub', 'lfo', 'ns', 'ns2', 'wh'].forEach(function (k) { try { eng[k].stop(); } catch (e) { /* already stopped */ } }); eng = null; } }
+    function stopEngine() { if (eng) { if (eng.loops) eng.loops.forEach(function (l) { try { l.src.stop(); } catch (e) { /* already stopped */ } });
+      ['o1', 'o2', 'sub', 'lfo', 'ns', 'ns2', 'wh'].forEach(function (k) { try { eng[k].stop(); } catch (e) { /* already stopped */ } }); eng = null; } }
     function restartEngine() { if (!eng) return; stopEngine(); startEngine(); }
     function pops(t, n) { for (var i = 0; i < n; i++) noise(t + .05 + i * (.05 + Math.random() * .09), .035, .13, fxBus, 'lowpass', 900 + Math.random() * 700, (Math.random() - .5) * .3); }
     function engineUpdate(vms) {
@@ -231,11 +259,23 @@
       E.o1.frequency.setTargetAtTime(f1, t, tc); E.o2.frequency.setTargetAtTime(f1 * 1.004, t, tc); E.sub.frequency.setTargetAtTime(f1 * 2, t, tc);
       E.lfo.frequency.setTargetAtTime(f1 * .5, t, tc);
       var calm = prefs.calm ? .62 : 1;
-      E.lp.frequency.setTargetAtTime(Math.min(16000, (P.lpB + m.rpm * P.lpK + load * P.lpL) * calm), t, .06);
+      if (E.loops) { // crossfade the two loops either side of the rpm, each pitched to the exact rpm
+        var L = E.loops, n = L.length, lo = 0;
+        while (lo < n - 2 && m.rpm >= L[lo + 1].rpm) lo++;
+        var wl, wh2, r0 = L[lo].rpm, r1 = L[lo + 1].rpm;
+        if (m.rpm <= r0) { wl = 1; wh2 = 0; } else if (m.rpm >= r1 && lo === n - 2) { wl = 0; wh2 = 1; }
+        else { var fr = clamp(Math.log(m.rpm / r0) / Math.log(r1 / r0), 0, 1); wl = Math.cos(fr * Math.PI / 2); wh2 = Math.sin(fr * Math.PI / 2); }
+        for (var li = 0; li < n; li++) {
+          var gw = li === lo ? wl : li === lo + 1 ? wh2 : 0;
+          L[li].gain.gain.setTargetAtTime(gw, t, .03);
+          if (gw > 0) L[li].src.playbackRate.setTargetAtTime(m.rpm / L[li].rpm, t, tc);
+        }
+        E.lp.frequency.setTargetAtTime(Math.min(16000, (1200 + m.rpm * .6 + load * 3500) * calm), t, .06);
+      } else E.lp.frequency.setTargetAtTime(Math.min(16000, (P.lpB + m.rpm * P.lpK + load * P.lpL) * calm), t, .06);
       E.pk1.frequency.setTargetAtTime(160 + m.rpm * .03, t, .1);
       E.body.gain.setTargetAtTime((P.body * .45 + P.body * .8 * load) * (.55 + .45 * rpmN) * calm, t, .05);
       E.ibp.frequency.setTargetAtTime(500 + m.rpm * .12, t, .1);
-      E.intake.gain.setTargetAtTime(P.intake * load * rpmN * calm, t, .06);
+      E.intake.gain.setTargetAtTime(E.loops ? 0 : P.intake * load * rpmN * calm, t, .06); // the loops already contain the intake
       E.wlp.frequency.setTargetAtTime(260 + kmh * 7, t, .2);
       E.wind.gain.setTargetAtTime(.012 + .09 * Math.pow(clamp(kmh / 200, 0, 1), 1.6), t, .2);
       if (P.turbo) { E.wh.frequency.setTargetAtTime(1300 + rpmN * 2600, t, .1); E.whG.gain.setTargetAtTime(prefs.calm ? 0 : .007 * rpmN * rpmN * load, t, .1); }
@@ -272,12 +312,13 @@
       }
     }
 
+    requestLoops(engineName());
     return {
       unlock: function () { if (ensure() && ctx.state === 'suspended' && ctx.resume) { try { ctx.resume(); } catch (e) { /* ignore */ } } },
       setPrefs: function (p) {
         var carBefore = prefs.car;
         if (p) for (var k in p) if (Object.prototype.hasOwnProperty.call(prefs, k)) prefs[k] = p[k];
-        if (prefs.car !== carBefore && !engineOverride) restartEngine();
+        if (prefs.car !== carBefore && !engineOverride) { requestLoops(engineName()); restartEngine(); }
         applyVolumes();
         if (ctx && running && !paused && prefs.music && prefs.sound) pump();
       },
@@ -302,12 +343,12 @@
         speed = v || 0;
         engineUpdate(speed);
       },
-      setEngine: function (name) { engineOverride = ENGINES[name] ? name : null; restartEngine(); },
+      setEngine: function (name) { engineOverride = ENGINES[name] ? name : null; requestLoops(engineName()); restartEngine(); },
       setIntensity: function (v) { intensity = clamp(v || 0, 0, 1); },
       setBrake: function (b) { braking = !!b; },
       setScene: function (s) { scene = s || {}; },
       event: event,
-      info: function () { return { ctx: !!ctx, state: ctx ? ctx.state : 'none', chapter: chapter, kit: kitFor(chapter), bed: bed ? bed.name : null, notes: made.notes, events: made.events, running: running, paused: paused, braking: braking, engine: eng ? eng.name : null, prefs: prefs, scene: scene }; }
+      info: function () { return { ctx: !!ctx, state: ctx ? ctx.state : 'none', chapter: chapter, kit: kitFor(chapter), bed: bed ? bed.name : null, notes: made.notes, events: made.events, running: running, paused: paused, braking: braking, engine: eng ? eng.name : null, engineMode: eng ? eng.mode : null, loops: Object.keys(loopRaw), prefs: prefs, scene: scene }; }
     };
   }
 
