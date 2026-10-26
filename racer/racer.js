@@ -122,6 +122,7 @@
   var lastPB = null; // where the player car was drawn last frame, for spray and dust
   var BOXES = params.get('boxes') === '1'; // debug overlay of collision boxes
   var tAnim = 0;
+  var tread = 0; // phase of the player's tyre tread, in sprite units
   var traffic = [];
   var nextSpawn = 300;
   var combo = 0;
@@ -325,14 +326,14 @@
   // so the wheels turn. Geometry comes from the sprite art (RacerCars.tyre).
   function drawTyres(x, by, Wd, type, spin) {
     var T = window.RacerCars && window.RacerCars.tyre[type]; if (!T || Wd < 46 || spin == null) return;
-    var s = Wd / 100, x0 = T[0], w = T[1], h = T[2], per = h * .22, ph = (((spin * 2.6) % per) + per) % per, n = Math.ceil(h / per) + 1;
+    var s = Wd / 100, x0 = T[0], w = T[1], h = T[2], per = h * .22, ph = ((spin % per) + per) % per, n = Math.ceil(h / per) + 1;
     [-1, 1].forEach(function (sd) {
       var left = sd < 0 ? x - (x0 + w) * s : x + x0 * s, tw = w * s, th = h * s, tx = sd < 0 ? left + tw * .2 : left, tdw = tw * .8;
       g.save(); rr(tx, by - th * .96, tdw, th * .94, tw * .3); g.clip();
       for (var k = 0; k < n; k++) {
         var yy = by - ((ph + k * per) % (h + per)) * s;
-        g.fillStyle = 'rgba(0,0,0,.42)'; g.fillRect(tx, yy - per * .32 * s, tdw, per * .32 * s);
-        g.fillStyle = 'rgba(255,255,255,.07)'; g.fillRect(tx, yy - per * .5 * s, tdw, per * .1 * s);
+        g.fillStyle = 'rgba(0,0,0,.6)'; g.fillRect(tx, yy - per * .38 * s, tdw, per * .38 * s);
+        g.fillStyle = 'rgba(255,255,255,.16)'; g.fillRect(tx, yy - per * .52 * s, tdw, per * .12 * s);
       }
       g.restore();
     });
@@ -404,9 +405,11 @@
     g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill(); g.restore();
   }
 
+  var RIGID = { tower: 1, neon: 1, house: 1, hut: 1, cabin: 1, lighthouse: 1, windmill: 1, lamp: 1, rock: 1, umbrella: 1 };
   // Roadside objects stand on the ground at (x, y) with scale s. sw = wind sway.
   function drawObj(kind, x, y, s, k, S, sw, lit) {
     var col, v = .8 + rnd(k, 7) * .5;
+    if (RIGID[kind]) sw = 0; // buildings, posts and rocks stand still; only plants bend
     g.save(); g.translate(x, y); g.transform(1, 0, sw * .02, 1, 0, 0); g.scale(v, v * (.92 + rnd(k, 9) * .25));
     var greens = ['#4f9a4a', '#3f8a46', '#5aa55a', '#3a7a40'];
     var autumn = ['#e08a2e', '#c2410c', '#e8b040', '#d9822b'];
@@ -474,7 +477,7 @@
       for (var r = 0; r < rows; r++) for (var c2 = 0; c2 < cols; c2++) {
         var lit2 = lit > .25 && rnd(r * 9 + c2 + k, 4) > .38;
         g.fillStyle = lit2 ? (neon ? ['#ff4fd8', '#35e6ff', '#ffe066'][(r + c2) % 3] : '#ffd97a') : 'rgba(20,30,50,.55)';
-        g.globalAlpha = lit2 ? (.75 + .25 * Math.sin(tAnim * (rnd(r + c2, 5) > .9 ? 1.6 : .5) + r + c2)) : 1;
+        g.globalAlpha = lit2 ? .78 + .22 * rnd(r * 5 + c2 + k, 6) : 1;
         g.fillRect(-tw / 2 + 3 * s + c2 * (tw - 6 * s) / cols, -th + 4 * s + r * 11 * s, (tw - 6 * s) / cols - 2 * s, 6 * s);
       }
       g.globalAlpha = 1;
@@ -757,7 +760,7 @@
         var c = it.car; var x = cx + (xoAt(it.d) + (c.laneF + (c.knock || 0) * (c.kx || 0)) / 1.7 - camX) * p * RH; var w = W * .255 * p * 1.7;
         if (S.night > .5) { glowDot(x, y, w * .7, '#ff2a4a'); }
         if (c.hurt > 0) { glowDot(x, y - w * .3, w * 1.1, Math.sin(tAnim * 40) > 0 ? '#ff3b3b' : '#ffb347'); g.globalAlpha = clamp(c.hurt * 1.6, .25, 1); }
-        carRear(x, y, w, c.col, c.kind, { type: TYPE_OF[c.kind], brake: false, rot: c.rot, reflect: S.rain, spin: c.z, tail: '#ff3a3a', under: S.night > .85 ? c.col : null });
+        carRear(x, y, w, c.col, c.kind, { type: TYPE_OF[c.kind], brake: false, rot: c.rot, reflect: S.rain, spin: c.tread || 0, tail: '#ff3a3a', under: S.night > .85 ? c.col : null });
         g.globalAlpha = 1;
         if (!c.knock) {
           var tw = w * (TYPE_W[TYPE_OF[c.kind]] || 1);
@@ -787,7 +790,7 @@
     var x = pb.x; lastPB = { x: x, y: py, w: pw };
     g.save(); g.translate(x, py); g.rotate(tilt);
     var pc = PLAYER_CARS[prefs.car];
-    carRear(0, 0, pw, pc.col, 'sport', { type: prefs.car, acc: pc.acc, px: 420, brake: braking, reflect: S.rain, spin: dist, under: S.night > .6 ? '#35e6ff' : null, tail: '#ff3355' });
+    carRear(0, 0, pw, pc.col, 'sport', { type: prefs.car, acc: pc.acc, px: 420, brake: braking, reflect: S.rain, spin: tread, under: S.night > .6 ? '#35e6ff' : null, tail: '#ff3355' });
     g.restore();
     if (shieldT > 0) {
       var sa = shieldT < .8 ? (Math.sin(tAnim * 30) > 0 ? .5 : .15) : .45;
@@ -876,7 +879,7 @@
 
   function render() {
     resize();
-    hy = H * .4 + Math.sin(tAnim * .9) * 1.2 * dpr; cx = W / 2; RH = W * (.9 + .035 * clamp((speed - 23) / 20, 0, 1)); camX = lane / 1.7 * .75; // the view widens a little with speed
+    hy = H * .4; cx = W / 2; RH = W * (.9 + .035 * clamp((speed - 23) / 20, 0, 1)); camX = lane / 1.7 * .75; // the view widens a little with speed
     ES = H * .02; e0 = elev(dist);
     buildCurve();
     hyR = hy - (elev(dist + DRAW * .8) - e0) * pOf(DRAW * .8) * ES * .7;
@@ -884,8 +887,6 @@
     var S = sceneAt(dist);
     g.save();
     if (shake > 0) g.translate((Math.random() - .5) * shake * dpr, (Math.random() - .5) * shake * dpr);
-    var tremor = mode === 'run' ? clamp((speed - 30) / 12, 0, 1) * .5 : 0; // light shake at the top speeds
-    if (tremor > 0) g.translate(Math.sin(tAnim * 37) * tremor * dpr, Math.cos(tAnim * 29) * tremor * dpr);
     drawSky(S); drawGround(S); drawRoad(S); drawWorld(S); drawParticles(true); drawPlayer(S); drawSpeedLines(); drawWeather(S); drawParticles(false);
     if (BOXES) drawBoxes();
     g.restore();
@@ -1041,6 +1042,8 @@
   function step(dt) {
     if (paused) return;
     tAnim += dt;
+    var TREAD_MAX = 1.7; // sprite units per frame; a groove is about 7, so it always reads as rolling and never strobes backwards
+    if (mode === 'run' || mode === 'menu') tread += Math.min((mode === 'run' ? speed : 20) * dt * 2.6, TREAD_MAX);
     particles.forEach(function (p) { p.x += p.vx * dt * dpr; p.y += p.vy * dt * dpr; p.vy += (p.gv == null ? 300 : p.gv) * dt; p.r += (p.grow || 0) * dt; p.life -= dt * (p.decay || 1.4); });
     particles = particles.filter(function (p) { return p.life > 0; });
     if (shake > 0) shake = Math.max(0, shake - dt * 40);
@@ -1100,7 +1103,7 @@
       if (hd < 2.8 && hd > -2.8 && Math.abs(lane - hk.lane) < .75) { collected['h' + hn] = true; if (lives < maxLives) { lives++; au('event', 'heart'); } else { score += 25; au('event', 'coin', { i: 6 }); } }
     }
     for (var i = 0; i < traffic.length; i++) {
-      var c = traffic[i]; c.z += c.v * dt; var d = c.z - dist; var gap = Math.abs(lane - c.laneF);
+      var c = traffic[i]; c.z += c.v * dt; c.tread = (c.tread || 0) + Math.min(c.v * dt * 2.6, TREAD_MAX); var d = c.z - dist; var gap = Math.abs(lane - c.laneF);
       if (c.hurt > 0) c.hurt -= dt; if (c.knock) { c.kx += dt * 2.4; c.rot = (c.rot || 0) + c.knock * dt * 2.6; }
       if (c.knock) continue;
       stepLaneChange(c, dt, d);

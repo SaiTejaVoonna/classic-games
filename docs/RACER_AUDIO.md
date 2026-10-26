@@ -7,7 +7,7 @@ Everything is synthesised with the Web Audio API. No audio files.
 | Layer | Where | What |
 |---|---|---|
 | Score | `racer/score.js` data, `racer/audio.js` player | 10 themes, each with a key, mode, tempo, a two-bar motif, an eight-bar loop, and caps for 8 layers |
-| Engine | `racer/enginesynth.js` + `audio.js` | physical-model loops crossfaded by revs; V8 (sedan), turbo four (rally), electric (EV); V10, V12 and formula profiles exist for later |
+| Engine | `racer/enginesynth.js` + `audio.js` | physical-model loops (waveguide body plus a firing-pulse exhaust voice that carries the note above 800 Hz for phone speakers) crossfaded by revs; V8 (sedan), turbo four (rally), electric (EV); V10, V12 and formula profiles exist for later |
 | Effects | `audio.js` | lane, coin, heart, near miss, pass, bump, crash, chapter, rest, thunder, finish, each built from layers |
 | Life sounds | `audio.js` | 23 small sounds, one list per chapter, every 6 to 14 s |
 | Ambience | `audio.js` | 7 beds: meadow, desert, waves, city, rain, storm, snow |

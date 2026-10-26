@@ -361,7 +361,7 @@
         var xhp = ctx.createBiquadFilter(); xhp.type = 'highpass'; xhp.frequency.value = 160;
         var xs = ctx.createWaveShaper(), xc = new Float32Array(257); for (var xi = 0; xi < 257; xi++) { var xx = xi / 128 - 1; xc[xi] = Math.tanh(9 * xx); } xs.curve = xc;
         var xbp = ctx.createBiquadFilter(); xbp.type = 'bandpass'; xbp.frequency.value = 1500; xbp.Q.value = .6;
-        var xg = ctx.createGain(); xg.gain.value = P.excite == null ? .35 : P.excite;
+        var xg = ctx.createGain(); xg.gain.value = P.excite == null ? .1 : P.excite; // the loops now carry their own upper harmonics, so only a touch of rasp is added
         loopSum.connect(xhp); xhp.connect(xs); xs.connect(xbp); xbp.connect(xg); xg.connect(pk1);
       } else {
         o1.connect(mix); o2.connect(mix); sub.connect(subG); subG.connect(mix); mix.connect(am); am.connect(sat); sat.connect(lp); lp.connect(pk1); pk1.connect(body);
@@ -390,7 +390,6 @@
       var t = ctx.currentTime, kmh = vms * 3.6, E = eng, P = E.P, m = engineModel(kmh, P);
       var dt = Math.max(.016, t - E.vt); var a = (vms - E.v) / dt; E.acc += (a - E.acc) * .25; E.v = vms; E.vt = t;
       var shifted = m.gear !== E.gear, sfx = prefs.sfx && prefs.sound;
-      if (!P.ev) m.rpm *= 1 + .012 * Math.sin(t * 2.3) + .006 * Math.sin(t * 5.1 + .7);
       if (shifted && m.gear > E.gear && sfx) { // upshift: short torque cut, a soft puff, blow-off on turbo cars
         E.cut = .12; noise(t, P.turbo ? .3 : .09, P.turbo ? .06 : .05 * (prefs.calm ? .4 : 1), fxBus, 'highpass', P.turbo ? 3400 : 2600, 0);
         if (P.pops && !prefs.calm) pops(t, P.pops > .7 ? 2 : 1);
@@ -419,7 +418,7 @@
         for (var li = 0; li < n; li++) {
           var gw = li === lo ? wl : li === lo + 1 ? wh2 : 0;
           L[li].gain.gain.setTargetAtTime(gw, t, .03);
-          if (gw > 0) L[li].src.playbackRate.setTargetAtTime(m.rpm / L[li].rpm, t, tc);
+          L[li].src.playbackRate.setTargetAtTime(m.rpm / L[li].rpm, t, tc); // every loop keeps the current pitch, so one fading in never glides from an old one
         }
         E.lp.frequency.setTargetAtTime(Math.min(16000, (1200 + m.rpm * .6 + load * 3500) * calm), t, .06);
       } else E.lp.frequency.setTargetAtTime(Math.min(16000, (P.lpB + m.rpm * P.lpK + load * P.lpL) * calm), t, .06);

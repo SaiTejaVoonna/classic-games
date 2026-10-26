@@ -21,3 +21,16 @@ test('every physical engine renders stable, seamless loops at whole crank cycles
     assert.ok(loops[0].rpm < loops[loops.length - 1].rpm, name + ' rpm points rise');
   });
 });
+
+test('the loops carry the firing note above 800 Hz, where a phone speaker can play it', () => {
+  ['rally', 'v8'].forEach((name) => {
+    const l = renderLoops(name, 44100, .6)[4], x = l.data, fc = l.rpm / 120;
+    let all = 0, hi = 0;
+    for (let k = 1; k * fc < 5000; k++) {
+      const f = k * fc; let re = 0, im = 0;
+      for (let i = 0; i < x.length; i += 2) { const a = 2 * Math.PI * f * i / 44100; re += x[i] * Math.cos(a); im += x[i] * Math.sin(a); }
+      const m = re * re + im * im; all += m; if (f > 800) hi += m;
+    }
+    assert.ok(hi / all > .05, name + ' upper harmonics share ' + (hi / all).toFixed(3));
+  });
+});
