@@ -354,7 +354,9 @@
       g.save(); rr(tx, by - th * .96, tdw, th * .94, tw * .3); g.clip();
       for (var k = 0; k < n; k++) {
         var yy = by - ((ph + k * per) % (h + per)) * s;
-        g.fillStyle = 'rgba(0,0,0,.28)'; g.fillRect(tx, yy - per * .3 * s, tdw, per * .3 * s);
+        // a lit tread block with a dark groove under it: dark-on-black alone was invisible, so the wheels looked static
+        g.fillStyle = 'rgba(170,180,200,.2)'; g.fillRect(tx, yy - per * .62 * s, tdw, per * .3 * s);
+        g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(tx, yy - per * .32 * s, tdw, per * .32 * s);
       }
       g.restore();
     });
