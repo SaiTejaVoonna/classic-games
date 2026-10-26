@@ -49,6 +49,7 @@ const st = (p) => p.evaluate(() => window.racerDebug.state());
   await p.tap('#play'); await sleep(300);
   let s = await st(p);
   ok('Play starts a run with three lives, at 85 km/h, in a 28 km Journey', s.mode === 'run' && s.lives === 3 && !(await p.isVisible('#ov')) && Math.round(s.speed * 3.6) === 85 && s.chapterLen === 2800, JSON.stringify([s.mode, s.lives, s.speed, s.chapterLen]));
+  ok('the very first run shows a one-time swipe hint', await p.isVisible('#hint'));
   await p.keyboard.press('ArrowLeft'); await p.keyboard.press('ArrowLeft'); s = await st(p);
   ok('lane changes stop at the edge', s.laneTarget === -1);
   await p.evaluate(() => { window.racerDebug.stopSpawning(); window.racerDebug.setLane(0); window.racerDebug.addCar(0, 8); });
@@ -70,6 +71,8 @@ const st = (p) => p.evaluate(() => window.racerDebug.state());
   await sleep(1000); s = await st(p);
   ok('losing the last life ends the run', s.mode === 'over' && (await p.isVisible('#ov')), s.mode);
   ok('the end screen can continue from the checkpoint', await p.isVisible('#cont'));
+  const crashText = await p.textContent('#ov-stats');
+  ok('the crash panel reports distance, score, chapter reached, coins, close calls and bumps', ['Distance', 'Score', 'Reached', 'Coins', 'Close calls', 'Bumps'].every((k) => crashText.includes(k)), crashText);
   ok('racer has no errors', p.errs.length === 0, p.errs.join('|'));
 
   p = await mk(390, 760);

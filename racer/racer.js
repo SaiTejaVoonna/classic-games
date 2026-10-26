@@ -946,7 +946,7 @@
     var s = Math.floor(score); var isBest = submitBest(s);
     window.setTimeout(function () {
       if (mode !== 'over') return;
-      showOverlay('over', { title: 'Crash', sub: isBest ? 'New best!' : 'Best ' + getBest(), stats: [['Distance', Math.floor(dist) + ' m'], ['Score', String(s)], ['Coins', String(run.coins)], ['Close calls', String(run.near)]] });
+      showOverlay('over', { title: 'Crash', sub: isBest ? 'New best!' : 'Best ' + getBest(), stats: [['Distance', Math.floor(dist) + ' m'], ['Score', String(s)], ['Reached', 'Chapter ' + Math.min(JOURNEY_CHAPTERS, chapterAt(dist).i + 1) + ' of ' + JOURNEY_CHAPTERS], ['Coins', String(run.coins)], ['Close calls', String(run.near)], ['Bumps', String(run.hits)]] });
     }, 700);
   }
   function finishJourney() {
@@ -1084,7 +1084,7 @@
         c.passed = true;
         if (c.minGap < 1.35) {
           combo += 1; comboTimer = 3; run.near += 1; run.comboMax = Math.max(run.comboMax || 0, combo); score += 5 * combo;
-          showNear(combo > 1 ? 'CLOSE  x' + combo : 'CLOSE'); au('event', 'near', { combo: combo });
+          showNear((combo > 1 ? 'CLOSE  x' + combo : 'CLOSE') + '   +' + 5 * combo); au('event', 'near', { combo: combo });
         }
       }
     }
@@ -1103,9 +1103,17 @@
   }
 
   // ---------- starting, pausing and the menu ----------
+  // A one-time hint on the very first run, so the controls are not a secret.
+  var HINT_KEY = 'classic-games.racer.hint';
+  function showHint() {
+    if (readJson(HINT_KEY)) return;
+    writeJson(HINT_KEY, 1);
+    var h = $('hint'); h.hidden = false; h.classList.add('show');
+    window.setTimeout(function () { h.classList.remove('show'); window.setTimeout(function () { h.hidden = true; }, 500); }, 4200);
+  }
   function start(fromCheckpoint) {
     reset(fromCheckpoint); mode = 'run'; $('ov').hidden = true; $('ps').hidden = true; $('ss').hidden = true;
-    buildTrip(); au('unlock'); audioPrefs(); au('setChapter', chapterAt(dist).idx); au('start'); hud();
+    buildTrip(); au('unlock'); audioPrefs(); au('setChapter', chapterAt(dist).idx); au('start'); hud(); showHint();
   }
   function backToMenu() {
     mode = 'menu'; paused = false; applyTrip(); dist = 0; lastChapter = -1; traffic = []; speed = 0; shieldT = 0; flashT = 0; lives = maxLives; run = { near: 0, coins: 0, hits: 0 }; combo = 0;

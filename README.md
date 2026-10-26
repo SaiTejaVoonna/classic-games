@@ -4,7 +4,7 @@ Small classic-inspired games with a modern, calm look. No backend, no dependenci
 
 - `index.html` is the launcher (Racer, Snake, menu drawer, awards, best scores).
 - `snake/` is Snake. Its source lives in `src/` and `styles.css`.
-- `racer/` is Racer: a pseudo-3D road game with a Journey (10 chapters, rest stops, checkpoints, finish) or Endless, lives, shields, coins, and a synthesised live soundtrack (no audio files).
+- `racer/` is Racer: a pseudo-3D road game. One tuned Journey of about 15 minutes (10 chapters, rest stops, checkpoints, finish, then Keep driving), lives and shields, coins, three playable cars, and a fully synthesised soundtrack, effects and engine (no audio files). See `docs/RACER.md` and `docs/RACER_AUDIO.md`.
 
 All rules are Classic Games prototype choices; the original Nokia-era mechanics are not verified. Audio is not yet tuned by ear and nothing here has been tested on a real phone.
 
@@ -12,7 +12,11 @@ All rules are Classic Games prototype choices; the original Nokia-era mechanics 
 
 ```
 node --test tests/*.test.js
-NODE_PATH=<dir with playwright> node tests/browser/<ui|play|m1|rules|rendering|sweep|app>.js
+NODE_PATH=<dir with playwright> node tests/browser/<ui|play|m1|rules|rendering|sweep|app|audio>.js
 ```
 
 See `docs/` for the Racer prototype notes, audio plan and mockups.
+
+## Credits
+
+Engine sound follows Baldan et al. (2015); see `docs/RACER.md` for the full note on references and licences.
