@@ -43,7 +43,7 @@ test('every player car has an engine and each engine model stays inside its rev 
       }
       last = m;
     }
-    assert.strictEqual(shifts, P.ev ? 0 : 5, name);
+    assert.strictEqual(shifts, P.ev ? 0 : P.bands.length - 2, name);
   });
 });
 

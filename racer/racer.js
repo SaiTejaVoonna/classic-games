@@ -181,7 +181,7 @@
   function writeJson(key, v) { try { window.localStorage.setItem(key, JSON.stringify(v)); } catch (e) { /* storage unavailable: fine */ } }
   function has(o, k) { return Object.prototype.hasOwnProperty.call(o, k); }
 
-  var prefs = { mode: 'journey', difficulty: 'easy', speed: 'relaxed', length: 'full', music: 'on', sfx: 'on', style: 'auto', volMusic: 60, volFx: 70, bass: 50, calm: 'off', car: 'rally', speedIdx: 3 };
+  var prefs = { mode: 'journey', difficulty: 'easy', speed: 'relaxed', length: 'full', music: 'on', sfx: 'on', style: 'auto', volMusic: 60, volFx: 70, volEngine: 70, bass: 50, calm: 'off', car: 'rally', speedIdx: 3 };
   (function loadPrefs() {
     var s = readJson(PREFS_KEY); if (!s || typeof s !== 'object') return;
     if (s.music === 'on' || s.music === 'off') prefs.music = s.music;
@@ -190,7 +190,7 @@
     if (s.calm === 'on' || s.calm === 'off') prefs.calm = s.calm;
     if (has(PLAYER_CARS, s.car)) prefs.car = s.car;
     if (typeof s.speedIdx === 'number' && s.speedIdx >= 0 && s.speedIdx < SPEED_STEPS.length) prefs.speedIdx = Math.round(s.speedIdx);
-    ['volMusic', 'volFx', 'bass'].forEach(function (k) { if (typeof s[k] === 'number' && s[k] >= 0 && s[k] <= 100) prefs[k] = Math.round(s[k]); });
+    ['volMusic', 'volFx', 'volEngine', 'bass'].forEach(function (k) { if (typeof s[k] === 'number' && s[k] >= 0 && s[k] <= 100) prefs[k] = Math.round(s[k]); });
   })();
   function savePrefs() { writeJson(PREFS_KEY, prefs); }
 
@@ -321,6 +321,22 @@
   function sx(d, lat) { var p = pOf(d); return cx + (xoAt(d) + lat - camX) * p * RH; }
 
   // ---------- sprites ----------
+  // The tread of each rear tyre is redrawn every frame with stripes that roll upward at the car's own speed,
+  // so the wheels turn. Geometry comes from the sprite art (RacerCars.tyre).
+  function drawTyres(x, by, Wd, type, spin) {
+    var T = window.RacerCars && window.RacerCars.tyre[type]; if (!T || Wd < 46 || spin == null) return;
+    var s = Wd / 100, x0 = T[0], w = T[1], h = T[2], per = h * .22, ph = (((spin * 2.6) % per) + per) % per, n = Math.ceil(h / per) + 1;
+    [-1, 1].forEach(function (sd) {
+      var left = sd < 0 ? x - (x0 + w) * s : x + x0 * s, tw = w * s, th = h * s, tx = sd < 0 ? left + tw * .2 : left, tdw = tw * .8;
+      g.save(); rr(tx, by - th * .96, tdw, th * .94, tw * .3); g.clip();
+      for (var k = 0; k < n; k++) {
+        var yy = by - ((ph + k * per) % (h + per)) * s;
+        g.fillStyle = 'rgba(0,0,0,.42)'; g.fillRect(tx, yy - per * .32 * s, tdw, per * .32 * s);
+        g.fillStyle = 'rgba(255,255,255,.07)'; g.fillRect(tx, yy - per * .5 * s, tdw, per * .1 * s);
+      }
+      g.restore();
+    });
+  }
   function drawSprite(e, x, by, Wd) {
     var s = Wd / 100, b = e.box;
     g.drawImage(e.canvas, x + b[0] * s, by + b[1] * s, b[2] * s, b[3] * s);
@@ -331,7 +347,7 @@
       var e = window.RacerCars.sprite(o.type, col, o.acc, o.brake, o.px);
       if (e.ready) {
         if (o.reflect > .25 && !o.rot) { g.save(); g.translate(x, by); g.scale(1, -.45); g.globalAlpha = .17 * o.reflect; drawSprite(e, 0, 0, w * (TYPE_W[o.type] || 1)); g.restore(); } // the wet road mirrors the car
-        if (o.rot) { g.save(); g.translate(x, by); g.rotate(o.rot); drawSprite(e, 0, 0, w * (TYPE_W[o.type] || 1)); g.restore(); } else drawSprite(e, x, by, w * (TYPE_W[o.type] || 1));
+        if (o.rot) { g.save(); g.translate(x, by); g.rotate(o.rot); drawSprite(e, 0, 0, w * (TYPE_W[o.type] || 1)); g.restore(); } else { drawSprite(e, x, by, w * (TYPE_W[o.type] || 1)); drawTyres(x, by, w * (TYPE_W[o.type] || 1), o.type, o.spin); }
         return;
       }
     }
@@ -741,7 +757,7 @@
         var c = it.car; var x = cx + (xoAt(it.d) + (c.laneF + (c.knock || 0) * (c.kx || 0)) / 1.7 - camX) * p * RH; var w = W * .255 * p * 1.7;
         if (S.night > .5) { glowDot(x, y, w * .7, '#ff2a4a'); }
         if (c.hurt > 0) { glowDot(x, y - w * .3, w * 1.1, Math.sin(tAnim * 40) > 0 ? '#ff3b3b' : '#ffb347'); g.globalAlpha = clamp(c.hurt * 1.6, .25, 1); }
-        carRear(x, y, w, c.col, c.kind, { type: TYPE_OF[c.kind], brake: false, rot: c.rot, reflect: S.rain, tail: '#ff3a3a', under: S.night > .85 ? c.col : null });
+        carRear(x, y, w, c.col, c.kind, { type: TYPE_OF[c.kind], brake: false, rot: c.rot, reflect: S.rain, spin: c.z, tail: '#ff3a3a', under: S.night > .85 ? c.col : null });
         g.globalAlpha = 1;
         if (!c.knock) {
           var tw = w * (TYPE_W[TYPE_OF[c.kind]] || 1);
@@ -771,7 +787,7 @@
     var x = pb.x; lastPB = { x: x, y: py, w: pw };
     g.save(); g.translate(x, py); g.rotate(tilt);
     var pc = PLAYER_CARS[prefs.car];
-    carRear(0, 0, pw, pc.col, 'sport', { type: prefs.car, acc: pc.acc, px: 420, brake: braking, reflect: S.rain, under: S.night > .6 ? '#35e6ff' : null, tail: '#ff3355' });
+    carRear(0, 0, pw, pc.col, 'sport', { type: prefs.car, acc: pc.acc, px: 420, brake: braking, reflect: S.rain, spin: dist, under: S.night > .6 ? '#35e6ff' : null, tail: '#ff3355' });
     g.restore();
     if (shieldT > 0) {
       var sa = shieldT < .8 ? (Math.sin(tAnim * 30) > 0 ? .5 : .15) : .45;
@@ -850,8 +866,9 @@
     g.fillText('lane ' + lane.toFixed(2) + ' v ' + laneV.toFixed(2) + ' speed ' + (speed * 3.6).toFixed(0) + ' shield ' + shieldT.toFixed(1) + ' lives ' + lives, 8 * dpr, H - 8 * dpr);
     g.restore();
   }
-  function drawParticles() {
+  function drawParticles(behind) {
     particles.forEach(function (p) {
+      if (!!p.behind !== !!behind) return;
       g.globalAlpha = clamp(p.life, 0, 1); g.fillStyle = p.c; g.beginPath(); g.arc(p.x, p.y, p.r * dpr, 0, TAU); g.fill();
     });
     g.globalAlpha = 1;
@@ -869,7 +886,7 @@
     if (shake > 0) g.translate((Math.random() - .5) * shake * dpr, (Math.random() - .5) * shake * dpr);
     var tremor = mode === 'run' ? clamp((speed - 30) / 12, 0, 1) * .5 : 0; // light shake at the top speeds
     if (tremor > 0) g.translate(Math.sin(tAnim * 37) * tremor * dpr, Math.cos(tAnim * 29) * tremor * dpr);
-    drawSky(S); drawGround(S); drawRoad(S); drawWorld(S); drawPlayer(S); drawSpeedLines(); drawWeather(S); drawParticles();
+    drawSky(S); drawGround(S); drawRoad(S); drawWorld(S); drawParticles(true); drawPlayer(S); drawSpeedLines(); drawWeather(S); drawParticles(false);
     if (BOXES) drawBoxes();
     g.restore();
     return S;
@@ -884,7 +901,7 @@
   function au(fn, a, b) { if (A && typeof A[fn] === 'function') { try { return A[fn](a, b); } catch (e) { return undefined; } } return undefined; }
   function audioPrefs() {
     au('setPrefs', {
-      music: prefs.music === 'on', sfx: prefs.sfx === 'on', style: prefs.style, volMusic: prefs.volMusic / 100, volFx: prefs.volFx / 100, bass: prefs.bass / 100,
+      music: prefs.music === 'on', sfx: prefs.sfx === 'on', style: prefs.style, volMusic: prefs.volMusic / 100, volFx: prefs.volFx / 100, volEngine: prefs.volEngine / 100, bass: prefs.bass / 100,
       calm: prefs.calm === 'on', car: prefs.car, sound: appChoice('sound') === 'on', haptics: appChoice('haptics') === 'on'
     });
   }
@@ -997,11 +1014,15 @@
     else if (S.snow > .3) { rate = 26 * S.snow; col = 'rgba(255,255,255,.55)'; kind = 'snow'; }
     else if (S.heat > .5) { rate = 24 * S.heat; col = 'rgba(214,182,126,.36)'; kind = 'dust'; r = 3; grow = 14; }
     else if (S.leaves > .3) { rate = 16 * S.leaves; kind = 'leaf'; }
+    if (Math.abs(laneV) > 1.6 && speed > 24 && Math.random() < dt * 34) { // tyres squeal through a quick lane change: a thin puff off the loaded side
+      var side = laneV > 0 ? -1 : 1;
+      particles.push({ behind: true, x: B.x + side * B.w * .36, y: B.y + 5 * dpr, vx: side * (10 + Math.random() * 30), vy: -(10 + Math.random() * 30), life: 1, r: 2.2, c: 'rgba(232,232,238,.32)', gv: -5, grow: 10, decay: 1.8 });
+    }
     if (!kind || Math.random() > dt * rate) return;
-    var sd = Math.random() < .5 ? -1 : 1, x = B.x + sd * B.w * (.28 + Math.random() * .1), y = B.y - 2 * dpr;
+    var sd = Math.random() < .5 ? -1 : 1, x = B.x + sd * B.w * (.3 + Math.random() * .12), y = B.y + 5 * dpr; // behind the car, at road level
     if (kind === 'leaf') { col = ['#e8b040', '#c2410c', '#e08a2e'][Math.floor(Math.random() * 3)]; particles.push({ x: x, y: y, vx: sd * (40 + Math.random() * 120), vy: -(60 + Math.random() * 120), life: 1, r: 3, c: col, gv: 160, decay: 1.1 }); return; }
     vy = -(20 + Math.random() * 60);
-    particles.push({ x: x, y: y, vx: sd * (10 + Math.random() * 40), vy: vy, life: 1, r: r, c: col, gv: kind === 'dust' ? -10 : gv, grow: grow, decay: 1 / life });
+    particles.push({ behind: true, x: x, y: y, vx: sd * (10 + Math.random() * 40), vy: vy, life: 1, r: r, c: col, gv: kind === 'dust' ? -10 : gv, grow: grow, decay: 1 / life });
   }
   function stepLaneChange(c, dt, d) {
     if (!c.lc && c.canLc && d > 150 && d < 230) {
@@ -1097,7 +1118,7 @@
     }
     traffic = traffic.filter(function (c) { return c.z > dist - 30; });
     au('setSpeed', speed); au('setIntensity', clamp((speed / mul() - RAMP.v0) / (RAMP.v1 - RAMP.v0) * .8 + combo * .06 + (shieldT > 0 ? .05 : 0), 0, 1)); au('setBrake', braking);
-    au('setChapterProgress', c0.frac); au('setLives', lives, maxLives);
+    au('setChapterProgress', c0.frac); au('setLives', lives, maxLives); au('setDrive', (elev(dist + 8) - elev(dist)) / 8 / .05, laneV);
     sceneTick = (sceneTick + 1) % 8;
     if (sceneTick === 0 && lastScene) au('setScene', { water: lastScene.water, rain: lastScene.rain, night: lastScene.night, snow: lastScene.snow, wind: lastScene.wind, heat: lastScene.heat, bed: lastScene.a.bed, nextBed: lastScene.b.bed, t: lastScene.t, life: lastScene.a.life, idx: c0.idx });
     hud();
@@ -1138,7 +1159,7 @@
       Array.prototype.forEach.call(row.querySelectorAll('button'), function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-val') === String(prefs[name]))); });
     });
     $('best-line').textContent = 'Best score: ' + getBest(); renderSpeedUi();
-    var vm = $('vol-music'); var vf = $('vol-fx'); var vb = $('vol-bass'); vm.value = prefs.volMusic; vf.value = prefs.volFx; vb.value = prefs.bass;
+    var vm = $('vol-music'); var vf = $('vol-fx'); var vb = $('vol-bass'); vm.value = prefs.volMusic; vf.value = prefs.volFx; vb.value = prefs.bass; $('vol-engine').value = prefs.volEngine;
     var cp = getCheckpoint(); contBtn.hidden = !cp || $('ov').getAttribute('data-kind') !== 'menu'; if (cp) contBtn.textContent = 'Continue: chapter ' + (cp.chapter + 1) + '  ' + new Array(cp.lives + 1).join('♥');
   }
   Array.prototype.forEach.call(document.querySelectorAll('.opt button'), function (b) {
@@ -1147,7 +1168,7 @@
       prefs[name] = v; savePrefs(); applyTrip(); renderOpts(); audioPrefs(); au('unlock');
     });
   });
-  [['vol-music', 'volMusic'], ['vol-fx', 'volFx'], ['vol-bass', 'bass']].forEach(function (p) {
+  [['vol-music', 'volMusic'], ['vol-fx', 'volFx'], ['vol-engine', 'volEngine'], ['vol-bass', 'bass']].forEach(function (p) {
     $(p[0]).addEventListener('input', function () { prefs[p[1]] = parseInt($(p[0]).value, 10); savePrefs(); audioPrefs(); });
   });
 
@@ -1238,7 +1259,7 @@
       scene: function (d) { var S = sceneAt(d); return { sunY: S.sunY, sky: S.sky.slice(), rain: S.rain, snow: S.snow, name: S.name }; },
       sprites: function () { return { total: spriteList.length, ready: spriteList.filter(function (e) { return e.ready; }).length }; },
       geo: function (ds) { lastScene = render(); var pb = playerBox(); return { W: W, H: H, dpr: dpr, player: pb, rows: ds.map(function (d) { var r = rowAt(d); return { d: d, y: r.y, ct: r.ct, hw: r.hw }; }), cars: traffic.map(function (c) { var d = c.z - dist; var r = rowAt(Math.max(.5, d)); return { d: d, lane: c.lane, laneF: c.laneF, lc: !!c.lc, knock: c.knock || 0, kind: c.kind, y: r.y, x: r.ct + c.lane / 1.7 * r.hw, hw: r.hw }; }) }; },
-      state: function () { return { susp: susp.y, laneV: laneV, pitch: pitch, paused: paused, braking: braking, prefs: JSON.parse(JSON.stringify(prefs)), mode: mode, dist: dist, speed: speed, lane: lane, laneTarget: laneTarget, combo: combo, score: score, lives: lives, maxLives: maxLives, shield: shieldT, coins: run.coins, hits: run.hits, traffic: traffic.length, chapter: chapterAt(dist).i, chapterLen: chapterLen, tripMode: tripMode, nextStop: nextStop, checkpoint: getCheckpoint(), stats: JSON.parse(JSON.stringify(stats)) }; },
+      state: function () { return { slope: (elev(dist + 8) - elev(dist)) / 8 / .05, susp: susp.y, laneV: laneV, pitch: pitch, paused: paused, braking: braking, prefs: JSON.parse(JSON.stringify(prefs)), mode: mode, dist: dist, speed: speed, lane: lane, laneTarget: laneTarget, combo: combo, score: score, lives: lives, maxLives: maxLives, shield: shieldT, coins: run.coins, hits: run.hits, traffic: traffic.length, chapter: chapterAt(dist).i, chapterLen: chapterLen, tripMode: tripMode, nextStop: nextStop, checkpoint: getCheckpoint(), stats: JSON.parse(JSON.stringify(stats)) }; },
       still: function (d, t, laneV, withTraffic) {
         mode = 'menu'; dist = d; tAnim = t; lane = laneV || 0; laneTarget = lane; speed = 70; traffic = [];
         if (withTraffic !== false) [[55, -1], [120, 1], [190, 0]].forEach(function (a, i) { traffic.push({ id: ++carId, laneF: a[1], lc: null, z: d + a[0], lane: a[1], v: 0, kind: CAR_KINDS[(i * 3 + Math.floor(d / 300)) % CAR_KINDS.length], col: CAR_COLS[(i * 2 + Math.floor(d / 200)) % CAR_COLS.length], passed: false, minGap: 9 }); });

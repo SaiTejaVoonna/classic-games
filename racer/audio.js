@@ -30,11 +30,11 @@
   }
   var ENGINES = {
     i4: { im: spec(2, .32, .72), bands: [0, 40, 70, 100, 130, 165, 400], idle: 900, lo: 2600, hi: 5800, drive: 2.4, lpB: 380, lpK: .5, lpL: 900, sub: .5, am: .1, body: .22, intake: .035, whine: .004 },
-    v8: { im: spec(4, .38, .7, { 1: .3, 2: .55 }), bands: [0, 50, 85, 120, 155, 195, 400], idle: 800, lo: 2200, hi: 6600, drive: 3.2, lpB: 300, lpK: .4, lpL: 800, sub: .7, am: .15, body: .27, intake: .03, whine: 0, pops: .5 },
-    rally: { im: spec(2, .55, .8, { 1: .6 }), bands: [0, 35, 62, 90, 120, 155, 400], idle: 1000, lo: 3200, hi: 7400, drive: 2.8, lpB: 500, lpK: .42, lpL: 800, sub: .35, am: .13, body: .22, intake: .04, whine: 0, turbo: true, pops: 1 },
-    v10: { im: spec(5, .12, .6, { 1: .18 }), bands: [0, 55, 95, 135, 175, 215, 400], idle: 1000, lo: 4200, hi: 9000, drive: 2.2, lpB: 500, lpK: .5, lpL: 900, sub: .3, am: .05, body: .22, intake: .03, whine: 0 },
-    v12: { im: spec(6, .08, .55), bands: [0, 55, 95, 135, 175, 215, 400], idle: 900, lo: 3600, hi: 8500, drive: 1.8, lpB: 450, lpK: .55, lpL: 800, sub: .25, am: .03, body: .22, intake: .025, whine: 0 },
-    f1: { im: spec(3, .1, .45, null, 60), bands: [0, 60, 100, 140, 180, 230, 400], idle: 4000, lo: 9500, hi: 14500, drive: 1.6, lpB: 900, lpK: .7, lpL: 1200, sub: 0, am: .02, body: .2, intake: .02, whine: 0 },
+    v8: { im: spec(4, .38, .7, { 1: .3, 2: .55 }), bands: [0, 40, 75, 110, 145, 180, 215, 255, 600], idle: 800, lo: 2200, hi: 6600, drive: 3.2, lpB: 300, lpK: .4, lpL: 800, sub: .7, am: .15, body: .27, intake: .03, whine: 0, pops: .5 },
+    rally: { im: spec(2, .55, .8, { 1: .6 }), bands: [0, 35, 65, 100, 135, 170, 205, 245, 600], idle: 1000, lo: 3200, hi: 7400, drive: 2.8, lpB: 500, lpK: .42, lpL: 800, sub: .35, am: .13, body: .22, intake: .04, whine: 0, turbo: true, pops: 1 },
+    v10: { im: spec(5, .12, .6, { 1: .18 }), bands: [0, 50, 90, 130, 170, 210, 250, 290, 600], idle: 1000, lo: 4200, hi: 9000, drive: 2.2, lpB: 500, lpK: .5, lpL: 900, sub: .3, am: .05, body: .22, intake: .03, whine: 0 },
+    v12: { im: spec(6, .08, .55), bands: [0, 50, 90, 130, 170, 210, 250, 290, 600], idle: 900, lo: 3600, hi: 8500, drive: 1.8, lpB: 450, lpK: .55, lpL: 800, sub: .25, am: .03, body: .22, intake: .025, whine: 0 },
+    f1: { im: spec(3, .1, .45, null, 60), bands: [0, 60, 100, 140, 180, 220, 260, 300, 600], idle: 4000, lo: 9500, hi: 14500, drive: 1.6, lpB: 900, lpK: .7, lpL: 1200, sub: 0, am: .02, body: .2, intake: .02, whine: 0 },
     ev: { im: spec(8, .04, 1.1), ev: true, idle: 600, perKmh: 40, drive: 1.1, lpB: 2500, lpK: .3, lpL: 1500, sub: 0, am: 0, body: .14, intake: 0, whine: 0 }
   };
   var CAR_ENGINE = { sedan: 'v8', rally: 'rally', ev: 'ev' };
@@ -54,9 +54,9 @@
     var Ctor = env.AudioContext;
     var ctx = null, master = null, musicBus = null, fxBus = null, comp = null, reverb = null, rvSend = null;
     var noiseBuf = null, bed = null, eng = null;
-    var prefs = { music: true, sfx: true, style: 'auto', volMusic: 0.6, volFx: 0.7, bass: 0.5, calm: false, sound: true, haptics: true, car: 'rally' };
+    var prefs = { music: true, sfx: true, style: 'auto', volMusic: 0.6, volFx: 0.7, bass: 0.5, calm: false, sound: true, haptics: true, car: 'rally', volEngine: .7 };
     var chapter = 0, intensity = 0.3, speed = 0, braking = false, running = false, paused = false;
-    var timer = null, nextBar = 0, scene = {};
+    var timer = null, nextBar = 0, scene = {}, driveSlope = 0, driveSteer = 0;
     var nextLife = 0, duckedUntil = 0, stemBus = {}, duckNode = null, chBar = 0, chStart = 0, chapFrac = 0, restUntil = 0, lives = 3, maxLives = 3;
     var made = { notes: 0, events: 0 }, engineOverride = null;
 
@@ -94,7 +94,7 @@
       var f = (prefs.sfx && prefs.sound ? prefs.volFx : 0);
       musicBus.gain.setTargetAtTime(m, t, 0.08); fxBus.gain.setTargetAtTime(f, t, 0.08);
       if (bed) bed.out.gain.setTargetAtTime(prefs.sound ? 0.5 : 0, t, 0.2);
-      if (eng) eng.out.gain.setTargetAtTime(running && !paused && f ? 1 : 0, t, 0.1);
+      if (eng) eng.out.gain.setTargetAtTime(running && !paused && f ? prefs.volEngine / .7 : 0, t, 0.1);
     }
 
     function route(node, bus, pv, wet) {
@@ -390,6 +390,7 @@
       var t = ctx.currentTime, kmh = vms * 3.6, E = eng, P = E.P, m = engineModel(kmh, P);
       var dt = Math.max(.016, t - E.vt); var a = (vms - E.v) / dt; E.acc += (a - E.acc) * .25; E.v = vms; E.vt = t;
       var shifted = m.gear !== E.gear, sfx = prefs.sfx && prefs.sound;
+      if (!P.ev) m.rpm *= 1 + .012 * Math.sin(t * 2.3) + .006 * Math.sin(t * 5.1 + .7);
       if (shifted && m.gear > E.gear && sfx) { // upshift: short torque cut, a soft puff, blow-off on turbo cars
         E.cut = .12; noise(t, P.turbo ? .3 : .09, P.turbo ? .06 : .05 * (prefs.calm ? .4 : 1), fxBus, 'highpass', P.turbo ? 3400 : 2600, 0);
         if (P.pops && !prefs.calm) pops(t, P.pops > .7 ? 2 : 1);
@@ -400,7 +401,10 @@
       var rpmN = clamp((m.rpm - P.idle) / (P.ev ? 6000 : (P.hi - P.idle)), 0, 1);
       var lift = braking || E.acc < -2.5;
       if (lift && P.pops && sfx && !prefs.calm && m.rpm > P.lo && t > E.popT) { E.popT = t + .3; pops(t, P.pops > .7 ? 3 : 1); if (P.turbo) noise(t, .25, .05, fxBus, 'highpass', 3400, 0); }
-      var load = braking ? .08 : clamp(.4 + E.acc * .22, .12, 1);
+      // Load is what the engine is doing: pulling up a hill, holding speed, swinging through a lane change, lifting off.
+      // At a steady speed it still moves a little, as a driver's foot does.
+      var steer = Math.min(1, Math.abs(driveSteer) / 2.5);
+      var load = braking ? .08 : clamp(.58 + clamp(E.acc * .35, -.3, .4) + driveSlope * .28 - steer * .12 + .05 * Math.sin(t * 1.1) + .035 * Math.sin(t * 2.9 + 1.3), .15, 1);
       if (E.cut > 0) { E.cut -= dt; load *= .35; }
       var tc = shifted ? .02 : .07, f1 = m.rpm / 60;
       E.o1.frequency.setTargetAtTime(f1, t, tc); E.o2.frequency.setTargetAtTime(f1 * 1.004, t, tc); E.sub.frequency.setTargetAtTime(f1 * 2, t, tc);
@@ -568,6 +572,7 @@
       setChapterProgress: function (f) { chapFrac = clamp(f || 0, 0, 1); },
       setLives: function (n, max) { lives = n; maxLives = max || maxLives; },
       setBrake: function (b) { braking = !!b; },
+      setDrive: function (slope, steer) { driveSlope = clamp(slope || 0, -1, 1); driveSteer = steer || 0; },
       setScene: function (s) { scene = s || {}; },
       life: function (name, pv) { if (audible()) lifeSound(name, ctx.currentTime + .02, pv || 0, 1); },
       lifeNames: Object.keys(LIFE_LEVEL),

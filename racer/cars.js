@@ -12,13 +12,22 @@ const glass=()=>lin([[0,'#7da2d6'],[.28,'#2a3d63'],[.7,'#0c1424'],[1,'#05080f']]
 const carbon=()=>lin([[0,'#2b303c'],[1,'#0a0c12']]);
 const mir=s=>`${s}<g transform="scale(-1 1)">${s}</g>`;
 function glowLine(y,x1,x2,h,col,core){return `<rect x="${x1}" y="${y-h*1.8}" width="${x2-x1}" height="${h*3.6}" rx="${h*1.8}" fill="${col}" opacity=".55" filter="url(#bl2)"/><rect x="${x1}" y="${y-h/2}" width="${x2-x1}" height="${h}" rx="${h/2}" fill="${core||col}"/>`;}
-function tyres(w,h,x0,rim){return mir(`<rect x="${x0}" y="${-h}" width="${w}" height="${h}" rx="${w*.4}" fill="#0b0d12"/><rect x="${x0+w*.62}" y="${-h+h*.2}" width="${w*.14}" height="${h*.6}" rx="${w*.07}" fill="#3a4152"/><path d="M${x0+w*.9},${-h*.78} L${x0+w*1.18},${-h*.7} L${x0+w*1.18},${-h*.22} L${x0+w*.9},${-h*.14}Z" fill="${rim||'#9aa6bd'}" opacity=".75"/>`);}
+// Tyre geometry per vehicle (x of the right tyre, width, height) in sprite units. The game redraws the tread over
+// these rectangles with a scrolling pattern, so the wheels look like they are turning.
+const TYRE={sedan:[34,20,30],hyper:[34,20,30],ev:[36,17,28],cross:[35,19,34],pickup:[34,21,35],pod:[35,19,31],truck:[36,18,30],rally:[32,22,36]};
+function tyrePair(type,rim){const [x0,w,h]=TYRE[type];
+ const g=lin([[0,'#050608'],[.5,'#13161d'],[.82,'#262b38'],[1,'#3b4256']],1,0);
+ return mir(`<ellipse cx="${x0+w*.5}" cy="0" rx="${w*.66}" ry="${w*.16}" fill="#000" opacity=".4"/>`
+  +`<rect x="${x0}" y="${-h}" width="${w}" height="${h}" rx="${w*.42}" fill="${g}"/>`
+  +`<rect x="${x0+w*.14}" y="${-h+h*.03}" width="${w*.72}" height="${h*.05}" rx="${w*.1}" fill="#fff" opacity=".14"/>`
+  +`<rect x="${x0+w*.82}" y="${-h*.88}" width="${w*.14}" height="${h*.7}" rx="${w*.07}" fill="${rim||'#aab4cb'}" opacity=".6"/>`
+  +[0,1,2,3,4].map(i=>`<line x1="${x0+w*.82}" y1="${-h*.82+i*h*.14}" x2="${x0+w*.96}" y2="${-h*.82+i*h*.14}" stroke="#0a0b10" stroke-width=".8" opacity=".7"/>`).join(''));}
 function underglow(col){return `<ellipse cx="0" cy="1" rx="60" ry="9" fill="#06080d" opacity=".45" filter="url(#bl)"/><ellipse cx="0" cy="-1" rx="46" ry="5" fill="${col}" opacity=".55" filter="url(#bl2)"/>`;}
 function plate(y){return `<rect x="-12" y="${y}" width="24" height="9" rx="1.5" fill="#f1f4fa"/><rect x="-9" y="${y+3.2}" width="18" height="1.6" fill="#8a93a6"/>`;}
 
 function hyper(c,acc,brake){ // low wide supercar
  const lit=brake?'#ff6a7a':'#ff2d55', body=paint(c), cg=glass(), cb=carbon();
- let s=underglow(acc)+tyres(19,27,33,'#b9c4da');
+ let s=underglow(acc);
  // diffuser
  s+=`<path d="M-40,-22 L40,-22 L35,-5 Q0,0 -35,-5Z" fill="${cb}"/>`+[-24,-16,-8,0,8,16,24].map(x=>`<path d="M${x},-21 L${x*.9},-6" stroke="#3c4455" stroke-width="1.4"/>`).join('');
  s+=`<rect x="-6" y="-14" width="12" height="4" rx="1" fill="${lit}" opacity=".9"/>`+[-22,22].map(x=>`<circle cx="${x}" cy="-13" r="4.6" fill="#1a1d26"/><circle cx="${x}" cy="-13" r="3" fill="#07080b"/><circle cx="${x}" cy="-13" r="4.6" fill="none" stroke="#8da0c6" stroke-width=".8"/>`).join('');
@@ -35,10 +44,11 @@ function hyper(c,acc,brake){ // low wide supercar
  // light bar: full width, brighter ends
  s+=glowLine(-37,-46,46,2.4,lit,'#ffd9de')+mir(`<path d="M30,-42 L47,-43 L46,-33 L33,-34Z" fill="${lit}"/><path d="M33,-40 L45,-41" stroke="#fff" stroke-opacity=".7" stroke-width="1"/>`);
  s+=plate(-31);
+ s+=tyrePair('hyper','#b9c4da');
  return s;}
 function ev(c,acc,brake){ // smooth fastback sedan, glass roof, thin light bar
  const lit=brake?'#ff6a7a':'#ff3a52', body=paint(c), cg=glass();
- let s=underglow(acc)+tyres(16,26,36,'#cfd6e6');
+ let s=underglow(acc);
  s+=`<path d="M-38,-20 L38,-20 L33,-6 Q0,-2 -33,-6Z" fill="${carbon()}"/><rect x="-24" y="-11" width="48" height="4" rx="1.5" fill="#06080c" opacity=".7"/>`;
  s+=mir(`<path d="M0,-46 L26,-46 C42,-44 49,-36 49,-24 L47,-17 Q24,-13 0,-13Z" fill="${body}"/>`);
  s+=mir(`<path d="M0,-46 L26,-46 C42,-44 49,-37 49,-30" stroke="#fff" stroke-opacity=".6" stroke-width="1.5" fill="none"/>`);
@@ -47,10 +57,11 @@ function ev(c,acc,brake){ // smooth fastback sedan, glass roof, thin light bar
  s+=`<path d="M-33,-47 Q0,-52 33,-47 L33,-44 Q0,-48 -33,-44Z" fill="${shade(c,-.3)}" opacity=".6"/>`;
  s+=glowLine(-35,-44,44,1.6,lit,'#ffe3e7')+mir(`<path d="M36,-40 L47,-38 L46,-31 L38,-33Z" fill="${lit}"/>`);
  s+=plate(-29);
+ s+=tyrePair('ev','#cfd6e6');
  return s;}
 function cross(c,acc,brake){ // sport crossover, split LED C-lights, roof spoiler, taller
  const lit=brake?'#ff6a7a':'#ff3a52', body=paint(c), cg=glass(), cb=carbon();
- let s=underglow(acc)+tyres(18,31,34,'#aab4cb');
+ let s=underglow(acc);
  s+=`<path d="M-40,-24 L40,-24 L36,-8 Q0,-3 -36,-8Z" fill="${cb}"/>`+[-14,14].map(x=>`<circle cx="${x*1.7}" cy="-14" r="4.2" fill="#07080b" stroke="#8da0c6" stroke-width=".8"/>`).join('')+`<rect x="-14" y="-15" width="28" height="4" rx="1.5" fill="#050609" opacity=".7"/>`;
  s+=mir(`<path d="M0,-56 L33,-56 C45,-54 50,-46 50,-36 L48,-20 Q24,-16 0,-16Z" fill="${body}"/>`);
  s+=mir(`<path d="M0,-56 L33,-56 C45,-54 50,-47 50,-40" stroke="#fff" stroke-opacity=".6" stroke-width="1.5" fill="none"/>`);
@@ -59,10 +70,11 @@ function cross(c,acc,brake){ // sport crossover, split LED C-lights, roof spoile
  s+=`<path d="M-30,-88 L30,-88 L27,-92 L-27,-92Z" fill="${cb}"/><rect x="-8" y="-89" width="16" height="2" rx="1" fill="${lit}"/>`;
  s+=mir(`<path d="M44,-50 L47,-49 L47,-38 L40,-36 L40,-44 L26,-44 L26,-48 Z" fill="${lit}"/><path d="M26,-47 L44,-48" stroke="#fff" stroke-opacity=".7" stroke-width="1"/>`)+`<rect x="-26" y="-45" width="52" height="2.2" rx="1" fill="${lit}" opacity=".9"/>`;
  s+=plate(-36);
+ s+=tyrePair('cross','#aab4cb');
  return s;}
 function pickup(c,acc,brake){ // faceted cyber-pickup: flat panels, steel
  const lit=brake?'#ff6a7a':'#ff3a52', st=paint(c), cg=glass(), cb=carbon(), dk=lin([[0,'#2a2f3c'],[1,'#12151c']]);
- let s=underglow(acc)+tyres(20,32,32,'#aab4cb');
+ let s=underglow(acc);
  s+=`<path d="M-42,-26 L42,-26 L38,-8 L-38,-8Z" fill="${cb}"/><rect x="-18" y="-18" width="36" height="6" rx="1" fill="#06070b"/>`;
  s+=`<path d="M-50,-26 L-48,-62 L-30,-66 L30,-66 L48,-62 L50,-26Z" fill="${st}"/>`;
  s+=`<path d="M-48,-62 L-30,-66 L30,-66 L48,-62" stroke="#fff" stroke-opacity=".75" stroke-width="1.5" fill="none"/>`;
@@ -72,10 +84,11 @@ function pickup(c,acc,brake){ // faceted cyber-pickup: flat panels, steel
  s+=`<rect x="-46" y="-56" width="92" height="30" fill="none" stroke="#000" stroke-opacity=".25" stroke-width="1"/><line x1="0" y1="-56" x2="0" y2="-26" stroke="#000" stroke-opacity=".18"/>`;
  s+=glowLine(-52,-46,46,2.6,lit,'#ffe3e7')+`<rect x="-3" y="-54" width="6" height="5" fill="${st}"/>`;
  s+=plate(-40);
+ s+=tyrePair('pickup','#aab4cb');
  return s;}
 function pod(c,acc,brake){ // futuristic van pod: tall, big glass, vertical light strips
  const lit=brake?'#ff6a7a':'#ff3a52', body=paint(c), cg=glass(), cb=carbon();
- let s=underglow(acc)+tyres(18,28,34,'#aab4cb');
+ let s=underglow(acc);
  s+=`<path d="M-40,-22 L40,-22 L36,-7 Q0,-3 -36,-7Z" fill="${cb}"/><rect x="-16" y="-14" width="32" height="4" rx="1.5" fill="#06080c" opacity=".7"/>`;
  s+=mir(`<path d="M0,-92 L30,-92 C44,-90 50,-80 50,-66 L50,-20 Q25,-15 0,-15Z" fill="${body}"/>`);
  s+=mir(`<path d="M0,-92 L30,-92 C44,-90 50,-81 50,-70" stroke="#fff" stroke-opacity=".65" stroke-width="1.6" fill="none"/>`);
@@ -83,10 +96,11 @@ function pod(c,acc,brake){ // futuristic van pod: tall, big glass, vertical ligh
  s+=mir(`<rect x="40" y="-84" width="5.5" height="52" rx="2.7" fill="${lit}" opacity=".5" filter="url(#bl2)"/><rect x="42" y="-84" width="2.8" height="52" rx="1.4" fill="${lit}"/>`);
  s+=`<rect x="-30" y="-36" width="60" height="2" rx="1" fill="${acc}" opacity=".9"/>`+glowLine(-36,-30,30,0,acc);
  s+=plate(-29);
+ s+=tyrePair('pod','#aab4cb');
  return s;}
 function truck(c,acc,brake){ // autonomous cargo truck: container with edge LEDs
  const lit=brake?'#ff6a7a':'#ff3a52', cont=lin([[0,'#f4f7fc'],[.5,'#cfd6e4'],[1,'#8a93a8']]), cb=carbon();
- let s=underglow(acc)+tyres(18,26,35,'#aab4cb')+mir(`<rect x="35" y="-58" width="18" height="26" rx="7" fill="#101319"/><rect x="35" y="-88" width="18" height="26" rx="7" fill="#0e1015" opacity=".9"/>`);
+ let s=underglow(acc)+mir(`<rect x="36" y="-62" width="18" height="26" rx="7" fill="#101319"/><rect x="36" y="-92" width="18" height="26" rx="7" fill="#0e1015" opacity=".9"/>`);
  s+=`<rect x="-46" y="-34" width="92" height="12" rx="3" fill="${cb}"/>`;
  s+=`<rect x="-52" y="-176" width="104" height="146" rx="8" fill="${cont}"/><rect x="-52" y="-176" width="104" height="12" rx="6" fill="#fff"/><rect x="-52" y="-176" width="10" height="146" fill="#7b869e" opacity=".5"/><rect x="42" y="-176" width="10" height="146" fill="#7b869e" opacity=".5"/>`;
  s+=`<line x1="0" y1="-164" x2="0" y2="-36" stroke="#7b869e" stroke-width="1.6"/>`+[-130,-100,-70].map(y=>`<rect x="-44" y="${y}" width="88" height="1.2" fill="#8a93a8" opacity=".5"/>`).join('');
@@ -94,12 +108,13 @@ function truck(c,acc,brake){ // autonomous cargo truck: container with edge LEDs
  s+=`<rect x="-52" y="-176" width="104" height="146" rx="8" fill="none" stroke="${acc}" stroke-width="5" opacity=".35" filter="url(#bl2)"/>`;
  s+=`<rect x="-44" y="-110" width="88" height="10" fill="${c}"/><rect x="-44" y="-96" width="88" height="3" fill="#fff"/>`;
  s+=mir(`<path d="M44,-46 L50,-45 L50,-38 L40,-37Z" fill="${lit}"/><rect x="-46" y="-45" width="8" height="8" fill="${lit}" opacity="0"/>`)+glowLine(-41,-46,46,1.8,lit,'#ffe3e7')+plate(-29);
+ s+=tyrePair('truck','#aab4cb');
  return s;}
 
 function mud(seed,n,w,y0,y1){let s='',r=seed;const rnd=()=>{r=(r*9301+49297)%233280;return r/233280;};for(let i=0;i<n;i++){const x=(rnd()-.5)*w,y=y0+rnd()*(y1-y0),k=1+rnd()*2.2;s+=`<ellipse cx="${x}" cy="${y}" rx="${k*1.6}" ry="${k}" fill="#5a3f2a" opacity="${.18+rnd()*.25}"/>`;}return s;}
 function sedan(c,acc,brake){
  const lit=brake?'#ff6a7a':'#ff2d46', body=paint(c), cg=glass(), cb=carbon();
- let s=underglow(acc)+tyres(19,27,33,'#c6cfe2');
+ let s=underglow(acc);
  s+=`<path d="M-43,-25 L43,-25 L38,-6 Q0,-1 -38,-6Z" fill="${cb}"/>`+[-30,-22,22,30].map(x=>`<circle cx="${x}" cy="-13" r="3.7" fill="#0a0b0f" stroke="#b9c4da" stroke-width="1"/>`).join('')+[-12,-6,0,6,12].map(x=>`<line x1="${x}" y1="-22" x2="${x*.9}" y2="-8" stroke="#3c4455" stroke-width="1.2"/>`).join('');
  s+=mir(`<path d="M0,-58 L31,-58 C44,-57 50,-49 50,-37 L49,-21 Q25,-16 0,-16Z" fill="${body}"/>`);
  s+=mir(`<path d="M0,-24 L49,-26 L49,-21 Q25,-16 0,-16Z" fill="#000" opacity=".28"/><path d="M2,-57 L31,-57 C44,-56 49,-49 50,-42" stroke="#fff" stroke-opacity=".65" stroke-width="1.5" fill="none"/><path d="M8,-55 L28,-55" stroke="#000" stroke-opacity=".18" stroke-width="1"/>`);
@@ -111,12 +126,11 @@ function sedan(c,acc,brake){
  if(brake)s+=`<ellipse cx="0" cy="-47" rx="56" ry="13" fill="#ff3b4e" opacity=".3" filter="url(#bl2)"/>`;
  s+=mir(`<path d="M47,-53 L21,-53 L17,-49 L23,-46 L43,-46 L44,-36 L47,-36Z" fill="${lit}"/><path d="M44,-52 L24,-52" stroke="#fff" stroke-opacity=".75" stroke-width="1"/><rect x="25" y="-42" width="12" height="2.4" rx="1" fill="#fff" opacity=".35"/>`);
  s+=`<rect x="-18" y="-51" width="36" height="2.6" rx="1.3" fill="${lit}" opacity=".9"/>`+plate(-40);
+ s+=tyrePair('sedan','#c6cfe2');
  return s;}
 function rally(c,acc,brake){
  const lit=brake?'#ff6a7a':'#ff2d46', body=paint(c), cg=glass(), cb=carbon(), wh='#f2f5fa', st=paint('#ffcf33');
  let s=`<ellipse cx="0" cy="1" rx="62" ry="9" fill="#06080d" opacity=".5" filter="url(#bl)"/>`;
- // knobbly rally tyres with sidewall and tread
- s+=mir(`<rect x="31" y="-33" width="21" height="33" rx="6" fill="#0b0d12"/><rect x="31" y="-33" width="21" height="33" rx="6" fill="none" stroke="#2a2f3a" stroke-width="1"/>`+[-28,-22,-16,-10,-4].map(y=>`<rect x="32" y="${y}" width="19" height="2.4" fill="#1c2029"/>`).join('')+`<rect x="49" y="-27" width="2" height="22" rx="1" fill="#ffd34a" opacity=".85"/>`);
  s+=`<path d="M-40,-24 L40,-24 L36,-6 Q0,-1 -36,-6Z" fill="${cb}"/><circle cx="0" cy="-12" r="6" fill="#050608" stroke="#b9c4da" stroke-width="1.4"/><circle cx="0" cy="-12" r="3.4" fill="#000"/>`;
  s+=mir(`<rect x="26" y="-21" width="13" height="20" rx="2" fill="#0d0f14"/><rect x="29" y="-14" width="7" height="2.4" fill="#eef1f6"/><rect x="29" y="-9" width="7" height="1.6" fill="#ffd34a"/>`);
  s+=mir(`<path d="M0,-56 L33,-56 C44,-55 50,-48 50,-38 L50,-20 Q25,-15 0,-15Z" fill="${body}"/>`);
@@ -132,6 +146,7 @@ function rally(c,acc,brake){
  s+=mir(`<rect x="39" y="-54" width="9" height="22" rx="2.5" fill="${lit}"/><rect x="41" y="-52" width="2" height="18" fill="#fff" opacity=".6"/>`);
  s+=`<rect x="-5" y="-48" width="10" height="5" rx="1" fill="#ff2d46"/><rect x="-4" y="-40" width="8" height="3" rx="1" fill="#fff" opacity=".8"/>`;
  s+=mir(`<rect x="-44" y="-17" width="9" height="4" rx="2" fill="#ffd34a"/>`.replace('-44','-44'))+plate(-30).replace('#f1f4fa','#ffd34a');
+ s+=tyrePair('rally','#ffd34a');
  s+=mud(7,26,92,-52,-8);
  return s;}
 function f1(c,acc,brake){
@@ -180,5 +195,5 @@ function f1(c,acc,brake){
     return e;
   }
   function thumb(type, col, acc) { return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgOf(type, col, acc, false)); }
-  root.RacerCars = { sprite: sprite, thumb: thumb, svgOf: svgOf, types: Object.keys(types), box: boxOf };
+  root.RacerCars = { tyre: TYRE, sprite: sprite, thumb: thumb, svgOf: svgOf, types: Object.keys(types), box: boxOf };
 })(window);
