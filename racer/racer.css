@@ -1,4 +1,4 @@
-:root { color-scheme: dark; --accent: #34e39c; --accent-ink: #04140c; }
+:root { color-scheme: dark; --accent: #f3efe6; --accent-ink: #0a0b10; }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; background: #07090e; color: #eaf1ff; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; overscroll-behavior: none; }
 .stage { position: relative; height: 100vh; height: 100dvh; max-width: calc(100dvh * 0.5625); margin: 0 auto; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; background: #000; }
@@ -71,3 +71,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .carsel button img { width: 100%; max-width: 62px; height: 42px; object-fit: contain; }
 .carsel button b { font-weight: 600; font-size: 10.5px; line-height: 1.1; }
 .carsel button.soon { opacity: .45; cursor: default; }
+.backpill { position: absolute; left: 14px; top: calc(14px + env(safe-area-inset-top)); display: inline-flex; align-items: center; gap: 2px; min-height: 40px; padding: 0 14px 0 8px; border: 1px solid #ffffff44; border-radius: 999px; background: #0a0d1899; color: #fff; text-decoration: none; font-size: 15px; font-weight: 600; }
+.backpill svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.overlay:not([data-kind="menu"]):not([data-kind="over"]):not([data-kind="done"]) .backpill { display: none; }
+.b.out { border-color: #ff8aa0aa; color: #ff9db0; }

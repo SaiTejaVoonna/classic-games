@@ -780,3 +780,50 @@ test('tall board: food and bonus never land on blocks or the snake', () => {
     }
   }
 });
+
+// ---- saved games
+test('a snapshot restores to a game that plays on exactly like the original', () => {
+  const E = require('../src/engine.js');
+  let g = E.createGame({ seed: 21, wrap: true, lives: 'unlimited', speed: 'fast', bonusEvery: 1 });
+  const toward = (st) => { const h = st.snake[0]; return st.food.x > h.x ? 'right' : st.food.x < h.x ? 'left' : st.food.y > h.y ? 'down' : 'up'; };
+  g = E.turn(g, 'down');
+  for (let i = 0; i < 600; i++) {
+    if (g.status === 'ready') g = E.turn(g, toward(g)); else g = E.turn(g, toward(g));
+    g = E.step(g).state;
+    if (g.score >= 4 && g.bonusItem) break;
+  }
+  assert.strictEqual(g.status, 'running');
+  assert.ok(g.score >= 4 && g.bonusItem, 'the saved game includes a bonus item');
+  const snap = JSON.parse(JSON.stringify(E.snapshot(g)));
+  let a = g, b = E.restore(snap);
+  assert.ok(b, 'restores');
+  assert.strictEqual(b.status, 'running');
+  for (let i = 0; i < 120; i++) {
+    if (i % 9 === 4) { const d = ['up', 'left', 'down', 'right'][(i / 9 | 0) % 4]; a = E.turn(a, d); b = E.turn(b, d); }
+    a = E.step(a).state; b = E.step(b).state;
+    assert.deepStrictEqual(b.snake, a.snake); assert.strictEqual(b.score, a.score); assert.strictEqual(b.status, a.status);
+    assert.deepStrictEqual(b.food, a.food); assert.strictEqual(b.lives, a.lives);
+  }
+});
+
+test('a snapshot is refused unless it is a position the game could have reached', () => {
+  const E = require('../src/engine.js');
+  let g = E.createGame({ seed: 5, board: 'gate', wrap: true });
+  g = E.turn(g, 'down'); for (let i = 0; i < 20; i++) g = E.step(g).state;
+  const good = () => JSON.parse(JSON.stringify(E.snapshot(g)));
+  assert.ok(E.restore(good()));
+  const cases = {
+    'null': null, 'wrong version': Object.assign(good(), { v: 2 }), 'unknown speed': Object.assign(good(), { speed: 'warp' }),
+    'unknown board': Object.assign(good(), { board: 'nope' }), 'bad size': Object.assign(good(), { cols: 99 }),
+    'negative score': Object.assign(good(), { score: -1 }), 'fractional score': Object.assign(good(), { score: 1.5 }),
+    'bad direction': Object.assign(good(), { dir: 'sideways' }), 'queue too long': Object.assign(good(), { queue: ['up', 'down', 'up', 'down', 'up'] }),
+    'too short': Object.assign(good(), { snake: [[1, 1]] }), 'no food': Object.assign(good(), { food: null })
+  };
+  Object.keys(cases).forEach((k) => assert.strictEqual(E.restore(cases[k]), null, k));
+  let s = good(); s.snake[1] = [0, 0]; assert.strictEqual(E.restore(s), null, 'broken body');
+  s = good(); s.snake[2] = s.snake[0].slice(); assert.strictEqual(E.restore(s), null, 'overlapping body');
+  s = good(); s.food = { x: s.snake[0][0], y: s.snake[0][1] }; assert.strictEqual(E.restore(s), null, 'food on the snake');
+  s = good(); s.snake[0] = [10, 2]; assert.strictEqual(E.restore(s), null, 'head inside a maze block');
+  s = good(); s.lives = 5; assert.strictEqual(E.restore(s), null, 'more lives than the mode allows');
+  s = good(); s.bonusItem = { x: 0, y: 0, ticksLeft: 0 }; assert.strictEqual(E.restore(s), null, 'bonus with no time');
+});

@@ -2,7 +2,7 @@
 
 Small classic-inspired games with a modern, calm look. No backend, no dependencies, no ads; scores stay on your device. Open `index.html` in a browser (works from `file://`).
 
-- `index.html` is the launcher (Racer, Snake, menu drawer, awards, best scores).
+- `index.html` is the launcher: the Games screen (a Continue card for the game you played last, game tiles, awards), with bottom tabs for Awards, Scores and Settings. See `docs/NAVIGATION.md`.
 - `snake/` is Snake. Its source lives in `src/` and `styles.css`.
 - `racer/` is Racer: a pseudo-3D road game. One tuned Journey of about 15 minutes (10 chapters, rest stops, checkpoints, finish, then Keep driving), lives and shields, coins, three playable cars, and a fully synthesised soundtrack, effects and engine (no audio files). See `docs/RACER.md` and `docs/RACER_AUDIO.md`.
 

@@ -29,6 +29,7 @@ Useful flags: `?debug=1` (adds `window.racerDebug`), `&boxes=1` (collision boxes
 - **Sunrise Coast.** Does the sky brighten and the sun rise as you go?
 - **Journey end.** Does the finish appear at the end of chapter 10, and does Keep driving work?
 - **Pause, resume, Continue** from a checkpoint after a crash.
+- **Navigation (new):** on a phone, check the Games button in Snake, Exit to Games in both pause menus, the bottom tabs, that Snake and Racer open dark, that the bottom of Snake is not hidden under the browser bar, and Continue for each game after leaving it. See `docs/NAVIGATION.md`.
 - **Sound.** On a real device: balance of engine, score and effects; Calm mode; any clicks, glitches or silence. Which cars sound best?
 - **Performance.** Frame rate on a mid-range phone, especially in rain and city chapters.
 

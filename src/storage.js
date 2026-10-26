@@ -22,6 +22,8 @@
   var SKIN_KEY = 'classic-games.skin';
   var UI_KEY = 'classic-games.ui';
   var APP_KEY = 'classic-games.app';
+  var SAVE_KEY = 'classic-games.snake.save'; // the paused game, so Continue can bring it back
+  var LOOK_KEY = 'classic-games.launcher';   // the app-wide Appearance (Auto, Light or Dark)
 
   function hasOwn(obj, k) { return Object.prototype.hasOwnProperty.call(obj, k); }
 
@@ -241,6 +243,8 @@
     SKIN_KEY: SKIN_KEY,
     UI_KEY: UI_KEY,
     APP_KEY: APP_KEY,
+    SAVE_KEY: SAVE_KEY,
+    LOOK_KEY: LOOK_KEY,
     createBestStore: createBestStore,
     createSpeedPref: createSpeedPref,
     createRulesPref: createRulesPref,

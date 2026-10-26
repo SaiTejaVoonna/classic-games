@@ -25,11 +25,20 @@
   var storage = safeStorage();
 
   // ---------- Theme ----------
+  // Snake follows the app-wide Appearance (Dark by default) unless the player picked a Snake look of their own.
+  function appLook() {
+    var look = S.createChoicePref(storage, S.LOOK_KEY, { theme: ['auto', 'light', 'dark'] }, { theme: 'dark' }); // the same preference the Settings tab writes
+    look.load();
+    var t = look.get().theme;
+    if (t === 'auto') return window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    return t;
+  }
   function readTheme() {
     try {
       var t = storage && storage.getItem(THEME_KEY);
-      return THEMES.indexOf(t) >= 0 ? t : 'colour';
-    } catch { return 'colour'; }
+      if (THEMES.indexOf(t) >= 0) return t;
+    } catch { /* storage unavailable: use the app look */ }
+    return appLook() === 'light' ? 'colour' : 'night';
   }
   function saveTheme(t) {
     try { if (storage) storage.setItem(THEME_KEY, t); } catch { /* storage unavailable: fine */ }
@@ -119,6 +128,7 @@
     document.addEventListener(ev, function () { sfx.unlock(); }, { passive: true });
   });
   var readyNote = ''; // set after a lost life
+  var welcome = false; // true after a saved game is brought back, until the player continues
   var rafId = 0;
   var lastTime = null;
   var acc = 0;
@@ -298,7 +308,7 @@
     switch (mode) {
       case 'menu': return 'Snake';
       case 'ready': return readyNote ? 'Swipe or press a direction to continue' : 'Swipe or press a direction to start';
-      case 'paused': return 'Paused';
+      case 'paused': return welcome ? 'Welcome back. Score ' + game.score + '.' : 'Paused';
       case 'over': return 'Game over. Score ' + game.score + '.';
       case 'won': return 'Board full. Score ' + game.score + '.';
       default: return '';
@@ -315,7 +325,8 @@
   };
   var ovHandlers = [null, null];
   function renderOverlayButtons() {
-    var defs = OV[mode] || [];
+    var defs = mode === 'menu' && readSave() ? [['Play', startNewGame], ['Continue', resumeSaved]] : (OV[mode] || []);
+    $('ov-exit').hidden = !(mode === 'menu' || mode === 'paused' || mode === 'over' || mode === 'won');
     ['ov-primary', 'ov-secondary'].forEach(function (id, i) {
       var b = $(id);
       b.hidden = !defs[i];
@@ -452,7 +463,35 @@
     rafId = window.requestAnimationFrame(frame);
   }
 
+  // ---------- Saved game: Continue on the Games screen ----------
+  // A run is saved whenever it is paused or left. It is cleared when the run ends or a new game starts.
+  function readSave() {
+    try {
+      var raw = storage && storage.getItem(S.SAVE_KEY);
+      if (!raw) return null;
+      var d = JSON.parse(raw);
+      var g = d && E.restore(d.snap);
+      return g ? { game: g } : null;
+    } catch { return null; }
+  }
+  function writeSave() {
+    if (!storage || !game || game.status !== 'running' || (mode !== 'running' && mode !== 'paused')) return;
+    try { storage.setItem(S.SAVE_KEY, JSON.stringify({ v: 1, at: Date.now(), score: game.score, length: game.snake.length, snap: E.snapshot(game) })); } catch { /* storage full or off: fine */ }
+  }
+  function clearSave() { try { if (storage) storage.removeItem(S.SAVE_KEY); } catch { /* fine */ } }
+  function resumeSaved() {
+    var sv = readSave();
+    if (!sv) return false;
+    stopLoop(); fx.reset(); prevGame = null;
+    game = sv.game; currentShape = game.shape; applyShape();
+    readyNote = ''; welcome = true; mode = 'paused';
+    updateUI();
+    btnContinue.focus();
+    return true;
+  }
+
   function finish() {
+    clearSave();
     var before = best.get(game.profile);
     mode = game.status;
     best.submit(game.profile, game.score);
@@ -464,6 +503,7 @@
 
   // ---------- Commands ----------
   function startNewGame() {
+    clearSave(); welcome = false;
     stopLoop();
     fx.reset();
     prevGame = null;
@@ -484,12 +524,14 @@
     if (mode !== 'running') return false;
     mode = 'paused';
     stopLoop();
+    writeSave();
     updateUI();
     return true;
   }
 
   function resume() {
     if (mode !== 'paused') return false;
+    welcome = false;
     mode = 'running';
     updateUI();
     startLoop();
@@ -540,6 +582,7 @@
   document.addEventListener('visibilitychange', function () {
     if (document.hidden) pause(); else startAnim();
   });
+  window.addEventListener('pagehide', function () { if (mode === 'running') pause(); else if (mode === 'paused') writeSave(); });
 
   // ---------- Input ----------
   var DIRS = { up: 'up', down: 'down', left: 'left', right: 'right' };
@@ -810,6 +853,8 @@
   applyTheme(readTheme());
   syncSettingsControls();
   updateUI();
+  if (params.get('resume') === '1') resumeSaved();
+  else if (params.get('new') === '1') startNewGame(); // New game on the Games screen starts straight away, waiting for a swipe
   if (window.ResizeObserver) {
     new ResizeObserver(resizeCanvas).observe(canvas);
   } else {

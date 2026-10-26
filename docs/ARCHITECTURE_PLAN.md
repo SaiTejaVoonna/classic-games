@@ -25,7 +25,7 @@ Rules include topology and maze geometry. Rendering may scale/smooth cosmetic pr
 ## Persistence, feedback and robustness
 Store schema-versioned preferences and best scores, with level/maze/profile keys subject to approval. Catch unavailable/quota/corrupt storage and retain an in-memory fallback. No online leaderboard.
 Create Web Audio resources lazily after user intent; no copied recordings. Vibration is progressive enhancement because support varies ([Vibration API](https://developer.mozilla.org/en-US/docs/Web/API/Vibration_API)).
-Pause retains the in-memory run; reload resume is out of initial scope unless approved. No service worker/offline cache in the first milestone.
+Pause retains the in-memory run. Update: a paused run is now also saved to local storage so Continue works after leaving (see A13 in PLAYABLE_PROTOTYPE.md). No service worker/offline cache in the first milestone.
 
 ## Verification plan
 - Pure engine checks using built-in Node test/assert facilities when implementation begins; no package installation required. Fixtures must derive from source-backed rules and observed traces.

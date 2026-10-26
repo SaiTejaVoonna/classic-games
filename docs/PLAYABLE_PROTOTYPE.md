@@ -45,7 +45,7 @@ Controls are unchanged: arrow keys or WASD while the board has focus, Space or P
 | A10 | +1 point and +1 segment per food, applied immediately (U07). Food is placed uniformly on free cells (not on the snake, a maze block or the bonus item). |
 | A11 | A full board ends the run as "Board full" (U10). |
 | A12 | Browser adaptation: the run auto-pauses when the tab is hidden or a panel (Instructions, Top score, Settings) opens. Resuming is explicit and never replays elapsed time. |
-| A13 | Continue resumes a paused in-memory run only. Nothing persists across reload. |
+| A13 | Continue resumes a paused run. **Changed in the navigation update:** a run is also saved on this device when it is paused or the page is left (key `classic-games.snake.save`), and the Games screen offers Continue. The save holds the exact board and is rebuilt only if it passes validation (a damaged save is ignored). It is cleared when the run ends or a New game starts. Still a prototype choice, still local only. |
 | A14 | New game during a running or paused run asks for confirmation. |
 | A16 | WASD and Space/P are proposed alternatives from the interface spec and are not approved. |
 | A17 | **Speed settings** (Settings → Speed): Slow 300 ms (default), Medium 220 ms, Fast 150 ms per tick. Comfort choices from owner testing, not original level values. Stored under `classic-games.speed`; unknown stored values fall back to Slow; explicit choices are kept. The Settings copy says: "Speed choices are comfort settings, not original game levels." |
@@ -113,7 +113,7 @@ Open `index.html` in a browser (works from `file://`; scripts are plain deferred
 2. Whether bonus food should default to On, and whether the bonus length should be in seconds rather than ticks.
 3. Whether a lost life should keep the snake length instead of resetting it.
 4. Which reference handset and firmware to verify against, and how evidence will be gathered (U01 to U12), before any rule is called faithful.
-5. Whether auto-pause (A12), session only Continue (A13) and the extra key mappings (A16) are approved.
+5. Whether auto-pause (A12), saving a paused run so Continue works after leaving (A13, changed) and the extra key mappings (A16) are approved.
 
 ## Link status (GitHack)
 The repository is public (verified by Codex). Links take the form `https://raw.githack.com/SaiTejaVoonna/classic-games/<commit-sha>/index.html`, pinned to a commit. The report for each commit gives the current link and says whether it was verified. The `preview/ui-prototype` branch is not updated by this work.

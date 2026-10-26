@@ -323,7 +323,64 @@
     return { steps: steps, acc: rest >= tickMs ? 0 : rest };
   }
 
+  // ---- Saved games. A snapshot holds the rules the run started with and the parts that change while
+  // playing, as plain JSON. restore() rebuilds the full state from it and refuses anything that is not
+  // a position the game could really have reached (so a damaged or edited save is simply ignored).
+  function snapshot(state) {
+    return {
+      v: 1, shape: state.shape, cols: state.cols, rows: state.rows, speed: state.speed, livesMode: state.livesMode, lives: state.lives,
+      board: state.board, wrap: state.wrap, bonus: state.bonusEnabled, bonusEvery: state.bonusEvery, bonusTicks: state.bonusTicks,
+      bonusPoints: state.bonusPoints, bonusGrows: state.bonusGrows, startLength: state.startLength,
+      snake: state.snake.map(function (c) { return [c.x, c.y]; }), dir: state.dir, queue: state.queue.slice(),
+      food: state.food ? { x: state.food.x, y: state.food.y } : null, rng: state.rng,
+      bonusItem: state.bonusItem ? { x: state.bonusItem.x, y: state.bonusItem.y, ticksLeft: state.bonusItem.ticksLeft } : null,
+      foodEaten: state.foodEaten, score: state.score, ticks: state.ticks
+    };
+  }
+  function isInt(n, min) { return typeof n === 'number' && isFinite(n) && Math.floor(n) === n && n >= min; }
+  // Returns a running game state, or null when the snapshot is not a valid game.
+  function restore(snap) {
+    if (!snap || typeof snap !== 'object' || snap.v !== 1) return null;
+    if (SHAPES.indexOf(snap.shape) < 0 || !hasOwn(SPEEDS, snap.speed) || !hasOwn(LIVES, snap.livesMode) || !hasOwn(MAZES, snap.board)) return null;
+    if (typeof snap.wrap !== 'boolean' || typeof snap.bonus !== 'boolean' || typeof snap.bonusGrows !== 'boolean') return null;
+    if (!isInt(snap.startLength, 1) || !isInt(snap.bonusEvery, 1) || !isInt(snap.bonusTicks, 1) || !isInt(snap.bonusPoints, 1)) return null;
+    var g = createGame({ shape: snap.shape, speed: snap.speed, lives: snap.livesMode, board: snap.board, wrap: snap.wrap, bonus: snap.bonus,
+      bonusEvery: snap.bonusEvery, bonusTicks: snap.bonusTicks, bonusPoints: snap.bonusPoints, bonusGrows: snap.bonusGrows, startLength: snap.startLength, seed: 1 });
+    if (snap.cols !== g.cols || snap.rows !== g.rows) return null;
+    if (!isInt(snap.score, 0) || !isInt(snap.ticks, 0) || !isInt(snap.foodEaten, 0) || typeof snap.rng !== 'number' || !isFinite(snap.rng)) return null;
+    if (g.lives === null ? snap.lives !== null : !(isInt(snap.lives, 1) && snap.lives <= LIVES[snap.livesMode])) return null;
+    if (!DELTA[snap.dir] || !Array.isArray(snap.queue) || snap.queue.length > g.maxQueuedTurns) return null;
+    for (var q = 0; q < snap.queue.length; q++) if (!DELTA[snap.queue[q]]) return null;
+    if (!Array.isArray(snap.snake) || snap.snake.length < 2 || snap.snake.length > g.cols * g.rows) return null;
+    var seen = {}, cells = [];
+    for (var i = 0; i < snap.snake.length; i++) {
+      var c = snap.snake[i];
+      if (!Array.isArray(c) || !isInt(c[0], 0) || !isInt(c[1], 0) || c[0] >= g.cols || c[1] >= g.rows) return null;
+      var k = key(c[0], c[1]); if (seen[k] || g.blocked[k]) return null; seen[k] = true;
+      if (i > 0) { // each segment touches the one before it (across an edge when wrapping)
+        var dx = Math.abs(c[0] - snap.snake[i - 1][0]), dy = Math.abs(c[1] - snap.snake[i - 1][1]);
+        if (g.wrap) { dx = Math.min(dx, g.cols - dx); dy = Math.min(dy, g.rows - dy); }
+        if (dx + dy !== 1) return null;
+      }
+      cells.push({ x: c[0], y: c[1] });
+    }
+    var food = null, bonusItem = null;
+    if (!snap.food || !isInt(snap.food.x, 0) || !isInt(snap.food.y, 0) || snap.food.x >= g.cols || snap.food.y >= g.rows) return null;
+    food = { x: snap.food.x, y: snap.food.y };
+    var fk = key(food.x, food.y); if (seen[fk] || g.blocked[fk]) return null;
+    if (snap.bonusItem) {
+      var b = snap.bonusItem;
+      if (!g.bonusEnabled || !isInt(b.x, 0) || !isInt(b.y, 0) || b.x >= g.cols || b.y >= g.rows || !isInt(b.ticksLeft, 1) || b.ticksLeft > g.bonusTicks) return null;
+      var bk = key(b.x, b.y); if (seen[bk] || g.blocked[bk] || bk === fk) return null;
+      bonusItem = { x: b.x, y: b.y, ticksLeft: b.ticksLeft };
+    }
+    return copy(g, { snake: cells, dir: snap.dir, queue: snap.queue.slice(), food: food, rng: snap.rng, bonusItem: bonusItem, foodEaten: snap.foodEaten,
+      score: snap.score, ticks: snap.ticks, lives: snap.lives, status: 'running' });
+  }
+
   return {
+    snapshot: snapshot,
+    restore: restore,
     SPEEDS: SPEEDS,
     SPEED_ORDER: SPEED_ORDER,
     DEFAULT_SPEED: DEFAULT_SPEED,

@@ -215,9 +215,14 @@
   function bestKey() { return prefs.mode + '|' + prefs.difficulty + (prefs.mode === 'journey' ? '|' + prefs.length : ''); }
   function getBest() { var b = readJson(BESTS_KEY) || {}; return typeof b[bestKey()] === 'number' ? b[bestKey()] : 0; }
   function submitBest(sc) { var b = readJson(BESTS_KEY) || {}; var k = bestKey(); var isBest = sc > (typeof b[k] === 'number' ? b[k] : 0); if (isBest) { b[k] = sc; writeJson(BESTS_KEY, b); } return isBest; }
+  var ignoreCheckpoint = params.get('new') === '1'; // New run on the Games screen: open the start screen without offering the old checkpoint
   function getCheckpoint() {
+    if (ignoreCheckpoint) return null;
     var c = readJson(CHECK_KEY);
     if (!c || c.mode !== 'journey' || typeof c.chapter !== 'number' || c.chapter < 1 || c.chapter >= JOURNEY_CHAPTERS || !has(DIFFS, c.difficulty)) return null;
+    c.chapter = Math.floor(c.chapter); // a damaged save must never break the start screen: lives and score fall back to safe values
+    c.lives = typeof c.lives === 'number' && isFinite(c.lives) && c.lives >= 1 ? Math.min(9, Math.floor(c.lives)) : 1;
+    c.score = typeof c.score === 'number' && isFinite(c.score) && c.score >= 0 ? c.score : 0;
     return c;
   }
 
@@ -1045,7 +1050,7 @@
     saveStats();
   }
   function clearCheckpoint() { try { window.localStorage.removeItem(CHECK_KEY); } catch (e) { /* fine */ } }
-  function saveCheckpoint(chapter) { writeJson(CHECK_KEY, { v: 1, mode: 'journey', difficulty: prefs.difficulty, length: prefs.length, chapter: chapter, lives: lives, score: Math.floor(score) }); }
+  function saveCheckpoint(chapter) { writeJson(CHECK_KEY, { v: 1, mode: 'journey', difficulty: prefs.difficulty, length: prefs.length, chapter: chapter, lives: lives, score: Math.floor(score), at: Date.now() }); }
 
   var ovTitle = $('ov-title'); var ovSub = $('ov-sub'); var ovStats = $('ov-stats'); var optsBox = $('opts'); var playBtn = $('play'); var contBtn = $('cont');
   function showOverlay(kind, o) {
@@ -1277,7 +1282,7 @@
   }
   function abandonRun() { if (mode === 'run' && (dist > 60 || run.coins || run.near)) endRun(false); } // leaving a run by Restart or Menu still counts it
   function start(fromCheckpoint) {
-    abandonRun(); reset(fromCheckpoint); mode = 'run'; $('ov').hidden = true; $('ps').hidden = true; $('ss').hidden = true;
+    ignoreCheckpoint = false; abandonRun(); reset(fromCheckpoint); mode = 'run'; $('ov').hidden = true; $('ps').hidden = true; $('ss').hidden = true;
     buildTrip(); au('unlock'); audioPrefs(); au('setChapter', chapterAt(dist).idx); au('start'); hud(); showHint();
   }
   function backToMenu() {
@@ -1391,6 +1396,10 @@
 
   // ---------- init ----------
   runMul = mul(); renderSpeedUi(); applyTrip(); reset(null); showOverlay('menu', { title: 'Racer', sub: 'Swipe left or right to change lane. Pass close to traffic for combos.' }); renderOpts(); hud();
+  if (params.get('resume') === '1') { // Resume on the Games screen: say where you are and put Continue under your thumb
+    var rcp = getCheckpoint();
+    if (rcp) { ovTitle.textContent = 'Welcome back'; ovSub.textContent = 'From chapter ' + (rcp.chapter + 1) + ' of ' + JOURNEY_CHAPTERS + '. Tap Continue when you are ready.'; contBtn.focus(); }
+  }
   if (DEBUG) {
     // test and gallery hook: draw a still frame at a distance with demo traffic, and drive the game
     window.racerDebug = {

@@ -29,6 +29,7 @@
     </div>
 
     <div class="overlay" id="ov" data-kind="menu">
+      <a class="backpill" href="../" aria-label="Back to Games"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M15 5l-7 7 7 7"/></svg>Games</a>
       <p class="ov-title" id="ov-title">Racer</p>
       <p class="ov-sub" id="ov-sub"></p>
       <div class="stats" id="ov-stats" hidden></div>
@@ -42,13 +43,13 @@
       <button class="big alt" id="keep" type="button" hidden>Keep driving</button>
       <button class="link" id="sound-btn" type="button">Sound and music</button>
       <button class="link" id="menu-btn" type="button" hidden>Trip options</button>
-      <a class="link" href="../">Back to games</a>
+      <a class="link" href="../">Exit to Games</a>
     </div>
 
     <div class="sheet" id="ps" hidden role="dialog" aria-label="Paused">
       <div class="grab"></div><h2>Paused</h2>
       <div class="row"><button class="b p" id="ps-resume" type="button">Resume</button><button class="b" id="ps-restart" type="button">Restart</button></div>
-      <div class="row"><button class="b" id="ps-sound" type="button">Sound and music</button><a class="b" href="../">Quit to games</a></div>
+      <div class="row"><button class="b" id="ps-sound" type="button">Sound and music</button><a class="b out" href="../">Exit to Games</a></div>
     </div>
 
     <div class="sheet" id="ss" hidden role="dialog" aria-label="Sound and music">

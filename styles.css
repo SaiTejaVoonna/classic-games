@@ -130,6 +130,13 @@ body {
 }
 .wordmark span { font-weight: 400; margin-left: 0.25em; color: var(--muted); }
 .header-actions { display: flex; gap: 4px; justify-content: flex-end; }
+/* Back to the Games screen, and the game's name, in the top bar of every game */
+.back { display: inline-flex; align-items: center; gap: 2px; min-height: 40px; padding: 0 14px 0 8px; border: 1px solid var(--line); border-radius: 999px; color: var(--ink); text-decoration: none; font-weight: 600; white-space: nowrap; }
+.back svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.back:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+.app-title { flex: 1; text-align: center; font-weight: 700; letter-spacing: 0.02em; }
+.app-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 400px) { .app-title { display: none; } .site-header { gap: 4px; } .back { padding: 0 10px 0 6px; } }
 
 /* Header icon buttons with labels on hover and keyboard focus */
 .icon-btn {
@@ -264,6 +271,7 @@ h1 { margin: 0; font-size: 1.75rem; line-height: 1.1; letter-spacing: -0.01em; }
   cursor: pointer;
   touch-action: manipulation;
 }
+a.bigbtn { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
 .bigbtn.alt { min-height: 48px; min-width: 140px; font-size: 1rem; color: var(--ink); background: var(--surface); border: 1px solid var(--ink); }
 
 /* Control panel */
@@ -342,7 +350,7 @@ h1 { margin: 0; font-size: 1.75rem; line-height: 1.1; letter-spacing: -0.01em; }
 .dpad .left { grid-column: 1; grid-row: 2; }
 .dpad .down { grid-column: 2; grid-row: 2; }
 .dpad .right { grid-column: 3; grid-row: 2; }
-.site-footer { max-width: 1100px; margin: 0 auto; padding: 0 16px 16px; }
+.site-footer { max-width: 1100px; margin: 0 auto; padding: 0 16px calc(84px + env(safe-area-inset-bottom)); } /* room for the phone's own browser bar */
 .site-footer p { margin: 0; font-size: 0.75rem; color: var(--muted); }
 
 /* Dialogs */
@@ -403,7 +411,7 @@ legend { padding: 0 4px; color: var(--muted); font-size: 0.8125rem; }
 @media (max-width: 380px) {
   .site-header { padding: 4px 8px; }
   .layout { padding: 8px 12px 8px; gap: 8px; }
-  .site-footer { padding: 0 12px 12px; }
+  .site-footer { padding: 0 12px calc(84px + env(safe-area-inset-bottom)); }
   h1 { font-size: 1.5rem; }
   .tagline { display: none; }
   .panel { padding: 10px; gap: 8px; }

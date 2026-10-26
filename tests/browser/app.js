@@ -12,27 +12,78 @@ const st = (p) => p.evaluate(() => window.racerDebug.state());
   const browser = await chromium.launch({ executablePath: CHROMIUM });
   const mk = async (w, h) => { const ctx = await browser.newContext({ viewport: { width: w, height: h }, hasTouch: true, isMobile: true }); const p = await ctx.newPage(); p.errs = []; p.on('pageerror', e => p.errs.push(String(e))); p.on('console', m => m.type() === 'error' && p.errs.push(m.text())); return p; };
 
-  // ---- launcher
+  // ---- launcher (the Games screen)
+  const CHECK = { v: 1, chapter: 3, mode: 'journey', difficulty: 'easy', speed: 'relaxed', length: 'demo', score: 10, coins: 5 };
+  const STATS = { runs: 3, near: 12, nearBest: 6, coins: 120, journeys: 1, noHitJourneys: 1, maxChapter: 7, bestDistance: 5000 };
   let p = await mk(390, 844);
   await p.goto(href('index.html') + '?debug=1');
-  ok('launcher has two game cards', (await p.$$('#card-racer, #card-snake')).length === 2);
-  ok('cards link to the games', (await p.getAttribute('#card-racer a', 'href')) === 'racer/' && (await p.getAttribute('#card-snake a', 'href')) === 'snake/');
-  ok('no resume card without a checkpoint', !(await p.isVisible('#resume')));
+  ok('Games screen: a featured card, two game tiles and four bottom tabs', await p.isVisible('#hero') && (await p.$$('.tile')).length === 2 && (await p.$$('.tab')).length === 4);
+  ok('the tiles link to the games', (await p.getAttribute('#tile-racer', 'href')) === 'racer/' && (await p.getAttribute('#tile-snake', 'href')) === 'snake/');
+  const h0 = await p.evaluate(() => window.launcherDebug.hero());
+  ok('with nothing saved the top card is plain Play, with no Continue', !h0.cont && h0.game === 'racer' && (await p.textContent('#hero-main')) === 'Play' && !(await p.isVisible('#hero-alt')), JSON.stringify(h0));
   ok('no horizontal overflow at 390', await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   await p.setViewportSize({ width: 320, height: 568 });
   ok('no horizontal overflow at 320', await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   await p.setViewportSize({ width: 390, height: 844 });
-  await p.evaluate(() => window.launcherDebug.openDrawer());
-  ok('menu opens a drawer', await p.isVisible('#drawer'));
-  await p.keyboard.press('Escape'); await sleep(250);
-  ok('Escape closes the drawer', !(await p.isVisible('#drawer')));
+  ok('the page is dark by default', (await p.getAttribute('html', 'data-theme')) === 'dark');
+  await p.emulateMedia({ colorScheme: 'light' }); await p.reload();
+  ok('and stays dark on a phone set to light (Dark is the default, not Auto)', (await p.getAttribute('html', 'data-theme')) === 'dark');
+  await p.tap('.tab[data-go=awards]'); await sleep(150);
+  ok('the Awards tab opens the awards, and the Games view is hidden', await p.isVisible('#view-awards') && !(await p.isVisible('#view-games')) && (await p.getAttribute('.tab[data-go=awards]', 'aria-current')) === 'page');
+  await p.goBack(); await sleep(200);
+  ok('the browser back button returns to Games', await p.isVisible('#view-games'));
+  await p.tap('.tab[data-go=settings]'); await sleep(150);
+  await p.evaluate(() => localStorage.setItem('classic-games.theme', 'lcd'));
+  await p.tap('.seg[data-pref=theme] button[data-val=light]'); await sleep(100);
+  ok('Settings: choosing Light switches the whole app and hands Snake back to the app look', (await p.getAttribute('html', 'data-theme')) === 'light' && (await p.evaluate(() => localStorage.getItem('classic-games.theme'))) === null);
+  await p.tap('.seg[data-pref=theme] button[data-val=auto]'); await sleep(100);
+  ok('Auto follows the phone', (await p.getAttribute('html', 'data-theme')) === 'light');
   ok('launcher has no errors', p.errs.length === 0, p.errs.join('|'));
+
   p = await mk(390, 844);
-  await p.addInitScript(() => { localStorage.setItem('classic-games.racer.checkpoint', JSON.stringify({ v: 1, chapter: 3, mode: 'journey', difficulty: 'easy', speed: 'relaxed', length: 'demo', score: 10, coins: 5 })); localStorage.setItem('classic-games.racer.stats', JSON.stringify({ runs: 3, near: 12, nearBest: 6, coins: 120, journeys: 1, noHitJourneys: 1, maxChapter: 7, bestDistance: 5000 })); });
+  await p.addInitScript(([c, st]) => { localStorage.setItem('classic-games.racer.checkpoint', JSON.stringify(c)); localStorage.setItem('classic-games.racer.stats', JSON.stringify(st)); }, [Object.assign({ at: 5000 }, CHECK), STATS]);
   await p.goto(href('index.html') + '?debug=1');
-  ok('a saved checkpoint shows the resume link', await p.isVisible('#resume'));
+  const h1 = await p.evaluate(() => window.launcherDebug.hero());
+  ok('a saved Racer checkpoint makes the top card Continue Racer, with Resume and New run', h1.cont && h1.game === 'racer' && (await p.getAttribute('#hero-main', 'href')) === 'racer/?resume=1' && (await p.getAttribute('#hero-alt', 'href')) === 'racer/?new=1' && /Chapter 4 of 10/.test(await p.textContent('#hero-sub')), JSON.stringify(h1) + await p.textContent('#hero-sub'));
   const aw = await p.evaluate(() => window.launcherDebug.awards());
   ok('awards are computed from stats', JSON.stringify(aw).indexOf('first-drive') >= 0, JSON.stringify(aw).slice(0, 200));
+
+  // a Snake game saved by the game itself
+  const snap = await (async () => { const q = await mk(390, 844); await q.goto(href('snake/index.html') + '?debug=1&seed=4'); await q.click('#ov-primary'); await q.keyboard.press('ArrowDown'); await sleep(700); await q.click('#btn-pause'); const raw = await q.evaluate(() => localStorage.getItem('classic-games.snake.save')); await q.context().close(); return raw; })();
+  ok('Snake writes its saved game when paused', !!snap && JSON.parse(snap).v === 1 && JSON.parse(snap).snap.snake.length >= 3);
+  const withSnake = (racerAt, snakeAt, raw) => async () => {
+    const q = await mk(390, 844);
+    const d = JSON.parse(raw); d.at = snakeAt;
+    await q.addInitScript(([c, st, sv]) => { localStorage.setItem('classic-games.racer.checkpoint', JSON.stringify(c)); localStorage.setItem('classic-games.racer.stats', JSON.stringify(st)); localStorage.setItem('classic-games.snake.save', sv); }, [Object.assign({ at: racerAt }, CHECK), STATS, JSON.stringify(d)]);
+    await q.goto(href('index.html') + '?debug=1'); return q;
+  };
+  let q2 = await withSnake(1000, 9000, snap)();
+  const h2 = await q2.evaluate(() => window.launcherDebug.hero());
+  ok('Snake played last: the top card is Continue Snake and Racer shows a rest-stop chip', h2.game === 'snake' && h2.cont && (await q2.getAttribute('#hero-main', 'href')) === 'snake/?resume=1' && (await q2.getAttribute('#hero-alt', 'href')) === 'snake/?new=1' && /REST STOP/.test(await q2.textContent('#racer-chip')), JSON.stringify(h2));
+  q2 = await withSnake(9000, 1000, snap)();
+  const h3 = await q2.evaluate(() => window.launcherDebug.hero());
+  ok('Racer played last: the top card is Racer and Snake shows a paused chip', h3.game === 'racer' && /PAUSED/.test(await q2.textContent('#snake-chip')), JSON.stringify(h3));
+  const badSave = JSON.parse(snap); badSave.snap.snake[1] = [0, 0];
+  q2 = await withSnake(1000, 9000, JSON.stringify(badSave))();
+  const h4 = await q2.evaluate(() => window.launcherDebug.hero());
+  ok('a damaged Snake save is ignored', h4.game === 'racer' && !(await q2.isVisible('#snake-chip')), JSON.stringify(h4));
+
+  // ---- racer entry points from the Games screen
+  p = await mk(390, 760);
+  await p.addInitScript((c) => localStorage.setItem('classic-games.racer.checkpoint', JSON.stringify(c)), CHECK);
+  await p.goto(href('racer/index.html') + '?debug=1&speed=0&resume=1');
+  ok('Racer Resume: the start screen welcomes you back with Continue ready', (await p.textContent('#ov-title')) === 'Welcome back' && await p.isVisible('#cont') && /chapter 4 of 10/i.test(await p.textContent('#ov-sub')), await p.textContent('#ov-sub'));
+  ok('Racer start screen has a Games button and an Exit to Games link', await p.isVisible('.backpill') && (await p.textContent('#ov a.link')) === 'Exit to Games');
+  await p.goto(href('racer/index.html') + '?debug=1&speed=0&new=1');
+  ok('Racer New run: the start screen does not offer the old checkpoint', !(await p.isVisible('#cont')) && await p.isVisible('#play'));
+  await p.goto(href('racer/index.html') + '?debug=1&speed=0&len=demo&seed=2');
+  await p.evaluate(() => localStorage.removeItem('classic-games.racer.checkpoint'));
+  await p.click('#play'); await sleep(150);
+  await p.evaluate(() => { const D = window.racerDebug; D.stopSpawning(); D.teleport(1790); D.advance(1.5); });
+  const cpSaved = await p.evaluate(() => window.racerDebug.state().checkpoint);
+  ok('Racer saves a timestamped checkpoint at a rest stop, so the Games screen knows what you played last', cpSaved && cpSaved.chapter === 2 && typeof cpSaved.at === 'number' && cpSaved.at > 1e12, JSON.stringify(cpSaved));
+  await p.evaluate(() => window.racerDebug.pause());
+  ok('the pause menu has Exit to Games', (await p.textContent('#ps a.out')) === 'Exit to Games' && (await p.getAttribute('#ps a.out', 'href')) === '../');
 
   // ---- racer
   p = await mk(390, 760);
