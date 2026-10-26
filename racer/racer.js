@@ -298,6 +298,18 @@
     if (rnd(hn, 81) < .45) return null;
     return { lane: Math.floor(rnd(hn, 82) * 3) - 1, at: hn * 600 + 330 };
   }
+  // Bridges: on the coast chapters the road crosses open water on a long bridge about every 1.4 km, and a small boat
+  // sails under it. bridgeAt(pos) is 0 on land and 1 on the deck, easing in over the first and last 6 m.
+  var BRIDGE_EVERY = 1400, BRIDGE_LEN = 170, bridgeCache = {};
+  function bridgeStart(b) {
+    var key = b + ':' + chapterLen + ':' + tripMode;
+    if (!(key in bridgeCache)) { var st = b * BRIDGE_EVERY + 320; bridgeCache[key] = st > 200 && sceneAt(st).water > .95 && sceneAt(st + BRIDGE_LEN).water > .95 && !nearStop(st) && !nearStop(st + BRIDGE_LEN) ? st : null; }
+    return bridgeCache[key];
+  }
+  function bridgeAt(pos) {
+    var st = bridgeStart(Math.floor((pos - 320) / BRIDGE_EVERY)); if (st == null) return 0;
+    var u = pos - st; return u < 0 || u > BRIDGE_LEN ? 0 : clamp(Math.min(u, BRIDGE_LEN - u) / 6, 0, 1);
+  }
   function nearStop(pos) { // calm road around rest stops and the finish
     for (var i = 0; i < REST_STOPS.length; i++) if (Math.abs(pos - REST_STOPS[i] * chapterLen) < 110) return true;
     return tripMode === 'journey' && pos > JOURNEY_CHAPTERS * chapterLen - 160;
@@ -612,6 +624,16 @@
     hy = hySaved;
   }
 
+  function shoreAt(r) { return 1.9 - .86 * bridgeAt(dist + r.d); } // where the water starts, in road half-widths
+  // A boat seen from behind and above: hull, cabin and a white wake. kind 0 is a sailboat, 1 a low motor launch
+  // (that one fits under the bridge). dir is -1 or 1 for the way it is heading across the screen.
+  function drawBoat(x, y, s, kind, dir) {
+    g.fillStyle = 'rgba(255,255,255,.55)'; g.beginPath(); g.ellipse(x - dir * 34 * s, y + 1 * s, 30 * s, 2.6 * s, 0, 0, TAU); g.fill(); // wake
+    g.fillStyle = kind ? '#f2f0ea' : '#c0392b'; g.beginPath(); g.moveTo(x - 22 * s, y - 7 * s); g.lineTo(x + 22 * s, y - 7 * s); g.lineTo(x + (16 + dir * 8) * s, y); g.lineTo(x - (16 - dir * 8) * s, y); g.closePath(); g.fill();
+    g.fillStyle = 'rgba(0,0,0,.18)'; g.fillRect(x - 20 * s, y - 2.6 * s, 40 * s, 2.6 * s);
+    if (kind) { g.fillStyle = '#2b4a6f'; g.fillRect(x - 9 * s, y - 14 * s, 18 * s, 7 * s); g.fillStyle = '#9fd2ee'; g.fillRect(x - 7 * s, y - 13 * s, 14 * s, 3 * s); }
+    else { g.fillStyle = '#5a4636'; g.fillRect(x - .9 * s, y - 44 * s, 1.8 * s, 37 * s); g.fillStyle = '#f7f3ea'; g.beginPath(); g.moveTo(x + 1.5 * s, y - 43 * s); g.lineTo(x + 1.5 * s, y - 9 * s); g.lineTo(x + (dir > 0 ? 22 : -19) * s, y - 9 * s); g.closePath(); g.fill(); }
+  }
   function drawWater(S) {
     var n = rows.length; if (n < 3) return;
     g.save(); g.globalAlpha = clamp(S.water, 0, 1);
@@ -619,20 +641,20 @@
     g.fillStyle = gw;
     [-1, 1].forEach(function (sd) {
       g.beginPath(); g.moveTo(sd < 0 ? 0 : W, rows[0].y);
-      for (var i = 0; i < n; i++) g.lineTo(rows[i].ct + sd * rows[i].hw * 1.9, rows[i].y);
+      for (var i = 0; i < n; i++) g.lineTo(rows[i].ct + sd * rows[i].hw * shoreAt(rows[i]), rows[i].y);
       g.lineTo(sd < 0 ? 0 : W, rows[n - 1].y); g.closePath(); g.fill();
     });
     g.strokeStyle = 'rgba(255,255,255,' + (.45 + .15 * Math.sin(tAnim * 1.3)) + ')'; g.lineWidth = 2 * dpr;
     [-1, 1].forEach(function (sd) {
       g.beginPath();
-      for (var j = 0; j < n; j++) { var r = rows[j]; if (j === 0) g.moveTo(r.ct + sd * r.hw * 1.9, r.y); else g.lineTo(r.ct + sd * r.hw * 1.9, r.y); }
+      for (var j = 0; j < n; j++) { var r = rows[j]; if (j === 0) g.moveTo(r.ct + sd * r.hw * shoreAt(r), r.y); else g.lineTo(r.ct + sd * r.hw * shoreAt(r), r.y); }
       g.stroke();
     });
     for (var wv = 0; wv < 16; wv++) {
-      var wd = (((wv * 19 - tAnim * 6) % 300) + 300) % 300 + 2; var rw = rowAt(wd);
+      var wd = (((wv * 19 - tAnim * 6) % 300) + 300) % 300 + 2; var rw = rowAt(wd); rw.d = wd;
       var wa = clamp(rw.p * 1.7, 0, .6) * clamp(S.water, 0, 1) * (1 - wd / 320);
       [-1, 1].forEach(function (sd) {
-        var x0 = rw.ct + sd * rw.hw * 1.9; var x1 = sd < 0 ? 0 : W;
+        var x0 = rw.ct + sd * rw.hw * shoreAt(rw); var x1 = sd < 0 ? 0 : W;
         g.strokeStyle = 'rgba(255,255,255,' + wa + ')'; g.lineWidth = Math.max(1, 2.4 * rw.p * dpr); g.beginPath(); g.moveTo(x0, rw.y);
         for (var si = 1; si <= 10; si++) g.lineTo(x0 + (x1 - x0) * si / 10, rw.y + Math.sin(tAnim * 1.3 + si * 1.2 + wv) * rw.p * 3.5 * dpr);
         g.stroke();
@@ -645,9 +667,34 @@
       g.beginPath(); g.ellipse(gx, rj.y, (4 + rnd(q, 63) * 8) * rj.p * dpr + 1, Math.max(.6, rj.p * 1.6 * dpr), 0, 0, TAU); g.fill();
     }
     g.globalAlpha = clamp(S.water, 0, 1);
-    var bx = W * (.2 + .06 * Math.sin(tAnim * .05)); var by = rows[n - 1].y + H * .03; // a sailboat
-    g.fillStyle = '#f4efe6'; g.beginPath(); g.moveTo(bx, by - 26 * dpr); g.lineTo(bx + 12 * dpr, by - 3 * dpr); g.lineTo(bx, by - 3 * dpr); g.fill();
-    g.fillStyle = '#c0392b'; g.beginPath(); g.moveTo(bx - 14 * dpr, by - 2 * dpr); g.lineTo(bx + 14 * dpr, by - 2 * dpr); g.lineTo(bx + 9 * dpr, by + 3 * dpr); g.lineTo(bx - 9 * dpr, by + 3 * dpr); g.fill();
+    // boats live in the world, so they come towards you and pass like everything else; far ones first
+    var boats = [], bn, bd;
+    for (bn = Math.floor(dist / 140); bn <= Math.floor((dist + DRAW) / 140); bn++) {
+      bd = bn * 140 + rnd(bn, 71) * 60 - dist; if (bd < 6 || bd > DRAW || rnd(bn, 72) < .35) continue;
+      var sideB = rnd(bn, 73) < .5 ? -1 : 1; boats.push({ d: bd, lat: sideB * (2.3 + rnd(bn, 74) * 1.6 + Math.sin(tAnim * .05 + bn) * .3), kind: 0, dir: sideB });
+    }
+    for (bn = Math.floor((dist - 320) / BRIDGE_EVERY); bn <= Math.floor((dist + DRAW - 320) / BRIDGE_EVERY); bn++) {
+      var st = bridgeStart(bn); if (st == null) continue; bd = st + BRIDGE_LEN * .5 - dist; if (bd < 2 || bd > DRAW) continue;
+      var dirB = bn % 2 ? 1 : -1, ph = ((tAnim * .22 + bn * .37) % 1 + 1) % 1; // the launch crosses under the deck, side to side, every ~4.5 s
+      boats.push({ d: bd, lat: dirB * (ph * 7 - 3.5), kind: 1, dir: dirB, under: true });
+    }
+    boats.sort(function (a, b) { return b.d - a.d; }).forEach(function (bt) {
+      var r = rowAt(bt.d), sB = r.p * (W / 230) * 1.35, x = cx + (xoAt(bt.d) + bt.lat - camX) * r.p * RH;
+      if (x > -W * .3 && x < W * 1.3) drawBoat(x, r.y + (bt.under ? r.hw * .12 : 0), sB * (bt.kind ? 2.6 : 1.8), bt.kind, bt.dir);
+    });
+    // the bridge deck's side face and its piers, under the road edge; the road drawn next covers what is behind it
+    g.globalAlpha = 1;
+    [-1, 1].forEach(function (sd) {
+      for (var i = 0; i < n - 1; i++) {
+        var a = rows[i], b = rows[i + 1], ba = bridgeAt(dist + a.d), bb = bridgeAt(dist + b.d); if (ba <= 0 && bb <= 0) continue;
+        var xa = a.ct + sd * a.hw * 1.02, xb = b.ct + sd * b.hw * 1.02;
+        g.fillStyle = mix('#c9c3b6', S.fog, clamp((1 - a.p) * .6, 0, .6));
+        g.beginPath(); g.moveTo(xa, a.y); g.lineTo(xb, b.y); g.lineTo(xb, b.y + b.hw * .07 * bb); g.lineTo(xa, a.y + a.hw * .07 * ba); g.closePath(); g.fill();
+        if (Math.floor((dist + a.d) / 16) !== Math.floor((dist + b.d) / 16) && ba > .9) { // a pier every 16 m
+          g.fillStyle = mix('#8f8a80', S.fog, clamp((1 - a.p) * .6, 0, .6)); g.fillRect(xa - sd * a.hw * .07, a.y, a.hw * .07, a.hw * .2);
+        }
+      }
+    });
     g.restore();
   }
 
@@ -710,6 +757,15 @@
       }
       g.fill();
     }
+    [-1, 1].forEach(function (sd) { // bridge railings: a low wall along each edge, a little taller near you
+      for (var i = 0; i < n - 1; i++) {
+        var a = rows[i], b = rows[i + 1], ba = bridgeAt(dist + a.d), bb = bridgeAt(dist + b.d); if (ba <= 0 && bb <= 0) continue;
+        var xa = a.ct + sd * a.hw * 1.02, xb = b.ct + sd * b.hw * 1.02, ha = a.hw * .1 * ba, hb = b.hw * .1 * bb;
+        g.fillStyle = mix('#e9e4d8', S.fog, clamp((1 - a.p) * .6, 0, .6));
+        g.beginPath(); g.moveTo(xa, a.y); g.lineTo(xb, b.y); g.lineTo(xb, b.y - hb); g.lineTo(xa, a.y - ha); g.closePath(); g.fill();
+        g.fillStyle = 'rgba(0,0,0,.18)'; g.beginPath(); g.moveTo(xa, a.y - ha * .45); g.lineTo(xb, b.y - hb * .45); g.lineTo(xb, b.y - hb * .3); g.lineTo(xa, a.y - ha * .3); g.closePath(); g.fill();
+      }
+    });
     if (S.rain > .1) { // wet road: the sky shows in the surface, brighter in the distance
       var ws = g.createLinearGradient(0, rows[n - 1].y, 0, H); ws.addColorStop(0, mix(S.sky[2], '#ffffff', .15) + Math.round(.34 * S.rain * 255).toString(16).padStart(2, '0')); ws.addColorStop(1, mix(S.sky[1], '#000000', .2) + Math.round(.08 * S.rain * 255).toString(16).padStart(2, '0'));
       g.fillStyle = ws; g.beginPath(); g.moveTo(rows[0].ct - rows[0].hw, rows[0].y);
@@ -740,18 +796,18 @@
     for (var n = n0; n <= n1; n++) {
       for (var sd = -1; sd <= 1; sd += 2) {
         var k = n * 2 + (sd > 0 ? 1 : 0); if (rnd(k, 41) < .12) continue;
-        var pos = n * SP + rnd(k, 42) * 6; var d = pos - dist; if (d < 4 || d > DRAW) continue;
+        var pos = n * SP + rnd(k, 42) * 6; var d = pos - dist; if (d < 4 || d > DRAW || bridgeAt(pos) > 0) continue;
         var ch = chapterAt(pos); var A = CHAPTERS[ch.idx]; var B = CHAPTERS[(ch.idx + 1) % CHAPTERS.length];
         var use = ch.frac > .88 && rnd(k, 43) < (ch.frac - .88) / .12 ? B : A;
         items.push({ d: d, kind: objectKind(use, k), side: sd, k: k, lat: sd * (1.12 + rnd(k, 44) * .75), lit: Math.max(use.night, S.night * .5), snow: use.snow, S: use });
       }
     }
-    for (var pn = Math.floor((dist + 6) / 30); pn <= Math.floor((dist + DRAW) / 30); pn++) for (var ps = -1; ps <= 1; ps += 2) { var pd = pn * 30 - dist; if (pd > 4 && pd < DRAW) items.push({ d: pd, kind: 'post', side: ps, k: pn * 2 + (ps > 0 ? 1 : 0), lat: ps * 1.1, lit: 0 }); }
+    for (var pn = Math.floor((dist + 6) / 30); pn <= Math.floor((dist + DRAW) / 30); pn++) for (var ps = -1; ps <= 1; ps += 2) { var pd = pn * 30 - dist; if (pd > 4 && pd < DRAW && !bridgeAt(pn * 30)) items.push({ d: pd, kind: 'post', side: ps, k: pn * 2 + (ps > 0 ? 1 : 0), lat: ps * 1.1, lit: 0 }); }
     var MS = 55;
     for (var mn = Math.floor((dist + 10) / MS); mn <= Math.floor((dist + DRAW) / MS); mn++) {
       for (var ms = -1; ms <= 1; ms += 2) {
         var mk = mn * 2 + (ms > 0 ? 1 : 0) + 500; if (rnd(mk, 51) < .3) continue;
-        var md = mn * MS + rnd(mk, 52) * 30 - dist; if (md < 10 || md > DRAW) continue;
+        var md = mn * MS + rnd(mk, 52) * 30 - dist; if (md < 10 || md > DRAW || bridgeAt(md + dist + 0) > 0 || bridgeAt(md + dist + 25) > 0) continue;
         items.push({ d: md, mound: true, lat: ms * (2.4 + rnd(mk, 53) * 3.5), size: 80 + rnd(mk, 54) * 160, k: mk });
       }
     }
@@ -1054,7 +1110,7 @@
   var ovTitle = $('ov-title'); var ovSub = $('ov-sub'); var ovStats = $('ov-stats'); var optsBox = $('opts'); var playBtn = $('play'); var contBtn = $('cont');
   function showOverlay(kind, o) {
     o = o || {};
-    ovTitle.textContent = o.title || 'Racer'; ovSub.textContent = o.sub || '';
+    ovTitle.textContent = o.title || 'Cruise'; ovSub.textContent = o.sub || '';
     ovStats.textContent = '';
     (o.stats || []).forEach(function (r) { var d = document.createElement('div'); var a = document.createElement('span'); a.textContent = r[0]; var b = document.createElement('b'); b.textContent = r[1]; d.appendChild(a); d.appendChild(b); ovStats.appendChild(d); });
     ovStats.hidden = !(o.stats && o.stats.length);
@@ -1291,7 +1347,7 @@
   function backToMenu() {
     abandonRun(); mode = 'menu'; paused = false; applyTrip(); dist = 0; lastChapter = -1; traffic = []; speed = 0; shieldT = 0; flashT = 0; lives = maxLives; run = { near: 0, coins: 0, hits: 0 }; combo = 0;
     au('stop'); $('ps').hidden = true; $('ss').hidden = true; elChapter.classList.remove('show'); elNear.classList.remove('show');
-    showOverlay('menu', { title: 'Racer', sub: 'Swipe left or right to change lane. Pass close to traffic for combos.' }); renderOpts(); hud();
+    showOverlay('menu', { title: 'Cruise', sub: 'Swipe left or right to change lane. Pass close to traffic for combos.' }); renderOpts(); hud();
   }
   function pauseGame() { if (mode !== 'run' || paused) return; paused = true; brakeOff(); au('pause'); $('ps').hidden = false; $('ps-resume').focus(); }
   function resumeGame() { if (!paused) return; paused = false; $('ps').hidden = true; $('ss').hidden = true; au('resume'); last = null; }
@@ -1398,7 +1454,7 @@
   })();
 
   // ---------- init ----------
-  runMul = mul(); renderSpeedUi(); applyTrip(); reset(null); showOverlay('menu', { title: 'Racer', sub: 'Swipe left or right to change lane. Pass close to traffic for combos.' }); renderOpts(); hud();
+  runMul = mul(); renderSpeedUi(); applyTrip(); reset(null); showOverlay('menu', { title: 'Cruise', sub: 'Swipe left or right to change lane. Pass close to traffic for combos.' }); renderOpts(); hud();
   if (params.get('resume') === '1') { // Resume on the Games screen: say where you are and put Continue under your thumb
     var rcp = getCheckpoint();
     if (rcp) { ovTitle.textContent = 'Welcome back'; ovSub.textContent = 'From chapter ' + (rcp.chapter + 1) + ' of ' + JOURNEY_CHAPTERS + '. Tap Continue when you are ready.'; contBtn.focus(); }
@@ -1421,6 +1477,8 @@
       start: start, pause: pauseGame, resume: resumeGame, elev: elev, backToMenu: backToMenu,
       teleport: function (d) { dist = d; nextSpawn = d + 300; nextStop = 0; while (nextStop < REST_STOPS.length && REST_STOPS[nextStop] * chapterLen <= d) nextStop++; lastChapter = chapterAt(d).i - 1; traffic = []; },
       addCar: function (ln, ahead, kind, canLc, v) { traffic.push({ id: ++carId, laneF: ln, lc: null, canLc: !!canLc, z: dist + ahead, lane: ln, v: v || 0, kind: kind || 'sedan', col: '#2563eb', passed: false, minGap: 9 }); },
+      bridgeAt: function (pos) { return bridgeAt(pos); },
+      bridges: function (from, to) { var out = []; for (var b = Math.floor((from - 320) / BRIDGE_EVERY); b <= Math.floor((to - 320) / BRIDGE_EVERY); b++) { var st = bridgeStart(b); if (st != null && st >= from && st <= to) out.push(st); } return out; },
       setLives: function (n) { lives = n; },
       setLane: function (l) { lane = laneTarget = l; },
       stopSpawning: function () { nextSpawn = 1e9; },

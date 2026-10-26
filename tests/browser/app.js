@@ -286,7 +286,7 @@ const st = (p) => p.evaluate(() => window.racerDebug.state());
   await sleep(300);
   ok('the start screen has a Speed row with four choices', (await p.$$('[data-speedidx]')).length === 4);
   await p.tap('[data-speedidx="0"]'); await sleep(80);
-  ok('choosing Cruise is remembered', (await st(p)).prefs.speedIdx === 0 && (await p.getAttribute('[data-speedidx="0"]', 'aria-pressed')) === 'true');
+  ok('choosing Calm is remembered', (await st(p)).prefs.speedIdx === 0 && (await p.getAttribute('[data-speedidx="0"]', 'aria-pressed')) === 'true');
   await p.tap('[data-speedidx="3"]'); await sleep(80);
   await p.tap('#play'); await sleep(250);
   s = await st(p);

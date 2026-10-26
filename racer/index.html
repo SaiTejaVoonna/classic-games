@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Racer | Classic Games</title>
-  <meta name="description" content="Racer, an early playable prototype of a Classic Games road game.">
+  <title>Cruise | Classic Games</title>
+  <meta name="description" content="Cruise, an early playable prototype of a Classic Games road game.">
   <link rel="stylesheet" href="racer.css">
   <script src="cars.js" defer></script>
   <script src="score.js" defer></script>
@@ -14,7 +14,7 @@
 </head>
 <body>
   <main class="stage" id="stage">
-    <canvas id="c" aria-label="Racer road view. Swipe left or right, or use the arrow keys, to change lane."></canvas>
+    <canvas id="c" aria-label="Cruise road view. Swipe left or right, or use the arrow keys, to change lane."></canvas>
 
     <div class="hud" id="hud">
       <div class="score"><b id="dist">0</b><small>score</small></div>
@@ -30,11 +30,11 @@
 
     <div class="overlay" id="ov" data-kind="menu">
       <a class="backpill" href="../" aria-label="Back to Games"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M15 5l-7 7 7 7"/></svg>Games</a>
-      <p class="ov-title" id="ov-title">Racer</p>
+      <p class="ov-title" id="ov-title">Cruise</p>
       <p class="ov-sub" id="ov-sub"></p>
       <div class="stats" id="ov-stats" hidden></div>
       <div class="opts" id="opts">
-        <div class="opt" role="group" aria-label="Speed"><span>Speed</span><button type="button" data-speedidx="0">Cruise</button><button type="button" data-speedidx="3">Normal</button><button type="button" data-speedidx="5">Fast</button><button type="button" data-speedidx="6">Rush</button></div>
+        <div class="opt" role="group" aria-label="Speed"><span>Speed</span><button type="button" data-speedidx="0">Calm</button><button type="button" data-speedidx="3">Normal</button><button type="button" data-speedidx="5">Fast</button><button type="button" data-speedidx="6">Rush</button></div>
         <div class="opt carsel" data-opt="car" role="group" aria-label="Your car"><span>Car</span><button type="button" data-val="rally"><img alt="" id="car-img-rally"><b>Rally</b></button><button type="button" data-val="sedan"><img alt="" id="car-img-sedan"><b>Sedan</b></button><button type="button" data-val="ev"><img alt="" id="car-img-ev"><b>Electric</b></button><button type="button" disabled class="soon"><img alt="" id="car-img-f1"><b>Formula, later</b></button></div>
         <p class="best" id="best-line"></p>
       </div>

@@ -1,12 +1,13 @@
-# Racer
+# Cruise (the `racer/` folder)
 
 A pseudo-3D road game for the Classic Games app. One tuned game, about 15 minutes, no choices before Play except the car.
 All rules are Classic Games prototype choices; nothing here copies any original game.
 
 ## What the player sees
 
-- **Start screen:** a Speed row (Cruise, Normal, Fast, Rush), car picker (Rally, Sport sedan, Electric; Formula is shown locked for later), Play, Continue (if a checkpoint exists), Sound and music, Back to games.
+- **Start screen:** a Speed row (Calm, Normal, Fast, Rush), car picker (Rally, Sport sedan, Electric; Formula is shown locked for later), Play, Continue (if a checkpoint exists), Sound and music, Back to games.
 - **Journey:** 10 chapters from Dawn Meadow to Sunrise Coast, 2.8 km each (28 km, about 15 minutes). Speed rises by itself across the Journey. The pace is the player's choice: a multiplier from 1.0x (85 to 150 km/h) to 2.3x, default 1.6x (136 to 240 km/h). The + and - buttons beside the speed readout change it any time (keys: + and -, Up for faster). A faster pace makes the Journey longer in distance, so it still takes about 15 minutes, and puts more road between cars. Rest stops after chapters 2, 4, 6 and 8 slow the car, heal one heart and save a checkpoint. The label under the bar shows the chapter and minutes left.
+- **Bridges and boats (coast chapters):** about every 1.4 km the road crosses open water on a 170 m bridge with railings. A small launch crosses under it, side to side, and sailboats sit out on the water. Boats are placed in the world, so they come towards you like everything else.
 - **Keep driving:** after the finish arch the player can carry on in Endless, with full hearts.
 - **Lives:** 3 hearts, a shield after a bump, a calmer stretch of road after a bump. One lane is always left open.
 - **Controls:** swipe or tap left and right, arrow keys or A and D. Hold the button (or Down) to ease off. + and - change the pace. P or Escape pauses.

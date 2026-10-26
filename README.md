@@ -4,7 +4,7 @@ Small classic-inspired games with a modern, calm look. No backend, no dependenci
 
 - `index.html` is the launcher: the Games screen (a Continue card for the game you played last, game tiles, awards), with bottom tabs for Awards, Scores and Settings. See `docs/NAVIGATION.md`.
 - `snake/` is Snake. Its source lives in `src/` and `styles.css`.
-- `racer/` is Racer: a pseudo-3D road game. One tuned Journey of about 15 minutes (10 chapters, rest stops, checkpoints, finish, then Keep driving), lives and shields, coins, three playable cars, and a fully synthesised soundtrack, effects and engine (no audio files). See `docs/RACER.md` and `docs/RACER_AUDIO.md`.
+- `racer/` is Cruise (the folder keeps its old name so saved progress and links still work): a pseudo-3D road game. One tuned Journey of about 15 minutes (10 chapters, rest stops, checkpoints, finish, then Keep driving), lives and shields, coins, three playable cars, and a fully synthesised soundtrack, effects and engine (no audio files). See `docs/RACER.md` and `docs/RACER_AUDIO.md`.
 
 All rules are Classic Games prototype choices; the original Nokia-era mechanics are not verified. Audio is not yet tuned by ear and nothing here has been tested on a real phone.
 

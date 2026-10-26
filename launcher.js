@@ -85,7 +85,7 @@
 
   // Awards are computed from the saved stats, so nothing extra is stored.
   var AWARDS = [
-    { id: 'first-drive', name: 'First drive', text: 'Play Racer once', get: function (r) { return [r.runs, 1]; } },
+    { id: 'first-drive', name: 'First drive', text: 'Play Cruise once', get: function (r) { return [r.runs, 1]; } },
     { id: 'close-10', name: 'Close calls', text: 'Squeeze past 10 cars', get: function (r) { return [r.near, 10]; } },
     { id: 'combo-5', name: 'In the flow', text: 'Chain 5 close calls', get: function (r) { return [r.nearBest, 5]; } },
     { id: 'coins-100', name: 'Coin collector', text: 'Collect 100 coins', get: function (r) { return [r.coins, 100]; } },
@@ -124,7 +124,7 @@
     var box = $('score-list'); box.textContent = '';
     function row(a, b) { var d = document.createElement('div'); d.className = 'sc'; var x = document.createElement('span'); x.textContent = a; var y = document.createElement('b'); y.textContent = b; d.appendChild(x); d.appendChild(y); box.appendChild(d); }
     function head(t) { var h = document.createElement('h2'); h.className = 'sc-h'; h.textContent = t; box.appendChild(h); }
-    head('Racer');
+    head('Cruise');
     var bests = readJson(BESTS_KEY) || {}; var keys = Object.keys(bests).filter(function (k) { return typeof bests[k] === 'number' && bests[k] > 0; }).sort(function (a, b) { return bests[b] - bests[a]; });
     if (!keys.length) row('No score yet.', ''); else keys.slice(0, 8).forEach(function (k) { row(prettyProfile(k), String(bests[k])); });
     head('Snake');
@@ -144,7 +144,7 @@
     $('hero').setAttribute('data-game', hero.game); $('hero').setAttribute('data-continue', String(hero.cont));
     $('hero-img').src = hero.game === 'snake' ? 'assets/hero-snake.jpg' : 'assets/hero-racer.jpg';
     $('hero-tag').textContent = hero.cont ? 'CONTINUE' : 'PLAY';
-    $('hero-title').textContent = hero.game === 'snake' ? 'Snake' : 'Racer';
+    $('hero-title').textContent = hero.game === 'snake' ? 'Snake' : 'Cruise';
     var pb = $('hero-pb'); pb.hidden = true;
     var main = $('hero-main'); var alt = $('hero-alt');
     if (hero.game === 'snake') {
