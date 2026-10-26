@@ -51,7 +51,7 @@
     { name: 'Neon Quarter', kit: 'electro', bed: 'rain', life: ['thunderfar', 'siren', 'raingust'], sky: ['#07031a', '#2a0f5e', '#ff4f9a'], sunX: .5, sunY: .95, sunC: '#ff6ec0', ground: ['#120d2a', '#0d0a20'], road: '#171a2c', edge: '#2c3a78', line: '#7fe3ff', fog: '#3b1a6a',
       ridge: ['#3a1670', '#2a1058', '#190a3c'], mist: .5, night: 1, stars: .8, rain: 1, snow: 0, leaves: 0, petals: 0, aurora: 0, heat: 0, skyline: 1, wind: .2, tintC: '#6a1a9a', tintA: .1,
       objs: ['neon', 'neon', 'tower', 'tower', 'neon', 'lamp', 'tower'] },
-    { name: 'Storm Pass', kit: 'cinematic', bed: 'storm', life: ['thunderclose', 'thunderfar', 'raingust', 'tunnel'], lightning: 1, sky: ['#1a2230', '#3a4658', '#6a7a90'], sunX: .5, sunY: .9, sunC: '#9fb0c8', ground: ['#3a4f40', '#2f4235'], road: '#2a2f3a', edge: '#7d879a', line: '#c9d3e4', fog: '#56657c',
+    { name: 'Storm Pass', kit: 'cinematic', bed: 'storm', life: ['raingust', 'tunnel'], lightning: 1, sky: ['#1a2230', '#3a4658', '#6a7a90'], sunX: .5, sunY: .9, sunC: '#9fb0c8', ground: ['#3a4f40', '#2f4235'], road: '#2a2f3a', edge: '#7d879a', line: '#c9d3e4', fog: '#56657c',
       ridge: ['#2c3748', '#27402f', '#1f3426'], mist: .7, night: .5, stars: 0, rain: 1, snow: 0, leaves: 0, petals: 0, aurora: 0, heat: 0, skyline: 0, wind: 3, tintC: '#102040', tintA: .12,
       objs: ['pine', 'pine', 'lamp', 'rock', 'pine', 'bush'] },
     { name: 'Northern Lights', kit: 'pads', bed: 'snow', life: ['owl', 'windchimes', 'train'], sky: ['#02040d', '#0b1a3a', '#1d4a6a'], sunX: .2, sunY: .45, sunC: '#f4f1e0', ground: ['#2a4a6a', '#cfdcec'], road: '#2a3350', edge: '#cfe0ff', line: '#e8f1ff', fog: '#2a4a7a',
@@ -142,6 +142,7 @@
   var shieldT = 0;
   var flashT = 0;
   var lightningT = 0;
+  var skyT = 0; // a faint distant flicker in the clouds
   var shake = 0;
   var lastChapter = -1;
   var nextStop = 0; // index into the rest stops
@@ -185,7 +186,7 @@
   var BESTS_KEY = 'classic-games.racer.bests';
   var CHECK_KEY = 'classic-games.racer.checkpoint';
   var APP_KEY = 'classic-games.app';
-  var STYLES = ['auto', 'cinematic', 'piano', 'electronic', 'acoustic'];
+  var STYLES = ['auto', 'drive', 'cinematic', 'piano', 'electronic', 'acoustic'];
 
   function readJson(key) { try { var raw = window.localStorage.getItem(key); return raw ? JSON.parse(raw) : null; } catch (e) { return null; } }
   function writeJson(key, v) { try { window.localStorage.setItem(key, JSON.stringify(v)); } catch (e) { /* storage unavailable: fine */ } }
@@ -881,6 +882,7 @@
     g.globalAlpha = 1;
   }
   function drawWeather(S) {
+    if (skyT > 0) { var sa = skyT / .7; g.fillStyle = 'rgba(210,220,255,' + (.11 * sa * (Math.sin(skyT * 40) > 0 ? 1 : .45)) + ')'; g.fillRect(0, 0, W, hyR); }
     if (lightningT > 0) {
       var la = lightningT / .4;
       g.fillStyle = 'rgba(235,242,255,' + (.45 * la * (Math.sin(lightningT * 60) > -.3 ? 1 : .4)) + ')'; g.fillRect(0, 0, W, H);
@@ -1178,7 +1180,11 @@
     camRoll += (clamp(-laneV * .0042 + curveAt(dist + 28) * 70, -.022, .022) - camRoll) * Math.min(1, dt * 4);
     if (mode === 'run' && lastPB && lastScene && speed > 14) emitRoadParticles(dt, lastScene);
     if (lastScene) stepFlurry(dt, lastScene);
-    if (lastScene && lastScene.lightning > .5 && lightningT <= 0 && Math.random() < dt * .16) { lightningT = .4; au('event', 'thunder'); }
+    // Thunder follows the light: a strike you see is heard a moment later (closer strikes sooner); between strikes the sky
+    // flickers faintly far away and a distant rumble follows. No thunder ever plays without a flash in Storm Pass.
+    if (skyT > 0) skyT = Math.max(0, skyT - dt);
+    if (lastScene && lastScene.lightning > .5 && lightningT <= 0 && Math.random() < dt * .14) { lightningT = .4; au('event', 'thunder', { close: true, delay: .15 + Math.random() * 1.1 }); }
+    else if (lastScene && lastScene.lightning > .3 && skyT <= 0 && lightningT <= 0 && Math.random() < dt * .1) { skyT = .7; au('event', 'thunder', { close: false, delay: 1.2 + Math.random() * 2 }); }
     if (mode === 'menu') { dist += 20 * dt; return; }
     if (mode !== 'run') return;
     shieldT = Math.max(0, shieldT - dt);

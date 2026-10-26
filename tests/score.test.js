@@ -62,3 +62,39 @@ test('calm mode softens brass and percussion', () => {
   const a = Score.levels(T, .95, Object.assign({ calm: false }, base)), b = Score.levels(T, .95, Object.assign({ calm: true }, base));
   assert.ok(b.brass < a.brass * .5 && b.perc < a.perc * .5);
 });
+
+test('every chapter has a groove from the start: bass, a pulse and a beat once the short intro is over', () => {
+  Score.THEMES.forEach((T, i) => {
+    const I = Score.intensity(i, .5, .8 * (i + .5) / 10), L = Score.levels(T, I, { chT: 30, rest: false, calm: false, lives: 3, maxLives: 3, bar: 10 });
+    assert.ok(L.bass > .1 && L.pulse > .1 && L.perc > .1, T.name + ' ' + JSON.stringify(L));
+  });
+  const T = Score.THEMES[0];
+  assert.strictEqual(Score.levels(T, .5, { chT: 1, rest: false, calm: false, lives: 3, maxLives: 3 }).perc, 0, 'a moment of lead and air first');
+  assert.ok(Score.levels(T, .5, { chT: 7, rest: false, calm: false, lives: 3, maxLives: 3 }).perc > 0, 'and the band is in within seconds');
+});
+
+test('a chapter is a song with sections: the break drops the drums, B and the drop add a second melody', () => {
+  const names = []; for (let b = 0; b < 32; b++) names.push(Score.section(b).name);
+  assert.deepStrictEqual([...new Set(names)], ['A', 'B', 'break', 'drop']);
+  assert.strictEqual(Score.section(32).name, 'A', 'the form loops every 32 bars');
+  const T = Score.THEMES[7], st = (bar) => ({ chT: 60, rest: false, calm: false, lives: 3, maxLives: 3, bar });
+  assert.strictEqual(Score.levels(T, .9, st(17)).perc, 0, 'the break has no drums');
+  assert.ok(Score.levels(T, .9, st(22)).perc > .5, 'the drop brings them back');
+  assert.ok(Score.section(8).counter && Score.section(20).counter && !Score.section(0).counter);
+  assert.ok(Score.section(7).fill && Score.section(19).fill, 'a fill closes each section');
+});
+
+test('chapters roll their chords in different patterns', () => {
+  const pats = new Set(Score.THEMES.map((T) => JSON.stringify(Score.arp(T))));
+  assert.ok(pats.size >= 5, pats.size + ' patterns');
+});
+
+test('Drive (phonk-inspired) keeps each chapter key, goes dark, and sits in a half-time tempo', () => {
+  Score.THEMES.forEach((T, i) => {
+    const D = Score.driveTheme(T, i);
+    assert.ok(D.mode !== 'major', T.name + ' is dark');
+    assert.ok(D.bpm >= 126 && D.bpm <= 150, T.name + ' tempo ' + D.bpm);
+    assert.strictEqual(Math.abs((D.root - T.root) % 12), 0, 'same key');
+    assert.ok(D.riff.length >= 6 && D.riff.every((n) => n[0] + n[2] <= 8.01), 'the riff fits two bars');
+  });
+});

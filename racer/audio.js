@@ -54,7 +54,7 @@
     env = env || {};
     var Ctor = env.AudioContext;
     var ctx = null, master = null, musicBus = null, fxBus = null, comp = null, reverb = null, rvSend = null;
-    var noiseBuf = null, bed = null, eng = null, engBus = null;
+    var noiseBuf = null, bed = null, bed2 = null, eng = null, engBus = null, pumpNode = null;
     var prefs = { music: true, sfx: true, style: 'auto', volMusic: 0.6, volFx: 0.7, bass: 0.5, calm: false, sound: true, haptics: true, car: 'rally', volEngine: .7 };
     var chapter = 0, intensity = 0.3, speed = 0, braking = false, running = false, paused = false;
     var timer = null, nextBar = 0, scene = {}, driveSlope = 0, driveSteer = 0;
@@ -84,7 +84,8 @@
       }
       reverb.buffer = ir; rvSend = ctx.createGain(); rvSend.gain.value = 0.32; rvSend.connect(reverb); reverb.connect(comp);
       // each score layer has a dry bus and a reverb bus that share one level, so a muted layer leaves no reverb tail behind
-      Score.STEMS.concat(['heart']).forEach(function (k) { var sg = ctx.createGain(), wg = ctx.createGain(); sg.gain.value = 0; wg.gain.value = 0; sg.connect(duckNode); wg.connect(rvSend); sg._wet = wg; stemBus[k] = sg; });
+      pumpNode = ctx.createGain(); pumpNode.connect(duckNode); // the Drive style ducks everything but the drums on each kick
+      Score.STEMS.concat(['heart']).forEach(function (k) { var sg = ctx.createGain(), wg = ctx.createGain(); sg.gain.value = 0; wg.gain.value = 0; sg.connect(k === 'perc' || k === 'heart' ? duckNode : pumpNode); wg.connect(rvSend); sg._wet = wg; stemBus[k] = sg; });
       noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
       var nd = noiseBuf.getChannelData(0); for (var j = 0; j < nd.length; j++) nd[j] = Math.random() * 2 - 1;
       applyVolumes();
@@ -92,10 +93,11 @@
     }
     function applyVolumes() {
       if (!ctx) return;
-      var t = ctx.currentTime, m = (prefs.music && prefs.sound ? prefs.volMusic : 0) * (prefs.calm ? 0.6 : 1) * .38;
+      var t = ctx.currentTime, m = (prefs.music && prefs.sound ? prefs.volMusic : 0) * (prefs.calm ? 0.6 : 1) * .47; // measured in game: about 2 dB over the engine at the default sliders, so the music is not masked
       var f = (prefs.sfx && prefs.sound ? prefs.volFx : 0);
       musicBus.gain.setTargetAtTime(m, t, 0.08); fxBus.gain.setTargetAtTime(f, t, 0.08);
-      if (bed) bed.out.gain.setTargetAtTime(prefs.sound ? 0.5 : 0, t, 0.2);
+      if (bed) bed.out.gain.setTargetAtTime(bedLevel(bed), t, 0.8); // a new bed fades in over a couple of seconds
+      if (bed2) bed2.out.gain.setTargetAtTime(bedLevel(bed2), t, 0.8);
       if (eng) eng.out.gain.setTargetAtTime(running && !paused && prefs.sfx && prefs.sound ? prefs.volEngine / .7 : 0, t, 0.1);
     }
 
@@ -114,7 +116,7 @@
     }
     function noise(t, dur, vol, bus, ftype, ff, pv) {
       var s = ctx.createBufferSource(); s.buffer = noiseBuf; var f = ctx.createBiquadFilter(); f.type = ftype; f.frequency.value = ff;
-      var g = ctx.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      var g = ctx.createGain(), at = Math.min(.004, dur * .25); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + at); g.gain.exponentialRampToValueAtTime(0.0001, t + Math.max(dur, at + .005)); // a 2-4 ms attack, so no burst clicks
       s.connect(f); f.connect(g); route(g, bus, pv || 0); s.start(t); s.stop(t + dur + 0.05);
     }
     function kick(t, v, bus) {
@@ -213,18 +215,46 @@
       noise(t, .14, v * .22, B(bus), 'bandpass', 220, 0);
     }
     function frameDrum(t, v, bus) { var o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.setValueAtTime(140, t); o.frequency.exponentialRampToValueAtTime(70, t + .12); shape(g, t, .003, v * .35, 0, .35); o.connect(g); route(g, B(bus), 0, .25); o.start(t); o.stop(t + .5); noise(t, .05, v * .06, B(bus), 'bandpass', 800, 0); }
+    // ---- drums and Drive instruments (all synthesised)
+    function clap(t, v, bus) { for (var i = 0; i < 3; i++) noise(t + i * .011, i === 2 ? .16 : .02, v * (i === 2 ? .5 : .35), B(bus), 'bandpass', 1500, 0); }
+    function snare(t, v, bus) { noise(t, .16, v * .32, B(bus), 'bandpass', 2200, 0); var o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.setValueAtTime(220, t); o.frequency.exponentialRampToValueAtTime(160, t + .08); shape(g, t, .002, v * .22, 0, .11); o.connect(g); route(g, B(bus), 0, .15); o.start(t); o.stop(t + .15); made.notes++; }
+    function hat(t, v, bus, open, pv) { noise(t, open ? .2 : .035, v * .1, B(bus), 'highpass', 7600, pv || 0); }
+    function shaker(t, v, bus, pv) { noise(t, .05, v * .06, B(bus), 'bandpass', 5800, pv || 0); }
+    function kick808(t, v, bus) { // a deep kick with a click on top
+      var o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(44, t + .09);
+      shape(g, t, .002, v * .8, .02, .42); o.connect(g); route(g, B(bus), 0, 0); o.start(t); o.stop(t + .5); noise(t, .012, v * .2, B(bus), 'highpass', 3000, 0); made.notes++;
+    }
+    var bassCurve = null;
+    function bass808(m, t, dur, v, bus, slideTo) { // the sliding, slightly distorted 808 bass of the Drive style
+      if (!bassCurve) { bassCurve = new Float32Array(257); for (var i = 0; i < 257; i++) { var x = i / 128 - 1; bassCurve[i] = Math.tanh(4.2 * x); /* strong drive: the harmonics are what a phone speaker can play */ } }
+      var o = ctx.createOscillator(), sh = ctx.createWaveShaper(), lp = ctx.createBiquadFilter(), g = ctx.createGain(); sh.curve = bassCurve;
+      o.frequency.setValueAtTime(mtof(m), t); if (slideTo != null) { o.frequency.setValueAtTime(mtof(m), t + dur * .7); o.frequency.exponentialRampToValueAtTime(mtof(slideTo), t + dur); }
+      lp.type = 'lowpass'; lp.frequency.value = 1500; shape(g, t, .006, v * .55, Math.max(0, dur - .25), .2);
+      o.connect(sh); sh.connect(lp); lp.connect(g); route(g, B(bus), 0, 0); o.start(t); o.stop(t + dur + .3); made.notes++;
+    }
+    function cowbell(m, t, dur, v, bus, pv) { // two square tones a fifth-and-a-bit apart through a band-pass: the classic drum-machine bell, here pitched to the melody
+      var f = mtof(m), bp = ctx.createBiquadFilter(), g = ctx.createGain(); bp.type = 'bandpass'; bp.frequency.value = f * 1.6; bp.Q.value = 2.2;
+      [1, 1.48].forEach(function (r) { var o = ctx.createOscillator(); o.type = 'square'; o.frequency.value = f * r; o.connect(bp); o.start(t); o.stop(t + Math.max(.3, dur) + .1); made.notes++; });
+      shape(g, t, .002, v * .26, .015, Math.max(.18, dur * .6)); bp.connect(g); route(g, B(bus), pv || 0, .18);
+    }
+    function pumpAt(t, depth) { if (!pumpNode) return; var p = pumpNode.gain; p.setValueAtTime(1, t); p.linearRampToValueAtTime(depth, t + .012); p.setTargetAtTime(1, t + .03, .09); }
+
     function swell(t, dur, v, bus) { // a rising wash of noise, used to open a chapter and to lead into peaks
       var s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain(); s.buffer = noiseBuf; s.loop = true; f.type = 'bandpass'; f.Q.value = .7; f.frequency.setValueAtTime(500, t); f.frequency.exponentialRampToValueAtTime(6500, t + dur);
       shape(g, t, dur * .92, v * .16, 0, dur * .12); s.connect(f); f.connect(g); route(g, B(bus), 0, .5); s.start(t); s.stop(t + dur * 1.1);
     }
+    function duckAt(t0, depth, secs) { if (!ctx || !duckNode) return; var t = Math.max(ctx.currentTime, t0); duckedUntil = t + secs + 2.5; duckNode.gain.setTargetAtTime(depth, t, .06); duckNode.gain.setTargetAtTime(1, t + secs, .25); }
     function duck(depth, secs) { if (!ctx || !duckNode) return; var t = ctx.currentTime; duckedUntil = t + secs + 2.5; duckNode.gain.cancelScheduledValues(t); duckNode.gain.setTargetAtTime(depth, t, .03); duckNode.gain.setTargetAtTime(1, t + secs, .18); }
 
     // ---- the voice a theme uses for its lead and pulse. Style choices in the sound sheet override the lead.
     // Level trims from measuring each voice and layer alone, so every chapter sits at a similar loudness.
     var VOICE_TRIM = { piano: 3.35, pluck: 6, guitar: 5.4, cello: 2.1, handpan: 3.9, epiano: 3.9, synth: 3, staccato: 3, brass: 1.07, bell: 3.5, strings: .08 };
     var KIT_TRIM = { soft: 7.1, electro: 3.5, epic: 1.6 };
-    var STYLE_LEAD = { piano: 'piano', electronic: 'synth', acoustic: 'guitar', cinematic: 'strings' };
-    function leadVoice(T) { return STYLE_LEAD[prefs.style] || T.lead; }
+    // A style changes the band: lead voice, the rolling pulse and the drum kit. Auto uses each chapter's own choice.
+    var STYLE_ARR = { piano: { lead: 'piano', ost: 'pluck', kit: 'soft' }, electronic: { lead: 'synth', ost: 'synth', kit: 'electro' },
+      acoustic: { lead: 'guitar', ost: 'guitar', kit: 'soft' }, cinematic: { lead: 'strings', ost: 'staccato', kit: 'epic' } };
+    function arrangement(T) { return STYLE_ARR[prefs.style] || { lead: T.lead, ost: T.ost, kit: T.kit }; }
+    function leadVoice(T) { return arrangement(T).lead; }
     function playVoice(voice, m, t, len, v, bus, pv, wet) {
       v *= VOICE_TRIM[voice] || 1;
       switch (voice) {
@@ -243,53 +273,97 @@
       }
     }
 
-    // ---- one bar of the score. Every layer decides for itself whether to play, from the level the plan gives it.
+    // ---- one bar of the score. Every layer decides for itself whether to play, from the level the plan gives it,
+    // and the section of the song (A, B, break, drop) shapes what it plays.
+    function setStems(L, gain, t) {
+      for (var k in L) if (stemBus[k]) { var lv = L[k] * (gain[k] || 1), at = Math.max(ctx.currentTime, t - .05); stemBus[k].gain.setTargetAtTime(lv, at, .3); stemBus[k]._wet.gain.setTargetAtTime(lv, at, .3); }
+    }
+    function stState(t, b) { return { chT: t - chStart, rest: t < restUntil, calm: prefs.calm, lives: lives, maxLives: maxLives, bar: b }; }
     function scheduleBar(t) {
-      var T = Score.THEMES[chapter], beat = 60 / T.bpm, bar = beat * 4, b = chBar++, r = Score.progression(T, b), ch = Score.chord(T, r);
-      var I = Score.intensity(chapter, chapFrac, intensity), L = Score.levels(T, I, { chT: t - chStart, rest: t < restUntil, calm: prefs.calm, lives: lives, maxLives: maxLives });
-      var gain = { air: 5.4, lead: 1, pulse: 1.6, strings: .19, brass: 2.9, perc: .9 * (KIT_TRIM[T.kit] || 1), choir: 3.2, bass: .45 + prefs.bass * .8, heart: 1 }, k, i;
-      for (k in L) if (stemBus[k]) { var lv = L[k] * (gain[k] || 1), at = Math.max(ctx.currentTime, t - .05); stemBus[k].gain.setTargetAtTime(lv, at, .3); stemBus[k]._wet.gain.setTargetAtTime(lv, at, .3); }
-      var vel = .55 + .35 * I;
+      if (prefs.style === 'drive') return scheduleDriveBar(t);
+      var T = Score.THEMES[chapter], A = arrangement(T), beat = 60 / T.bpm, bar = beat * 4, b = chBar++, r = Score.progression(T, b), ch = Score.chord(T, r);
+      var sec = Score.section(b), I = Score.intensity(chapter, chapFrac, intensity), L = Score.levels(T, I, stState(t, b));
+      var gain = { air: 5.4, lead: 1, pulse: 1.6, strings: .19, brass: 2.9, perc: .9 * (KIT_TRIM[A.kit] || 1), choir: 3.2, bass: .45 + prefs.bass * .8, heart: 1 }, i;
+      setStems(L, gain, t);
+      var vel = .55 + .35 * I, drop = sec.name === 'drop';
       // chapter opening: a swell and a bell
       if (b === 0) { swell(t, bar * .9, .5 + TENSIONSAFE(chapter) * .6, 'air'); bellNote(Score.midi(T, 14), t + bar * .9, 3, .09, 'air', 0, .9, 3.5, 2); }
-      // air: high, sparse, long-tailed bells
-      if (L.air > .04 && b % 2 === 0) for (i = 0; i < 1 + (rnd() > .55 ? 1 : 0); i++) bellNote(Score.midi(T, 14 + [0, 2, 4, 5][Math.floor(rnd() * 4)]), t + rnd() * bar * .8, 2.6, .05, 'air', rnd() * 1.4 - .7, .9, 3.5, 2);
-      // lead: the motif every four bars, a long held tone between
+      // air: high, sparse, long-tailed bells (every bar in the drop)
+      if (L.air > .04 && (drop || b % 2 === 0)) for (i = 0; i < 1 + (rnd() > .55 ? 1 : 0); i++) bellNote(Score.midi(T, 14 + [0, 2, 4, 5][Math.floor(rnd() * 4)]), t + rnd() * bar * .8, 2.6, .05, 'air', rnd() * 1.4 - .7, .9, 3.5, 2);
+      // lead: the motif every four bars; in B and the drop it answers itself two bars later, a step higher
       if (L.lead > .04) {
-        if (b % 4 === 0) Score.motifNotes(T, Math.floor(b / 4)).forEach(function (n) { playVoice(leadVoice(T), n.midi + (T.lead === 'piano' ? 0 : 0), t + n.beat * beat, n.len * beat * 1.1, vel, 'lead', n.beat % 2 ? .2 : -.2, .35); });
-        else if (b % 4 === 2) playVoice(leadVoice(T), ch[1] + 12, t, bar * .9, vel * .6, 'lead', 0, .45);
+        var grp = Math.floor(b / 4);
+        if (b % 4 === 0) Score.motifNotes(T, grp).forEach(function (n) { playVoice(A.lead, n.midi, t + n.beat * beat, n.len * beat * 1.1, vel, 'lead', n.beat % 2 ? .2 : -.2, .35); });
+        else if (b % 4 === 2 && sec.counter) Score.motifNotes(T, grp + 1).forEach(function (n) { playVoice(A.lead, n.midi, t + n.beat * beat, n.len * beat * 1.05, vel * .8, 'lead', n.beat % 2 ? -.2 : .2, .4); });
+        else if (b % 4 === 2) playVoice(A.lead, ch[1] + 12, t, bar * .9, vel * .6, 'lead', 0, .45);
+        // a second melody under it in B and the drop: two long notes from the chord, an octave down
+        if (sec.counter && b % 2 === 1) { var cv = A.kit === 'electro' ? 'epiano' : 'cello'; playVoice(cv, ch[2] - 12, t, beat * 2, vel * .45, 'lead', .35, .4); playVoice(cv, ch[1] - 12, t + beat * 2, beat * 2, vel * .4, 'lead', .35, .4); }
       }
-      // bass: the root held, and from a higher level eighth-note pulses
+      // bass: each kit has its own figure
       if (L.bass > .04) {
-        var bm = Score.midi(T, r) - 24, bo = ctx.createOscillator(), bg = ctx.createGain();
-        bo.frequency.value = mtof(bm); shape(bg, t, .05, .5, bar * .8, bar * .2); bo.connect(bg); route(bg, B('bass'), 0, 0); bo.start(t); bo.stop(t + bar + .1); made.notes++;
-        if (L.bass > .55) for (i = 0; i < 8; i++) { var pa = [1, 0, .6, 0, .8, 0, .6, 0][i]; if (pa) { var po = ctx.createOscillator(), pg = ctx.createGain(); po.type = 'triangle'; po.frequency.value = mtof(bm + 12); shape(pg, t + i * beat / 2, .005, .22 * pa, 0, .16); po.connect(pg); route(pg, B('bass'), 0, 0); po.start(t + i * beat / 2); po.stop(t + i * beat / 2 + .3); } }
+        var bm = Score.midi(T, r) - 24, b5 = Score.midi(T, r + 4) - 24;
+        var notes = A.kit === 'electro' ? [[0, .45, bm], [.5, .4, bm], [1, .45, bm + 12], [1.5, .4, bm], [2, .45, bm], [2.5, .4, bm], [3, .45, b5], [3.5, .4, bm]]
+          : A.kit === 'epic' ? [[0, 2.8, bm], [3, .9, b5]] : (L.bass > .3 ? [[0, 1.5, bm], [2, .9, b5], [3, .7, bm]] : [[0, 3.6, bm]]);
+        notes.forEach(function (nn) { var bo = ctx.createOscillator(), bg = ctx.createGain(); bo.type = A.kit === 'electro' ? 'triangle' : 'sine'; bo.frequency.value = mtof(nn[2]); shape(bg, t + nn[0] * beat, .01, .45, nn[1] * beat * .8, nn[1] * beat * .3); bo.connect(bg); route(bg, B('bass'), 0, 0); bo.start(t + nn[0] * beat); bo.stop(t + (nn[0] + nn[1]) * beat + .3); made.notes++; });
       }
-      // pulse: a rolling arpeggio of the chord, the ostinato of the score
+      // pulse: the chord rolled in the chapter's own pattern
       if (L.pulse > .04) {
-        var steps = L.pulse > .7 && I > .82 ? 16 : 8, pat = [0, 1, 2, 3, 2, 1, 2, 1];
-        for (i = 0; i < steps; i++) { var idx = pat[(steps === 16 ? i >> 1 : i) % 8], acc = i % (steps / 2) === 0 ? 1 : (i % 2 ? .45 : .7); playVoice(T.ost, ch[idx] + 12 + (i % 4 === 3 ? 12 : 0), t + i * bar / steps, bar / steps * 1.4, .3 * acc, 'pulse', i % 2 ? .3 : -.3, .3); }
+        var steps = drop && I > .6 ? 16 : 8, pat = Score.arp(T);
+        for (i = 0; i < steps; i++) { var idx = pat[(steps === 16 ? i >> 1 : i) % 8], acc = i % (steps / 2) === 0 ? 1 : (i % 2 ? .45 : .7); playVoice(A.ost, ch[idx] + 12 + (i % 4 === 3 ? 12 : 0), t + i * bar / steps, bar / steps * 1.4, .3 * acc, 'pulse', (i % 2 ? .3 : -.3), .25); }
       }
-      // strings
       if (L.strings > .04) stringsChord([ch[0] - 12, ch[1], ch[2], ch[3]], t, bar * 1.04, vel, 'strings', .5, Math.min(1.2, bar * .35));
-      // brass: a swell every fourth bar, a hit when a big chapter opens
       if (L.brass > .04 && b % 4 === 0) brassChord([Score.midi(T, r - 7), Score.midi(T, r - 3)], t, bar * 1.1, vel, 'brass', .4, bar * .65);
-      if (b === 0 && (T.kit === 'epic') && L.brass > .02) braam(Score.midi(T, 0) - 12, t, vel, 'brass');
-      // choir
+      if (b === 0 && A.kit === 'epic' && L.brass > .02) braam(Score.midi(T, 0) - 12, t, vel, 'brass');
       if (L.choir > .04) choirChord([ch[1] + 12, ch[2] + 12, ch[3] + 12], t, bar * 1.05, vel, 'choir', .7);
-      // percussion by kit
+      // percussion by kit, with a fill at the end of every section
       if (L.perc > .04) {
-        if (T.kit === 'epic') { taiko(t, 1, 'perc'); if (L.perc > .45) taiko(t + beat * 2, .6, 'perc'); if (L.perc > .7) taiko(t + beat * 3.5, .4, 'perc'); if (b % 8 === 7) swell(t, bar * .95, .6, 'perc'); }
-        else if (T.kit === 'electro') {
-          for (i = 0; i < 4; i += 2) kick(t + i * beat, .5, B('perc'));
-          for (i = 1; i < 4; i += 2) noise(t + i * beat, .12, .13, B('perc'), 'bandpass', 1600, 0);
-          if (L.perc > .35) for (i = 0; i < 8; i++) noise(t + i * beat / 2, .035, i % 2 ? .05 : .03, B('perc'), 'highpass', 8000, i % 2 ? .3 : -.3);
-        } else {
-          frameDrum(t, .8, 'perc'); if (L.perc > .5) frameDrum(t + beat * 2, .5, 'perc');
-          if (L.perc > .4) for (i = 0; i < 8; i++) noise(t + i * beat / 2, .04, .025, B('perc'), 'highpass', 6500, i % 2 ? .35 : -.35);
+        if (A.kit === 'epic') {
+          taiko(t, 1, 'perc'); if (L.perc > .45) taiko(t + beat * 2, .6, 'perc'); if (L.perc > .7) taiko(t + beat * 3.5, .4, 'perc');
+          if (drop) for (i = 1; i < 4; i += 2) snare(t + i * beat, .7, 'perc');
+          if (sec.fill) for (i = 0; i < 6; i++) taiko(t + beat * 2.5 + i * beat / 4, .35 + i * .08, 'perc');
+        } else if (A.kit === 'electro') {
+          kick(t, .5, B('perc')); kick(t + 2 * beat, .5, B('perc')); if (drop) kick(t + 2.5 * beat, .35, B('perc'));
+          for (i = 1; i < 4; i += 2) snare(t + i * beat, .8, 'perc');
+          var hs = drop ? 16 : 8; for (i = 0; i < hs; i++) hat(t + i * bar / hs, i % 2 ? .7 : 1, 'perc', i === hs - 2 && drop, i % 2 ? .3 : -.3);
+          if (sec.fill) for (i = 0; i < 4; i++) snare(t + beat * 3 + i * beat / 4, .3 + i * .12, 'perc');
+        } else { // soft: frame drum on 1 and 3, a clap on 2 and 4 once it builds, and a shaker
+          frameDrum(t, .8, 'perc'); frameDrum(t + beat * 2, .55, 'perc');
+          if (L.perc > .35) { clap(t + beat, .45, 'perc'); clap(t + beat * 3, .45, 'perc'); }
+          for (i = 0; i < 8; i++) shaker(t + i * beat / 2, i % 2 ? .7 : 1, 'perc', i % 2 ? .35 : -.35);
+          if (sec.fill) for (i = 0; i < 3; i++) frameDrum(t + beat * 3 + i * beat / 3, .35 + i * .15, 'perc');
         }
       }
       // heartbeat when one life is left
+      if (L.heart) for (i = 0; i < 4; i++) { kick(t + i * beat, .16, B('heart')); kick(t + i * beat + .2, .1, B('heart')); }
+      return bar;
+    }
+
+    // ---- Drive (phonk-inspired): half-time beat, sliding 808, cowbell riff, hat rolls and a pumping mix
+    function scheduleDriveBar(t) {
+      var D = Score.driveTheme(Score.THEMES[chapter], chapter), beat = 60 / D.bpm, bar = beat * 4, st16 = beat / 4, b = chBar++, sec = Score.section(b);
+      var r = Score.progression(D, b), rn = Score.progression(D, b + 1), I = Score.intensity(chapter, chapFrac, intensity), i;
+      var st = stState(t, b), intro = clamp((st.chT - 2) / 4, 0, 1), brk = sec.name === 'break', drop = sec.name === 'drop';
+      var L = { air: .25, lead: brk ? .45 : 1, pulse: (brk ? .3 : 1) * intro, strings: (sec.name === 'A' ? .35 : .7), brass: 0, perc: (brk ? 0 : 1) * intro, choir: 0, bass: (brk ? .45 : 1) * Math.max(.4, intro), heart: st.maxLives > 1 && st.lives === 1 ? 1 : 0 };
+      if (st.rest) { L.perc = 0; L.pulse = 0; L.bass *= .3; }
+      if (prefs.calm) { L.perc *= .5; L.pulse *= .6; }
+      setStems(L, { air: 4, lead: 2.4, pulse: 3.2, strings: .2, perc: 1.2, bass: .32 + prefs.bass * .5, heart: 1 }, t); // balanced for phone speakers, not only headphones
+      var bm = Score.midi(D, r) - 24;
+      // drums: kick on 1 and the "and" of 2 (and more in the drop), clap on 3, hats with a roll every second bar
+      var kicks = drop ? [0, 6, 10, 11] : [0, 6, 10];
+      if (L.perc > .02) {
+        kicks.forEach(function (k) { kick808(t + k * st16, .6, 'perc'); pumpAt(t + k * st16, .45); });
+        clap(t + 8 * st16, .8, 'perc'); if (drop && b % 2) clap(t + 15 * st16, .35, 'perc');
+        for (i = 0; i < 16; i += (drop ? 1 : 2)) { if (b % 2 === 1 && i >= 12) break; hat(t + i * st16, i % 4 === 0 ? 3 : 2, 'pulse', false, i % 2 ? .25 : -.25); }
+        if (b % 2 === 1) for (i = 0; i < 6; i++) hat(t + 12 * st16 + i * beat / 6, 1.6 + i * .3, 'pulse', false, (i - 2.5) * .12); // the roll
+        if (sec.fill) hat(t + 14 * st16, 3, 'pulse', true, 0);
+      }
+      // 808: the root, an answer on the "and" of 3, and a slide into the next bar's root
+      if (L.bass > .02) { bass808(bm, t, 5 * st16, 1, 'bass'); bass808(bm + (b % 2 ? 12 : 7), t + 10 * st16, 6 * st16, .85, 'bass', Score.midi(D, rn) - 24); }
+      // cowbell riff over two bars, an octave up from the key
+      if (b % 2 === 0) D.riff.forEach(function (n) { cowbell(Score.midi(D, n[1] + 7) + (drop ? 12 : 0), t + n[0] * beat, n[2] * beat, brk ? .9 : 1.7, 'lead', n[0] % 2 ? .25 : -.25); });
+      // a dark pad under it
+      stringsChord(Score.chord(D, r).map(function (m) { return m - 12; }), t, bar * 1.02, .5, 'strings', .6, bar * .4);
+      if (b % 4 === 0) bellNote(Score.midi(D, 14), t + beat * (rnd() * 3), 2.4, .04, 'air', rnd() - .5, .9, 3.5, 2);
       if (L.heart) for (i = 0; i < 4; i++) { kick(t + i * beat, .16, B('heart')); kick(t + i * beat + .2, .1, B('heart')); }
       return bar;
     }
@@ -303,20 +377,40 @@
       while (nextBar < now + 1.2) nextBar += scheduleBar(nextBar);
     }
 
-    function startBed(name) {
-      if (!ctx) return;
-      stopBed();
-      var s = ctx.createBufferSource(); s.buffer = noiseBuf; s.loop = true;
+    // Ambience beds (filtered noise that breathes). Two can play at once: as the scenery blends into the next
+    // chapter, the next bed fades in with it, so the sound never cuts when the chapter changes.
+    function makeBed(name) {
+      var s = ctx.createBufferSource(); s.buffer = noiseBuf; s.loop = true; s.loopStart = Math.random() * 1.5;
       var f = ctx.createBiquadFilter(), g = ctx.createGain(), lfo = ctx.createOscillator(), lg = ctx.createGain();
       var cfg = { meadow: ['bandpass', 1400, 0.04], desert: ['lowpass', 500, 0.05], waves: ['lowpass', 700, 0.09], city: ['lowpass', 300, 0.05], rain: ['highpass', 3200, 0.07], storm: ['bandpass', 900, 0.09], snow: ['lowpass', 380, 0.035] }[name] || ['lowpass', 500, 0.04];
       f.type = cfg[0]; f.frequency.value = cfg[1]; g.gain.value = cfg[2];
       lfo.frequency.value = name === 'waves' ? 0.12 : 0.07; lg.gain.value = cfg[2] * 0.6; lfo.connect(lg); lg.connect(g.gain);
       var out = ctx.createGain(); out.gain.value = 0;
       s.connect(f); f.connect(g); g.connect(out); route(out, fxBus, 0, 0.1); s.start(); lfo.start();
-      bed = { name: name, src: s, lfo: lfo, out: out };
+      return { name: name, src: s, lfo: lfo, out: out, mix: 0 };
+    }
+    function dropBed(x, secs) { // fade a bed out, then stop it
+      if (!x) return; var t = ctx.currentTime; x.out.gain.cancelScheduledValues(t); x.out.gain.setTargetAtTime(0, t, secs / 4);
+      try { x.src.stop(t + secs + .2); x.lfo.stop(t + secs + .2); } catch (e) { /* already stopped */ }
+    }
+    function bedLevel(x) { return x ? (prefs.sound ? 0.5 : 0) * x.mix : 0; }
+    function startBed(name) {
+      if (!ctx) return;
+      if (bed && bed.name === name) return;
+      if (bed2 && bed2.name === name) { dropBed(bed, 2); bed = bed2; bed2 = null; bed.mix = 1; applyVolumes(); return; } // the next bed is already fading in
+      dropBed(bed, 3); dropBed(bed2, 3); bed2 = null;
+      bed = makeBed(name); bed.mix = 1;
       applyVolumes();
     }
-    function stopBed() { if (bed) { try { bed.src.stop(); bed.lfo.stop(); } catch (e) { /* already stopped */ } bed = null; } }
+    function stopBed() { if (bed) { dropBed(bed, .3); bed = null; } if (bed2) { dropBed(bed2, .3); bed2 = null; } }
+    function blendBeds(sc) { // follow the scenery blend: at t the next chapter's bed is at t, the current one at 1 - t
+      if (!ctx || !running || !bed || !sc) return;
+      if (sc.nextBed && sc.nextBed !== bed.name && sc.t > 0) {
+        if (!bed2 || bed2.name !== sc.nextBed) { dropBed(bed2, 1); bed2 = makeBed(sc.nextBed); }
+        bed2.mix = sc.t; bed.mix = 1 - sc.t;
+      } else { bed.mix = 1; if (bed2) { dropBed(bed2, 2); bed2 = null; } }
+      var t = ctx.currentTime; bed.out.gain.setTargetAtTime(bedLevel(bed), t, .5); if (bed2) bed2.out.gain.setTargetAtTime(bedLevel(bed2), t, .5);
+    }
     // Physical-model loops (see enginesynth.js). Raw arrays arrive from a worker; AudioBuffers are made per context.
     var loopRaw = {}, loopBuf = {}, loopAsked = {};
     function requestLoops(name) {
@@ -484,7 +578,8 @@
           for (k = 0; k < 3; k++) metalHit(t + .02 + k * .07, 900 + rnd() * 1800, .16, F, rnd() * 1.4 - .7, .4); rattle(t + .1, 18, 1, .2, F); buzz([120, 60, 120]); break;
         case 'chapter': [0, 2, 4, 7].forEach(function (s, i) { bellNote(degree(c, s) + 24, t + i * .12, 1.6, .12, 'fx', (i - 1.5) * .3, .7, 3.5, 1.6); }); sweep(t, .9, 400, 4200, .08, F, 0); break;
         case 'rest': [0, 4, 7, 9].forEach(function (s, i) { bellNote(degree(c, s) + 12, t + i * .16, 2.2, .1, 'fx', (i - 1.5) * .25, .7, 1, 1.2); }); break;
-        case 'thunder': lifeSound('thunderfar', t, 0, 1.3); break;
+        case 'thunder': // o.close: a strike you can see, heard o.delay seconds later; otherwise a distant rumble
+          if (o.close) lifeSound('thunderclose', t + (o.delay || 0), (rnd() - .5) * .8, 1); else lifeSound('thunderfar', t + (o.delay || 0), (rnd() - .5) * 1.2, .9); break;
         case 'finish': // a fanfare: brass and choir on the tonic, bells climbing, a taiko hit
           brassChord([degree(c, 0) - 12, degree(c, 4) - 12, degree(c, 0)], t, 3.2, .8, 'fx', .5, .5); choirChord([degree(c, 0) + 12, degree(c, 2) + 12, degree(c, 4) + 12], t + .1, 3, .8, 'fx', .7);
           [0, 2, 4, 7, 9, 11].forEach(function (s, i) { bellNote(degree(c, s) + 24, t + .2 + i * .14, 1.8, .12, 'fx', (i - 2.5) * .25, .7, 3.5, 1.6); }); taiko(t, 1, 'fx'); sweep(t, 1.2, 300, 5000, .2, F, 0); break;
@@ -524,7 +619,7 @@
         case 'plane': sweep(t, 5, 250, 800, .09 * v, F, pv, 'bandpass', .6); sub(t, 70, 60, 4, .03 * v, F); break;
         case 'train': for (i = 0; i < 26; i++) { noise(t + i * .15, .04, .05 * v, F, 'lowpass', 900, pv); if (i % 2) noise(t + i * .15 + .06, .03, .03 * v, F, 'bandpass', 1500, pv); } break;
         case 'thunderfar': sweep(t, 3.6, 120, 60, .3 * v, F, pv, 'lowpass', .5); sub(t + .3, 48, 32, 2.8, .12 * v, F); break;
-        case 'thunderclose': noise(t, .05, .4 * v, F, 'highpass', 600, pv); sweep(t + .02, 2.8, 400, 70, .45 * v, F, pv, 'lowpass', .5); sub(t, 60, 30, 2.2, .35 * v, F); duck(.6, 1.2); break;
+        case 'thunderclose': noise(t, .07, .26 * v, F, 'highpass', 900, pv); noise(t + .03, .35, .14 * v, F, 'bandpass', 500, pv); sweep(t + .03, 3, 400, 70, .4 * v, F, pv, 'lowpass', .5); sub(t + .02, 60, 30, 2.4, .3 * v, F); duckAt(t, .78, 1.1); break; // a crack with a short attack, then the roll; the music only dips
         case 'raingust': sweep(t, 1.6, 2400, 5200, .07 * v, F, pv, 'highpass', .6); break;
         case 'tunnel': sweep(t, 2.2, 200, 700, .09 * v, F, pv, 'lowpass', .6); sub(t, 65, 60, 2.2, .05 * v, F); break;
         case 'owl': for (i = 0; i < 2; i++) { var oo = ctx.createOscillator(), og = ctx.createGain(), ot = t + i * .55; oo.frequency.setValueAtTime(i ? 330 : 390, ot); oo.frequency.linearRampToValueAtTime(i ? 300 : 360, ot + .4); shape(og, ot, .08, .06 * v, .2, .2); oo.connect(og); route(og, F, pv, .5); oo.start(ot); oo.stop(ot + .6); } break;
@@ -579,11 +674,11 @@
       setLives: function (n, max) { lives = n; maxLives = max || maxLives; },
       setBrake: function (b) { braking = !!b; },
       setDrive: function (slope, steer) { driveSlope = clamp(slope || 0, -1, 1); driveSteer = steer || 0; },
-      setScene: function (s) { scene = s || {}; },
+      setScene: function (s) { scene = s || {}; blendBeds(scene); },
       life: function (name, pv) { if (audible()) lifeSound(name, ctx.currentTime + .02, pv || 0, 1); },
       lifeNames: Object.keys(LIFE_LEVEL),
       event: event,
-      info: function () { return { ctx: !!ctx, state: ctx ? ctx.state : 'none', chapter: chapter, kit: Score.THEMES[chapter].lead, bed: bed ? bed.name : null, notes: made.notes, events: made.events, running: running, paused: paused, braking: braking, engine: eng ? eng.name : null, engineGain: eng ? eng.out.gain.value : null, engineMode: eng ? eng.mode : null, loops: Object.keys(loopRaw), prefs: prefs, scene: scene }; }
+      info: function () { return { ctx: !!ctx, state: ctx ? ctx.state : 'none', chapter: chapter, kit: Score.THEMES[chapter].lead, bed: bed ? bed.name : null, bed2: bed2 ? bed2.name : null, style: prefs.style, notes: made.notes, events: made.events, running: running, paused: paused, braking: braking, engine: eng ? eng.name : null, engineGain: eng ? eng.out.gain.value : null, engineMode: eng ? eng.mode : null, loops: Object.keys(loopRaw), prefs: prefs, scene: scene }; }
     };
   }
 
