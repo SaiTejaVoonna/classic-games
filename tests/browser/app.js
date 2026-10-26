@@ -129,6 +129,30 @@ const st = (p) => p.evaluate(() => window.racerDebug.state());
   ok('the Journey bar says which chapter and how much time is left', /Chapter \d+ of 10 .*(min left|a minute and a half left)/.test(await p.textContent('#trip-label')), await p.textContent('#trip-label'));
   ok('road tests have no errors', p.errs.length === 0, p.errs.join('|'));
 
+  // ---- handling and traffic behaviour
+  p = await mk(390, 760);
+  await p.goto(href('racer/index.html') + '?debug=1&seed=9');
+  await p.click('#play'); await sleep(150);
+  await p.evaluate(() => { const D = window.racerDebug; D.stopSpawning(); D.teleport(14000); D.setLane(-1); D.advance(1); });
+  const step = await p.evaluate(() => {
+    const D = window.racerDebug, out = []; document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true })); document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    for (let i = 0; i < 40; i++) { D.advance(.02); out.push(D.state().lane); } return out;
+  });
+  const t95 = step.findIndex((v) => v >= -1 + 2 * .95) * .02;
+  ok('a lane change takes about 0.28 s and does not overshoot on dry road', t95 > .2 && t95 < .36 && Math.max(...step) <= 1.001, `t95 ${t95}, max ${Math.max(...step)}`);
+  const sus = await p.evaluate(() => { const D = window.racerDebug; let mn = 9, mx = -9; for (let i = 0; i < 400; i++) { D.advance(.02); const y = D.state().susp; mn = Math.min(mn, y); mx = Math.max(mx, y); } return [mn, mx]; });
+  ok('the suspension bobs a little at speed and stays within a few pixels', sus[1] - sus[0] > .3 && sus[0] > -4 && sus[1] < 4, JSON.stringify(sus));
+  const lc = await p.evaluate(() => {
+    const D = window.racerDebug; D.teleport(3000); D.setLane(0); D.addCar(0, 170, 'sedan', true, 18); D.advance(.1);
+    let sawSignal = false, moved = false, both = true;
+    for (let i = 0; i < 300; i++) { D.advance(.02); const c = D.geo([9]).cars[0]; if (c.lc) sawSignal = true; if (Math.abs(c.laneF - c.lane) > .05) moved = true; if (c.lc && c.laneF === c.lane && c.lane === 0 && false) both = false; }
+    const c = D.geo([9]).cars[0]; return { sawSignal, moved, lane: c.lane, laneF: c.laneF };
+  });
+  ok('a car far ahead signals, changes lane smoothly, and ends in the new lane', lc.sawSignal && lc.moved && lc.lane !== 0 && lc.lane === lc.laneF, JSON.stringify(lc));
+  const hitSpin = await p.evaluate(() => { const D = window.racerDebug; D.teleport(3000); D.setLane(0); D.addCar(0, 14, 'sedan'); D.advance(.5); const c = D.geo([9]).cars.find((x) => x.knock); return !!c; });
+  ok('the car that was hit is knocked aside', hitSpin);
+  ok('handling tests have no errors', p.errs.length === 0, p.errs.join('|'));
+
   await browser.close();
   const bad = R.filter(r => !r.pass);
   R.forEach(r => { if (!r.pass) console.log('FAIL', r.name, r.extra || ''); });

@@ -107,6 +107,11 @@
   var speed = 0;
   var lane = 0; // continuous, lanes at -1, 0, 1
   var laneTarget = 0;
+  var laneV = 0;   // lane velocity (lanes per second): the lane change is a damped spring
+  var susp = { y: 0, v: 0 }; // suspension bob in CSS pixels
+  var pitch = 0;   // nose dip when braking
+  var carId = 0;
+  var BOXES = params.get('boxes') === '1'; // debug overlay of collision boxes
   var tAnim = 0;
   var traffic = [];
   var nextSpawn = 300;
@@ -220,7 +225,7 @@
 
   function reset(fromCheckpoint) {
     applyTrip();
-    keepOn = false; applyTrip(); dist = 0; speed = RAMP.v0; lane = 0; laneTarget = 0; traffic = []; nextSpawn = 300; combo = 0; comboTimer = 0;
+    keepOn = false; applyTrip(); dist = 0; speed = RAMP.v0; lane = 0; laneV = 0; susp = { y: 0, v: 0 }; pitch = 0; laneTarget = 0; traffic = []; nextSpawn = 300; combo = 0; comboTimer = 0;
     score = 0; shake = 0; particles = []; lastChapter = -1; nearTimer = 0; shieldT = 0; flashT = 0; lives = maxLives; nextStop = 0; collected = {};
     run = { near: 0, coins: 0, hits: 0 }; coinNote = 0; coinNoteT = 0; braking = false; paused = false; calmUntil = 0;
     if (fromCheckpoint) {
@@ -235,14 +240,14 @@
     var d = DIFFS[prefs.difficulty];
     var n = dist > d.twoFrom && rand() < d.twoChance ? 2 : 1;
     var busy = {}; var nb = 0;
-    traffic.forEach(function (c) { if (!c.knock && Math.abs(c.z - z) < 26 && !busy[c.lane]) { busy[c.lane] = 1; nb++; } });
+    traffic.forEach(function (c) { if (c.knock || Math.abs(c.z - z) >= 26) return; [c.lane, c.lc ? c.lc.to : c.lane].forEach(function (l) { if (!busy[l]) { busy[l] = 1; nb++; } }); });
     n = Math.min(n, 2 - nb); if (n <= 0) return false; // always leave one lane open
     var lanes = [-1, 0, 1].filter(function (l) { return !busy[l]; });
     for (var i = 0; i < n; i++) {
       var k = Math.floor(rand() * lanes.length);
       var ln = lanes.splice(k, 1)[0];
       var kind = CAR_KINDS[Math.floor(rand() * CAR_KINDS.length)];
-      traffic.push({ z: z + i * 6 * rand(), lane: ln, v: speed * (d.vMin + rand() * d.vVar), kind: kind, col: CAR_COLS[Math.floor(rand() * CAR_COLS.length)], passed: false, minGap: 9 });
+      traffic.push({ id: ++carId, z: z + i * 6 * rand(), lane: ln, laneF: ln, v: speed * (d.vMin + rand() * d.vVar), kind: kind, col: CAR_COLS[Math.floor(rand() * CAR_COLS.length)], passed: false, minGap: 9, canLc: rand() < clamp((dist / journeyLen() - .12) * .7, 0, .35), lc: null });
     }
     return true;
   }
@@ -308,7 +313,10 @@
     o = o || {};
     if (o.type && window.RacerCars) {
       var e = window.RacerCars.sprite(o.type, col, o.acc, o.brake, o.px);
-      if (e.ready) { drawSprite(e, x, by, w * (TYPE_W[o.type] || 1)); return; }
+      if (e.ready) {
+        if (o.rot) { g.save(); g.translate(x, by); g.rotate(o.rot); drawSprite(e, 0, 0, w * (TYPE_W[o.type] || 1)); g.restore(); } else drawSprite(e, x, by, w * (TYPE_W[o.type] || 1));
+        return;
+      }
     }
     var T = { hatch: { bh: .36, ch: .3, ct: .74, w: 1 }, sedan: { bh: .34, ch: .28, ct: .66, w: 1.02 }, suv: { bh: .42, ch: .34, ct: .78, w: 1.08 }, sport: { bh: .3, ch: .22, ct: .62, w: 1.06, sp: 1 }, taxi: { bh: .34, ch: .28, ct: .66, w: 1.02, roof: 1 }, van: { bh: .46, ch: .4, ct: .86, w: 1.1 }, truck: { box: 1, w: 1.15 } }[kind] || { bh: .36, ch: .3, ct: .74, w: 1 };
     var Wd = w * T.w;
@@ -692,11 +700,16 @@
         return;
       }
       if (it.car) {
-        var c = it.car; var x = cx + (xoAt(it.d) + (c.lane + (c.knock || 0) * (c.kx || 0)) / 1.7 - camX) * p * RH; var w = W * .255 * p * 1.7;
+        var c = it.car; var x = cx + (xoAt(it.d) + (c.laneF + (c.knock || 0) * (c.kx || 0)) / 1.7 - camX) * p * RH; var w = W * .255 * p * 1.7;
         if (S.night > .5) { glowDot(x, y, w * .7, '#ff2a4a'); }
         if (c.hurt > 0) { glowDot(x, y - w * .3, w * 1.1, Math.sin(tAnim * 40) > 0 ? '#ff3b3b' : '#ffb347'); g.globalAlpha = clamp(c.hurt * 1.6, .25, 1); }
-        carRear(x, y, w, c.col, c.kind, { type: TYPE_OF[c.kind], brake: false, tail: '#ff3a3a', under: S.night > .85 ? c.col : null });
+        carRear(x, y, w, c.col, c.kind, { type: TYPE_OF[c.kind], brake: false, rot: c.rot, tail: '#ff3a3a', under: S.night > .85 ? c.col : null });
         g.globalAlpha = 1;
+        if (!c.knock) {
+          var tw = w * (TYPE_W[TYPE_OF[c.kind]] || 1);
+          if (c.lc && c.lc.t < .8 && Math.sin(tAnim * 16) > 0) glowDot(x + Math.sign(c.lc.to - c.lc.from) * tw * .44, y - tw * .3, tw * .16, '#ffb000'); // indicator
+          if (Math.sin(tAnim * 1.3 + c.id * 5.1) > .93 || (c.lc && c.lc.t < 0)) { glowDot(x - tw * .3, y - tw * .32, tw * .17, '#ff2a3a'); glowDot(x + tw * .3, y - tw * .32, tw * .17, '#ff2a3a'); } // brake lights
+        }
         return;
       }
       var s = p * (W / 230) * 1.35; var x2 = cx + (xoAt(it.d) + it.lat - camX) * p * RH;
@@ -710,7 +723,7 @@
   // hills exactly like traffic does. Contact with traffic is tested at the same depth.
   function playerBox() { var r = rowAt(PD); return { x: r.ct + lane / 1.7 * r.hw, y: r.y, w: r.hw / 1.7 * .8 }; }
   function drawPlayer(S) {
-    var pb = playerBox(); var py = pb.y; var pw = pb.w; var tilt = clamp((laneTarget - lane) * .12, -.14, .14);
+    var pb = playerBox(); var py = pb.y + (susp.y - pitch * 2.5) * dpr; var pw = pb.w; var tilt = clamp(laneV * .035, -.15, .15);
     if (S.night > .5 || S.rain > .3) {
       var px = pb.x;
       g.save(); g.globalCompositeOperation = 'lighter'; g.translate(px, py - pw * .5); g.scale(1, 3.4);
@@ -780,6 +793,31 @@
     g.fillStyle = vg; g.fillRect(0, 0, W, H);
   }
 
+  // Thin streaks that fly outwards from the vanishing point, only at high speed and only near the edges.
+  function drawSpeedLines() {
+    var sn = clamp((speed - 28) / 14, 0, 1); if (sn <= 0 || mode !== 'run') return;
+    g.save(); g.globalCompositeOperation = 'lighter'; g.lineCap = 'round';
+    for (var i = 0; i < 16; i++) {
+      var side = i % 2 ? 1 : -1, a0 = (rnd(i, 31) * .5 + .08) * Math.PI, ph = (tAnim * (1.2 + rnd(i, 32)) + rnd(i, 33)) % 1;
+      var ang = side < 0 ? Math.PI - a0 * .6 : a0 * .6 - .12, r0 = (.25 + ph * .75) * W * .75, r1 = r0 + (.06 + ph * .22) * W;
+      g.strokeStyle = 'rgba(255,255,255,' + (.07 * sn * Math.sin(ph * Math.PI)) + ')'; g.lineWidth = (1 + ph * 1.6) * dpr;
+      g.beginPath(); g.moveTo(cx + Math.cos(ang) * r0, hy + Math.sin(ang) * r0 * .9); g.lineTo(cx + Math.cos(ang) * r1, hy + Math.sin(ang) * r1 * .9); g.stroke();
+    }
+    g.restore();
+  }
+  // Debug overlay (?debug=1&boxes=1): the boxes the game uses for contact, and a few numbers.
+  function drawBoxes() {
+    var pb = playerBox(), pw = pb.w * 1.06, ph = pb.w * .55;
+    g.save(); g.lineWidth = 2 * dpr; g.font = (11 * dpr) + 'px monospace'; g.fillStyle = '#fff';
+    g.strokeStyle = '#34e39c'; g.strokeRect(pb.x - pw / 2, pb.y - ph, pw, ph);
+    traffic.forEach(function (c) {
+      var d = c.z - dist; if (d < 1 || d > 200) return; var r = rowAt(d), w = r.hw / 1.7 * .82 * (TYPE_W[TYPE_OF[c.kind]] || 1), x = r.ct + (c.laneF) / 1.7 * r.hw, hot = d - PD < HIT_AHEAD && d - PD > -HIT_BEHIND;
+      g.strokeStyle = hot ? '#ff3b3b' : '#ffd166'; g.strokeRect(x - w / 2, r.y - w * .55, w, w * .55);
+      g.fillText('L' + c.laneF.toFixed(1) + ' d' + Math.round(d), x - w / 2, r.y - w * .6);
+    });
+    g.fillText('lane ' + lane.toFixed(2) + ' v ' + laneV.toFixed(2) + ' speed ' + (speed * 3.6).toFixed(0) + ' shield ' + shieldT.toFixed(1) + ' lives ' + lives, 8 * dpr, H - 8 * dpr);
+    g.restore();
+  }
   function drawParticles() {
     particles.forEach(function (p) {
       g.globalAlpha = clamp(p.life, 0, 1); g.fillStyle = p.c; g.beginPath(); g.arc(p.x, p.y, p.r * dpr, 0, TAU); g.fill();
@@ -789,7 +827,7 @@
 
   function render() {
     resize();
-    hy = H * .4 + Math.sin(tAnim * .9) * 1.2 * dpr; cx = W / 2; RH = W * .9; camX = lane / 1.7 * .75;
+    hy = H * .4 + Math.sin(tAnim * .9) * 1.2 * dpr; cx = W / 2; RH = W * (.9 + .035 * clamp((speed - 23) / 20, 0, 1)); camX = lane / 1.7 * .75; // the view widens a little with speed
     ES = H * .02; e0 = elev(dist);
     buildCurve();
     hyR = hy - (elev(dist + DRAW * .8) - e0) * pOf(DRAW * .8) * ES * .7;
@@ -797,7 +835,10 @@
     var S = sceneAt(dist);
     g.save();
     if (shake > 0) g.translate((Math.random() - .5) * shake * dpr, (Math.random() - .5) * shake * dpr);
-    drawSky(S); drawGround(S); drawRoad(S); drawWorld(S); drawPlayer(S); drawWeather(S); drawParticles();
+    var tremor = mode === 'run' ? clamp((speed - 30) / 12, 0, 1) * .5 : 0; // light shake at the top speeds
+    if (tremor > 0) g.translate(Math.sin(tAnim * 37) * tremor * dpr, Math.cos(tAnim * 29) * tremor * dpr);
+    drawSky(S); drawGround(S); drawRoad(S); drawWorld(S); drawPlayer(S); drawSpeedLines(); drawWeather(S); drawParticles();
+    if (BOXES) drawBoxes();
     g.restore();
     return S;
   }
@@ -915,6 +956,22 @@
   function burst(x, y, n, cols) {
     for (var i = 0; i < n; i++) { var a = Math.random() * TAU; var v = 40 + Math.random() * 220; particles.push({ x: x, y: y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 60, life: 1, r: 2 + Math.random() * 3, c: cols[i % cols.length] }); }
   }
+  // A few cars far ahead signal for a moment, then slide into the next lane if it is clear.
+  // While changing, a car counts as being in both lanes, so a lane is never left without a gap.
+  function stepLaneChange(c, dt, d) {
+    if (!c.lc && c.canLc && d > 150 && d < 230) {
+      c.canLc = false;
+      var others = {}, n = 0;
+      traffic.forEach(function (o) { if (o !== c && !o.knock && Math.abs(o.z - c.z) < 30) [o.lane, o.lc ? o.lc.to : o.lane].forEach(function (l) { if (!others[l]) { others[l] = 1; n++; } }); });
+      var opts = [-1, 1].map(function (dr) { return c.lane + dr; }).filter(function (l) { return l >= -1 && l <= 1 && !others[l] && (n + 1 <= 2); });
+      if (opts.length) c.lc = { from: c.lane, to: opts[Math.floor(rand() * opts.length)], t: -.9 };
+    }
+    if (c.lc) {
+      c.lc.t += dt;
+      if (c.lc.t >= 1.1) { c.lane = c.lc.to; c.laneF = c.lane; c.lc = null; }
+      else if (c.lc.t > 0) { var u = c.lc.t / 1.1; c.laneF = c.lc.from + (c.lc.to - c.lc.from) * u * u * (3 - 2 * u); }
+    }
+  }
   function step(dt) {
     if (paused) return;
     tAnim += dt;
@@ -925,7 +982,17 @@
     if (lightningT > 0) lightningT = Math.max(0, lightningT - dt);
     if (chTimer > 0) { chTimer -= dt; if (chTimer <= 0) elChapter.classList.remove('show'); }
     if (nearTimer > 0) { nearTimer -= dt; if (nearTimer <= 0) elNear.classList.remove('show'); }
-    lane += (laneTarget - lane) * Math.min(1, dt * 11);
+    // Lane change: a damped spring that settles in about 0.28 s on dry road. Rain and snow soften it
+    // (slower, with a little sway) so the road feels wet without changing how far a lane is.
+    var wet = lastScene ? clamp(lastScene.rain * .8 + lastScene.snow, 0, 1) : 0;
+    var om = 17 * (1 - .22 * wet), ze = 1 - .3 * wet, h2 = dt / 2;
+    for (var sub = 0; sub < 2; sub++) { laneV += (om * om * (laneTarget - lane) - 2 * ze * om * laneV) * h2; lane += laneV * h2; }
+    lane = clamp(lane, -1.1, 1.1);
+    // Suspension: a lightly damped spring pushed by road bumps and by the curvature of the hills.
+    var sn = clamp(speed / 42, 0, 1);
+    var bumpF = (rnd(Math.floor(dist / 2.2), 61) - .5) * 460 * sn, hillF = (elev(dist + 3) - 2 * elev(dist) + elev(dist - 3)) * 1500 * sn;
+    susp.v += (bumpF + hillF - 190 * susp.y - 8 * susp.v) * dt; susp.y = clamp(susp.y + susp.v * dt, -5, 5);
+    pitch += ((braking ? 1 : 0) - pitch) * Math.min(1, dt * 6);
     if (lastScene && lastScene.lightning > .5 && lightningT <= 0 && Math.random() < dt * .16) { lightningT = .4; au('event', 'thunder'); }
     if (mode === 'menu') { dist += 20 * dt; return; }
     if (mode !== 'run') return;
@@ -966,9 +1033,11 @@
       if (hd < 2.8 && hd > -2.8 && Math.abs(lane - hk.lane) < .75) { collected['h' + hn] = true; if (lives < maxLives) { lives++; au('event', 'heart'); } else { score += 25; au('event', 'coin', { i: 6 }); } }
     }
     for (var i = 0; i < traffic.length; i++) {
-      var c = traffic[i]; c.z += c.v * dt; var d = c.z - dist; var gap = Math.abs(lane - c.lane);
-      if (c.hurt > 0) c.hurt -= dt; if (c.knock) c.kx += dt * 2.4;
+      var c = traffic[i]; c.z += c.v * dt; var d = c.z - dist; var gap = Math.abs(lane - c.laneF);
+      if (c.hurt > 0) c.hurt -= dt; if (c.knock) { c.kx += dt * 2.4; c.rot = (c.rot || 0) + c.knock * dt * 2.6; }
       if (c.knock) continue;
+      stepLaneChange(c, dt, d);
+      gap = Math.abs(lane - c.laneF);
       if (Math.abs(d - PD) < 8) c.minGap = Math.min(c.minGap, gap);
       if (!c.whoosh && d < PD + 16 && d > PD) { c.whoosh = true; au('event', 'pass', { side: c.lane - lane, v: speed }); }
       if (d - PD < HIT_AHEAD && d - PD > -HIT_BEHIND && gap < .72 && shieldT <= 0) { bump(c); if (mode !== 'run') return; break; }
@@ -1092,16 +1161,16 @@
     window.racerDebug = {
       audio: function () { return A && A.info ? A.info() : null; },
       sprites: function () { return { total: spriteList.length, ready: spriteList.filter(function (e) { return e.ready; }).length }; },
-      geo: function (ds) { lastScene = render(); var pb = playerBox(); return { W: W, H: H, dpr: dpr, player: pb, rows: ds.map(function (d) { var r = rowAt(d); return { d: d, y: r.y, ct: r.ct, hw: r.hw }; }), cars: traffic.map(function (c) { var d = c.z - dist; var r = rowAt(Math.max(.5, d)); return { d: d, lane: c.lane, knock: c.knock || 0, kind: c.kind, y: r.y, x: r.ct + c.lane / 1.7 * r.hw, hw: r.hw }; }) }; },
-      state: function () { return { paused: paused, braking: braking, prefs: JSON.parse(JSON.stringify(prefs)), mode: mode, dist: dist, speed: speed, lane: lane, laneTarget: laneTarget, combo: combo, score: score, lives: lives, maxLives: maxLives, shield: shieldT, coins: run.coins, hits: run.hits, traffic: traffic.length, chapter: chapterAt(dist).i, chapterLen: chapterLen, tripMode: tripMode, nextStop: nextStop, checkpoint: getCheckpoint(), stats: JSON.parse(JSON.stringify(stats)) }; },
+      geo: function (ds) { lastScene = render(); var pb = playerBox(); return { W: W, H: H, dpr: dpr, player: pb, rows: ds.map(function (d) { var r = rowAt(d); return { d: d, y: r.y, ct: r.ct, hw: r.hw }; }), cars: traffic.map(function (c) { var d = c.z - dist; var r = rowAt(Math.max(.5, d)); return { d: d, lane: c.lane, laneF: c.laneF, lc: !!c.lc, knock: c.knock || 0, kind: c.kind, y: r.y, x: r.ct + c.lane / 1.7 * r.hw, hw: r.hw }; }) }; },
+      state: function () { return { susp: susp.y, laneV: laneV, pitch: pitch, paused: paused, braking: braking, prefs: JSON.parse(JSON.stringify(prefs)), mode: mode, dist: dist, speed: speed, lane: lane, laneTarget: laneTarget, combo: combo, score: score, lives: lives, maxLives: maxLives, shield: shieldT, coins: run.coins, hits: run.hits, traffic: traffic.length, chapter: chapterAt(dist).i, chapterLen: chapterLen, tripMode: tripMode, nextStop: nextStop, checkpoint: getCheckpoint(), stats: JSON.parse(JSON.stringify(stats)) }; },
       still: function (d, t, laneV, withTraffic) {
         mode = 'menu'; dist = d; tAnim = t; lane = laneV || 0; laneTarget = lane; speed = 70; traffic = [];
-        if (withTraffic !== false) [[55, -1], [120, 1], [190, 0]].forEach(function (a, i) { traffic.push({ z: d + a[0], lane: a[1], v: 0, kind: CAR_KINDS[(i * 3 + Math.floor(d / 300)) % CAR_KINDS.length], col: CAR_COLS[(i * 2 + Math.floor(d / 200)) % CAR_COLS.length], passed: false, minGap: 9 }); });
+        if (withTraffic !== false) [[55, -1], [120, 1], [190, 0]].forEach(function (a, i) { traffic.push({ id: ++carId, laneF: a[1], lc: null, z: d + a[0], lane: a[1], v: 0, kind: CAR_KINDS[(i * 3 + Math.floor(d / 300)) % CAR_KINDS.length], col: CAR_COLS[(i * 2 + Math.floor(d / 200)) % CAR_COLS.length], passed: false, minGap: 9 }); });
         $('ov').hidden = true; lastScene = render(); return lastScene;
       },
       start: start, pause: pauseGame, resume: resumeGame, elev: elev, backToMenu: backToMenu,
       teleport: function (d) { dist = d; nextSpawn = d + 300; nextStop = 0; while (nextStop < REST_STOPS.length && REST_STOPS[nextStop] * chapterLen <= d) nextStop++; lastChapter = chapterAt(d).i - 1; traffic = []; },
-      addCar: function (ln, ahead, kind) { traffic.push({ z: dist + ahead, lane: ln, v: 0, kind: kind || 'sedan', col: '#2563eb', passed: false, minGap: 9 }); },
+      addCar: function (ln, ahead, kind, canLc, v) { traffic.push({ id: ++carId, laneF: ln, lc: null, canLc: !!canLc, z: dist + ahead, lane: ln, v: v || 0, kind: kind || 'sedan', col: '#2563eb', passed: false, minGap: 9 }); },
       setLives: function (n) { lives = n; },
       setLane: function (l) { lane = laneTarget = l; },
       stopSpawning: function () { nextSpawn = 1e9; },
