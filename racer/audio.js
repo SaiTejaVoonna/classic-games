@@ -57,7 +57,7 @@
     var prefs = { music: true, sfx: true, style: 'auto', volMusic: 0.6, volFx: 0.7, bass: 0.5, calm: false, sound: true, haptics: true, car: 'rally' };
     var chapter = 0, intensity = 0.3, speed = 0, braking = false, running = false, paused = false;
     var timer = null, nextBar = 0, scene = {};
-    var stemBus = {}, duckNode = null, chBar = 0, chStart = 0, chapFrac = 0, restUntil = 0, lives = 3, maxLives = 3;
+    var nextLife = 0, duckedUntil = 0, stemBus = {}, duckNode = null, chBar = 0, chStart = 0, chapFrac = 0, restUntil = 0, lives = 3, maxLives = 3;
     var made = { notes: 0, events: 0 }, engineOverride = null;
 
     function audible() { return prefs.sound && !!ctx; }
@@ -122,7 +122,8 @@
 
     function degree(c, d) { var n = c.sc.length; return c.root + c.sc[((d % n) + n) % n] + 12 * Math.floor(d / n); }
     function rnd() { return Math.random(); }
-    function B(name) { return stemBus[name] || musicBus; }
+    var curFx = null; // while an effect is being built, 'fx' means its own trimmed bus
+    function B(name) { return name === 'fx' ? curFx || fxBus : stemBus[name] || musicBus; }
     function shape(g, t, a, peak, hold, rel) { // attack, hold, release gain shape
       g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(peak, t + a);
       g.gain.setValueAtTime(peak, t + a + hold); g.gain.exponentialRampToValueAtTime(0.0001, t + a + hold + rel);
@@ -214,7 +215,7 @@
       var s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain(); s.buffer = noiseBuf; s.loop = true; f.type = 'bandpass'; f.Q.value = .7; f.frequency.setValueAtTime(500, t); f.frequency.exponentialRampToValueAtTime(6500, t + dur);
       shape(g, t, dur * .92, v * .16, 0, dur * .12); s.connect(f); f.connect(g); route(g, B(bus), 0, .5); s.start(t); s.stop(t + dur * 1.1);
     }
-    function duck(depth, secs) { if (!ctx || !duckNode) return; var t = ctx.currentTime; duckNode.gain.cancelScheduledValues(t); duckNode.gain.setTargetAtTime(depth, t, .03); duckNode.gain.setTargetAtTime(1, t + secs, .18); }
+    function duck(depth, secs) { if (!ctx || !duckNode) return; var t = ctx.currentTime; duckedUntil = t + secs + 2.5; duckNode.gain.cancelScheduledValues(t); duckNode.gain.setTargetAtTime(depth, t, .03); duckNode.gain.setTargetAtTime(1, t + secs, .18); }
 
     // ---- the voice a theme uses for its lead and pulse. Style choices in the sound sheet override the lead.
     // Level trims from measuring each voice and layer alone, so every chapter sits at a similar loudness.
@@ -292,7 +293,9 @@
     }
     function TENSIONSAFE(c) { return Score.TENSION[clamp(c, 0, Score.TENSION.length - 1)]; }
     function pump() {
-      if (!ctx || !running || paused || !prefs.music || !prefs.sound) return;
+      if (!ctx || !running || paused) return;
+      lifeTick();
+      if (!prefs.music || !prefs.sound) return;
       var now = ctx.currentTime;
       if (nextBar < now) nextBar = now + 0.05;
       while (nextBar < now + 1.2) nextBar += scheduleBar(nextBar);
@@ -431,30 +434,102 @@
       o.setPeriodicWave(engineWave('i4')); o.frequency.setValueAtTime(f0 * 1.14, t); o.frequency.exponentialRampToValueAtTime(f0 * .86, t + .8);
       lp.type = 'lowpass'; lp.frequency.setValueAtTime(1500, t); lp.frequency.exponentialRampToValueAtTime(420, t + .8);
       g.gain.setValueAtTime(.0001, t); g.gain.linearRampToValueAtTime(.16 * (prefs.calm ? .6 : 1), t + .3); g.gain.exponentialRampToValueAtTime(.0001, t + .85);
-      o.connect(lp); lp.connect(g); route(g, fxBus, clamp(side * .6, -.85, .85), .08); o.start(t); o.stop(t + .9);
+      o.connect(lp); lp.connect(g); route(g, curFx || fxBus, clamp(side * .6, -.85, .85), .08); o.start(t); o.stop(t + .9);
     }
 
+    // ---- effects. Each one is built from layers (an attack, a body, a tail) with a little random variation,
+    // so repeated sounds do not sound identical. Nothing here uses recordings.
+    function pit(f, cents) { return f * Math.pow(2, ((rnd() - .5) * 2 * (cents || 10)) / 1200); }
+    function metalHit(t, f, v, bus, pv, wet) { // inharmonic partials: bells, glass, clanks
+      [[1, 1, 1.6], [2.76, .5, 1], [5.4, .3, .6], [8.9, .15, .35]].forEach(function (p) { var g = ctx.createGain(), o = ctx.createOscillator(); o.frequency.value = pit(f * p[0], 6); shape(g, t, .002, v * .3 * p[1], 0, p[2]); o.connect(g); route(g, bus, pv, wet); o.start(t); o.stop(t + p[2] + .1); made.notes++; });
+    }
+    function sub(t, f0, f1, dur, v, bus) { var o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur * .7); shape(g, t, .004, v, 0, dur); o.connect(g); route(g, bus, 0, .15); o.start(t); o.stop(t + dur + .1); }
+    function sweep(t, dur, f0, f1, v, bus, pv, type, q) { // filtered noise that moves: whooshes, risers, wind gusts
+      var s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain(); s.buffer = noiseBuf; f.type = type || 'bandpass'; f.Q.value = q || .8;
+      f.frequency.setValueAtTime(f0, t); f.frequency.exponentialRampToValueAtTime(f1, t + dur); shape(g, t, dur * .35, v, 0, dur * .65); s.connect(f); f.connect(g); route(g, bus, pv, .2); s.start(t); s.stop(t + dur + .05);
+    }
+    function rattle(t, n, span, v, bus) { for (var i = 0; i < n; i++) noise(t + rnd() * span, .02 + rnd() * .04, v * (.3 + rnd() * .7), bus, 'bandpass', 700 + rnd() * 3500, rnd() * 1.2 - .6); }
     function buzz(p) { if (prefs.haptics && prefs.sound && env.vibrate) { try { env.vibrate(p); } catch (e) { /* unsupported */ } } }
     function event(name, o) {
       o = o || {};
+      var now = ctx ? ctx.currentTime : 0;
+      if (name === 'rest') restUntil = now + 11; // the score eases back whether or not effects are on
       if (!audible() || !prefs.sfx) { if (name === 'bump' || name === 'crash') buzz(60); return; }
-      var t = ctx.currentTime + 0.01, c = CH[chapter], pv = clamp((o.side || 0) * 0.5, -0.8, 0.8);
+      var t = now + 0.01, c = CH[chapter], pv = clamp((o.side || 0) * 0.5, -0.8, 0.8), F = trimBus(EVENT_TRIM[name] || 1), k;
+      curFx = F;
       made.events++;
-      if (name === 'near') duck(.72, .35); else if (name === 'bump') duck(.45, .7); else if (name === 'crash') duck(.3, 1.4); else if (name === 'rest') restUntil = t + 11; else if (name === 'heart') duck(.8, .6);
+      if (name === 'near') duck(.72, .35); else if (name === 'bump') duck(.45, .7); else if (name === 'crash') duck(.3, 1.4); else if (name === 'heart') duck(.8, .6);
       switch (name) {
-        case 'lane': noise(t, 0.12, 0.12, fxBus, 'bandpass', 1400 + 600 * speedN(), (o.dir || 0) * 0.3); break;
-        case 'coin': { var d = (o.i || 0) % 7; tone('sine', mtof(degree(c, d) + 24), t, 0.35, 0.18, fxBus, 0, 0.4); tone('sine', mtof(degree(c, d) + 36), t + 0.05, 0.3, 0.1, fxBus, 0, 0.4); break; }
-        case 'heart': [0, 2, 4].forEach(function (k, i) { tone('triangle', mtof(degree(c, k) + 24), t + i * 0.09, 0.5, 0.16, fxBus, 0, 0.5); }); break;
-        case 'near': tone('sine', mtof(c.root + 24 + clamp(o.combo || 1, 1, 8) * 2), t, 0.25, 0.14, fxBus, 0, 0.3); noise(t, 0.2, 0.06, fxBus, 'highpass', 3000); buzz(10); break;
-        case 'pass': passBy(t, o.side || 0, o.v || speed); noise(t, 0.3, 0.07 * (0.4 + speedN()), fxBus, 'bandpass', 700, pv); break;
-        case 'bump': kick(t, 0.8, fxBus); noise(t, 0.25, 0.3, fxBus, 'lowpass', 900); tone('sine', 220, t, 0.4, 0.15, fxBus, 0, 0.4); buzz(80); break;
-        case 'crash': kick(t, 1, fxBus); noise(t, 0.7, 0.4, fxBus, 'lowpass', 1200); tone('sawtooth', 70, t, 1.2, 0.2, fxBus, 0, 0.6, 400); buzz([120, 60, 120]); break;
-        case 'chapter': [0, 2, 4, 7].forEach(function (k, i) { tone('sine', mtof(degree(c, k) + 12), t + i * 0.12, 1.4, 0.1, fxBus, (i - 1.5) * 0.3, 0.6); }); break;
-        case 'rest': [0, 4, 7].forEach(function (k, i) { tone('triangle', mtof(degree(c, k) + 12), t + i * 0.15, 1.6, 0.1, fxBus, 0, 0.6); }); break;
-        case 'thunder': noise(t, 1.8, 0.4, fxBus, 'lowpass', 220); tone('sine', 45, t, 1.6, 0.3, fxBus, 0, 0.7); break;
-        case 'finish': [0, 2, 4, 7, 9].forEach(function (k, i) { tone('sawtooth', mtof(degree(c, k) + 12), t + i * 0.2, 2.4, 0.08, fxBus, (i - 2) * 0.25, 0.7, 2400); }); kick(t, 0.7, fxBus); break;
+        case 'lane': sweep(t, .16, 900 + 500 * speedN(), 2400, .1, F, (o.dir || 0) * .35); sub(t, 90, 60, .08, .05, F); break;
+        case 'coin': { // click, a bell in the chapter's key stepping up a scale, and a sparkle
+          var d = (o.i || 0) % 7, m = degree(c, d) + 24;
+          noise(t, .012, .08, F, 'highpass', 4500, 0); bellNote(m, t, .5, .26, 'fx', 0, .35, 2.76, 1.2); bellNote(m + 12, t + .045, .4, .13, 'fx', .15, .45, 3.5, 1);
+          if (rnd() > .5) bellNote(m + 19, t + .09, .3, .06, 'fx', -.2, .5, 5.4, 1); break; }
+        case 'heart': // a warm rising chord, a chime and a soft double thump
+          [0, 2, 4, 7].forEach(function (s, i) { var f = mtof(degree(c, s) + 12), g = ctx.createGain(), q = ctx.createOscillator(); q.type = 'triangle'; q.frequency.value = f; shape(g, t + i * .07, .12, .13, .1, .7); q.connect(g); route(g, F, (i - 1.5) * .2, .5); q.start(t + i * .07); q.stop(t + i * .07 + 1.1); });
+          bellNote(degree(c, 7) + 24, t + .25, .9, .14, 'fx', 0, .6, 3.5, 1.4); sub(t, 80, 55, .22, .18, F); sub(t + .16, 80, 55, .22, .12, F); break;
+        case 'near': { // a rising whoosh, a bell that climbs with the combo, a sparkle and a low push
+          var cb = clamp(o.combo || 1, 1, 8);
+          sweep(t, .3, 500, 3400, .15, F, pv * .6); bellNote(c.root + 36 + cb * 2, t + .05, .45, .2, 'fx', 0, .35, 3.5, 1.4); noise(t + .08, .08, .05, F, 'highpass', 5200, 0); sub(t, 110, 70, .15, .08, F); buzz(10); break; }
+        case 'pass': passBy(t, o.side || 0, o.v || speed); sweep(t, .35, 400, 1500, .08 * (.4 + speedN()), F, pv); break;
+        case 'bump': // impact, body thump, a glass tinkle and a rattle
+          sub(t, 150, 40, .5, .55, F); noise(t, .28, .3, F, 'lowpass', 1100, 0); metalHit(t + .01, 1400 + rnd() * 400, .2, F, rnd() - .5, .25); rattle(t + .05, 6, .4, .12, F); sweep(t, .35, 2400, 500, .1, F, 0, 'bandpass'); buzz(80); break;
+        case 'crash': // a big boom, a roaring burst, scattered debris and a long tail
+          sub(t, 120, 28, 1.2, .8, F); sub(t + .02, 220, 60, .5, .4, F); sweep(t, .9, 3600, 160, .4, F, 0, 'lowpass', .6); noise(t, .35, .35, F, 'bandpass', 700, 0);
+          for (k = 0; k < 3; k++) metalHit(t + .02 + k * .07, 900 + rnd() * 1800, .16, F, rnd() * 1.4 - .7, .4); rattle(t + .1, 18, 1, .2, F); buzz([120, 60, 120]); break;
+        case 'chapter': [0, 2, 4, 7].forEach(function (s, i) { bellNote(degree(c, s) + 24, t + i * .12, 1.6, .12, 'fx', (i - 1.5) * .3, .7, 3.5, 1.6); }); sweep(t, .9, 400, 4200, .08, F, 0); break;
+        case 'rest': [0, 4, 7, 9].forEach(function (s, i) { bellNote(degree(c, s) + 12, t + i * .16, 2.2, .1, 'fx', (i - 1.5) * .25, .7, 1, 1.2); }); break;
+        case 'thunder': lifeSound('thunderfar', t, 0, 1.3); break;
+        case 'finish': // a fanfare: brass and choir on the tonic, bells climbing, a taiko hit
+          brassChord([degree(c, 0) - 12, degree(c, 4) - 12, degree(c, 0)], t, 3.2, .8, 'fx', .5, .5); choirChord([degree(c, 0) + 12, degree(c, 2) + 12, degree(c, 4) + 12], t + .1, 3, .8, 'fx', .7);
+          [0, 2, 4, 7, 9, 11].forEach(function (s, i) { bellNote(degree(c, s) + 24, t + .2 + i * .14, 1.8, .12, 'fx', (i - 2.5) * .25, .7, 3.5, 1.6); }); taiko(t, 1, 'fx'); sweep(t, 1.2, 300, 5000, .2, F, 0); break;
         default: break;
       }
+      curFx = null;
+    }
+
+    // Level trims from measuring each sound alone: life sounds sit quietly under everything, effects stand out.
+    var LIFE_TRIM = { songbirds: 3.5, balloon: 5, windmill: .4, windchimes: 1.4, butterflies: 1.8, flag: 4, crickets: 3.2, crow: 2.8, churchbell: 1, gulls: 1, bellbuoy: 1.4, boathorn: .4, siren: 1, cityhorns: 1, plane: 1.4, train: 4, thunderfar: .7, raingust: 1, thunderclose: .7, tunnel: 1.25, owl: 1, foghorn: .3, fireworks: 1 };
+    var EVENT_TRIM = { lane: 3.5, coin: 5.6, heart: 1.6, near: 4, pass: 1.8, bump: 4, crash: 2.8, chapter: 2.2, rest: 2, thunder: 1, finish: 1 };
+    function trimBus(trim) { var g = ctx.createGain(), w = ctx.createGain(); g.gain.value = w.gain.value = trim; g.connect(fxBus); w.connect(rvSend); g._wet = w; return g; }
+    // ---- life sounds: the small sounds of each place. Every chapter lists its own (see racer.js).
+    var LIFE_LEVEL = { songbirds: 1, balloon: 1, windmill: 1, windchimes: 1, butterflies: 1, flag: 1, crickets: 1, crow: 1, churchbell: 1, gulls: 1, bellbuoy: 1, boathorn: 1, siren: 1, cityhorns: 1, plane: 1, train: 1, thunderfar: 1, raingust: 1, thunderclose: 1, tunnel: 1, owl: 1, foghorn: 1, fireworks: 1 };
+    function lifeSound(name, t, pv, v) {
+      var F = trimBus(LIFE_TRIM[name] || 1), i, f, T = Score.THEMES[chapter];
+      v = (v == null ? 1 : v);
+      switch (name) {
+        case 'songbirds': for (i = 0; i < 3 + Math.floor(rnd() * 3); i++) { var bt = t + i * (.14 + rnd() * .1), bf = 2600 + rnd() * 1800, o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.setValueAtTime(bf, bt); o.frequency.exponentialRampToValueAtTime(bf * (1.3 + rnd() * .4), bt + .07); shape(g, bt, .006, .05 * v, 0, .08); o.connect(g); route(g, F, pv, .35); o.start(bt); o.stop(bt + .2); made.notes++; } break;
+        case 'balloon': for (i = 0; i < 3; i++) sweep(t + i * .38, .34, 500, 1100, .05 * v, F, pv, 'bandpass', 1.2); break;
+        case 'windmill': { var wo = ctx.createOscillator(), wl = ctx.createOscillator(), wg = ctx.createGain(), wf = ctx.createBiquadFilter(), wa = ctx.createGain(); wo.type = 'sawtooth'; wo.frequency.value = 58; wl.frequency.value = 1.3; wa.gain.value = .5; wl.connect(wa); wa.connect(wg.gain); wf.type = 'bandpass'; wf.frequency.value = 220; wf.Q.value = 2.2; shape(wg, t, .5, .03 * v, 2, .6); wo.connect(wf); wf.connect(wg); route(wg, F, pv, .2); wo.start(t); wl.start(t); wo.stop(t + 3.8); wl.stop(t + 3.8); break; }
+        case 'windchimes': for (i = 0; i < 4 + Math.floor(rnd() * 4); i++) metalHit(t + i * (.2 + rnd() * .35), mtof(Score.midi(T, 14 + [0, 2, 4, 5, 7][Math.floor(rnd() * 5)])), .1 * v, F, pv + (rnd() - .5) * .4, .6); break;
+        case 'butterflies': noise(t, .9, .04 * v, F, 'highpass', 5200, pv); sweep(t, .8, 3000, 6000, .015 * v, F, pv, 'bandpass', 3); break;
+        case 'flag': for (i = 0; i < 6; i++) noise(t + i * (.1 + rnd() * .05), .07, .06 * v, F, 'bandpass', 1300 + rnd() * 600, pv); break;
+        case 'crickets': for (i = 0; i < 6; i++) for (var cc = 0; cc < 3; cc++) { var co = ctx.createOscillator(), cg = ctx.createGain(), ct = t + i * .42 + cc * .045; co.frequency.value = 4200 + i * 40; shape(cg, ct, .004, .018 * v, 0, .03); co.connect(cg); route(cg, F, pv, .1); co.start(ct); co.stop(ct + .06); } break;
+        case 'crow': for (i = 0; i < 2; i++) { var kt = t + i * .42, ko = ctx.createOscillator(), kf = ctx.createBiquadFilter(), kg = ctx.createGain(); ko.type = 'sawtooth'; ko.frequency.setValueAtTime(720, kt); ko.frequency.exponentialRampToValueAtTime(430, kt + .26); kf.type = 'bandpass'; kf.frequency.value = 850; kf.Q.value = 3; shape(kg, kt, .02, .1 * v, .1, .14); ko.connect(kf); kf.connect(kg); route(kg, F, pv, .3); ko.start(kt); ko.stop(kt + .35); made.notes++; } break;
+        case 'churchbell': for (i = 0; i < 3; i++) metalHit(t + i * 1.5, 196, .3 * v, F, pv, .7); break;
+        case 'gulls': for (i = 0; i < 2 + Math.floor(rnd() * 2); i++) { var gt = t + i * (.5 + rnd() * .3), go = ctx.createOscillator(), gg = ctx.createGain(); go.frequency.setValueAtTime(1300, gt); go.frequency.linearRampToValueAtTime(2300, gt + .18); go.frequency.linearRampToValueAtTime(1500, gt + .45); shape(gg, gt, .03, .06 * v, .15, .22); go.connect(gg); route(gg, F, pv, .35); go.start(gt); go.stop(gt + .6); noise(gt, .4, .012 * v, F, 'bandpass', 2200, pv); } break;
+        case 'bellbuoy': for (i = 0; i < 2; i++) { metalHit(t + i * 1.1, 330, .22 * v, F, pv, .5); noise(t + i * 1.1, .03, .05 * v, F, 'bandpass', 1500, pv); } break;
+        case 'boathorn': case 'foghorn': { var low = name === 'foghorn', hf = low ? 98 : 150, ho = ctx.createOscillator(), h2 = ctx.createOscillator(), hl = ctx.createBiquadFilter(), hg = ctx.createGain(); ho.type = 'sawtooth'; h2.type = 'square'; ho.frequency.value = hf; h2.frequency.value = hf / 2; hl.type = 'lowpass'; hl.frequency.value = low ? 320 : 520; shape(hg, t, .35, .13 * v, low ? 1.6 : .8, .7); ho.connect(hl); h2.connect(hl); hl.connect(hg); route(hg, F, pv, .5); ho.start(t); h2.start(t); ho.stop(t + 3.2); h2.stop(t + 3.2); break; }
+        case 'siren': for (i = 0; i < 6; i++) { var so = ctx.createOscillator(), sg = ctx.createGain(), st = t + i * .42; so.type = 'triangle'; so.frequency.value = i % 2 ? 930 : 700; shape(sg, st, .02, .035 * v, .36, .02); var spf = ctx.createBiquadFilter(); spf.type = 'lowpass'; spf.frequency.value = 1800; so.connect(spf); spf.connect(sg); route(sg, F, pv + (i - 3) * .06, .3); so.start(st); so.stop(st + .45); } break;
+        case 'cityhorns': for (i = 0; i < 2; i++) { var hh = ctx.createGain(), hlp = ctx.createBiquadFilter(); hlp.type = 'lowpass'; hlp.frequency.value = 1100; shape(hh, t + i * .38, .01, .04 * v, .16, .05); hlp.connect(hh); route(hh, F, pv, .3); [400, 503].forEach(function (fr) { var ho2 = ctx.createOscillator(); ho2.type = 'square'; ho2.frequency.value = fr; ho2.connect(hlp); ho2.start(t + i * .38); ho2.stop(t + i * .38 + .3); }); } break;
+        case 'plane': sweep(t, 5, 250, 800, .09 * v, F, pv, 'bandpass', .6); sub(t, 70, 60, 4, .03 * v, F); break;
+        case 'train': for (i = 0; i < 26; i++) { noise(t + i * .15, .04, .05 * v, F, 'lowpass', 900, pv); if (i % 2) noise(t + i * .15 + .06, .03, .03 * v, F, 'bandpass', 1500, pv); } break;
+        case 'thunderfar': sweep(t, 3.6, 120, 60, .3 * v, F, pv, 'lowpass', .5); sub(t + .3, 48, 32, 2.8, .12 * v, F); break;
+        case 'thunderclose': noise(t, .05, .4 * v, F, 'highpass', 600, pv); sweep(t + .02, 2.8, 400, 70, .45 * v, F, pv, 'lowpass', .5); sub(t, 60, 30, 2.2, .35 * v, F); duck(.6, 1.2); break;
+        case 'raingust': sweep(t, 1.6, 2400, 5200, .07 * v, F, pv, 'highpass', .6); break;
+        case 'tunnel': sweep(t, 2.2, 200, 700, .09 * v, F, pv, 'lowpass', .6); sub(t, 65, 60, 2.2, .05 * v, F); break;
+        case 'owl': for (i = 0; i < 2; i++) { var oo = ctx.createOscillator(), og = ctx.createGain(), ot = t + i * .55; oo.frequency.setValueAtTime(i ? 330 : 390, ot); oo.frequency.linearRampToValueAtTime(i ? 300 : 360, ot + .4); shape(og, ot, .08, .06 * v, .2, .2); oo.connect(og); route(og, F, pv, .5); oo.start(ot); oo.stop(ot + .6); } break;
+        case 'fireworks': { var fo = ctx.createOscillator(), fg = ctx.createGain(); fo.frequency.setValueAtTime(700, t); fo.frequency.exponentialRampToValueAtTime(3200, t + .9); shape(fg, t, .05, .035 * v, .7, .1); fo.connect(fg); route(fg, F, pv, .3); fo.start(t); fo.stop(t + 1.1); noise(t + .9, .2, .12 * v, F, 'bandpass', 900, pv); sub(t + .9, 110, 50, .35, .1 * v, F); for (i = 0; i < 12; i++) noise(t + 1 + rnd() * .9, .02, .05 * v, F, 'highpass', 4000 + rnd() * 3000, pv + (rnd() - .5) * .3); break; }
+        default: break;
+      }
+    }
+    // Every few seconds one of the current chapter's life sounds plays somewhere in the stereo field.
+    function lifeTick() {
+      if (!prefs.sfx || !prefs.sound || !scene.life || !scene.life.length) return;
+      var now = ctx.currentTime; if (now < nextLife) return;
+      nextLife = now + 6 + rnd() * 8;
+      if (now < duckedUntil) return; // keep clear of big moments
+      lifeSound(scene.life[Math.floor(rnd() * scene.life.length)], now + .05, rnd() * 1.6 - .8, .7 + rnd() * .5);
     }
 
     requestLoops(engineName());
@@ -494,6 +569,8 @@
       setLives: function (n, max) { lives = n; maxLives = max || maxLives; },
       setBrake: function (b) { braking = !!b; },
       setScene: function (s) { scene = s || {}; },
+      life: function (name, pv) { if (audible()) lifeSound(name, ctx.currentTime + .02, pv || 0, 1); },
+      lifeNames: Object.keys(LIFE_LEVEL),
       event: event,
       info: function () { return { ctx: !!ctx, state: ctx ? ctx.state : 'none', chapter: chapter, kit: Score.THEMES[chapter].lead, bed: bed ? bed.name : null, notes: made.notes, events: made.events, running: running, paused: paused, braking: braking, engine: eng ? eng.name : null, engineMode: eng ? eng.mode : null, loops: Object.keys(loopRaw), prefs: prefs, scene: scene }; }
     };
