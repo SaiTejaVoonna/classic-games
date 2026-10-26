@@ -6,6 +6,7 @@
   <title>Racer | Classic Games</title>
   <meta name="description" content="Racer, an early playable prototype of a Classic Games road game.">
   <link rel="stylesheet" href="racer.css">
+  <script src="cars.js" defer></script>
   <script src="audio.js" defer></script>
   <script src="racer.js" defer></script>
 </head>
@@ -33,6 +34,7 @@
         <div class="opt" data-opt="difficulty" role="group" aria-label="Difficulty"><span>Level</span><button type="button" data-val="easy">Easy &#9829;&#9829;&#9829;</button><button type="button" data-val="normal">Normal &#9829;&#9829;</button><button type="button" data-val="hard">Hard &#9829;</button></div>
         <div class="opt" data-opt="speed" role="group" aria-label="Speed"><span>Speed</span><button type="button" data-val="relaxed">Relaxed</button><button type="button" data-val="normal">Normal</button><button type="button" data-val="fast">Fast</button></div>
         <div class="opt" data-opt="length" id="opt-length" role="group" aria-label="Journey length"><span>Length</span><button type="button" data-val="demo">Short, 3 min</button><button type="button" data-val="full">Full, 11 min</button></div>
+        <div class="opt carsel" data-opt="car" role="group" aria-label="Your car"><span>Car</span><button type="button" data-val="rally"><img alt="" id="car-img-rally"><b>Rally</b></button><button type="button" data-val="sedan"><img alt="" id="car-img-sedan"><b>Sedan</b></button><button type="button" data-val="ev"><img alt="" id="car-img-ev"><b>Electric</b></button><button type="button" disabled class="soon"><img alt="" id="car-img-f1"><b>Formula, later</b></button></div>
         <p class="best" id="best-line"></p>
       </div>
       <button class="big" id="play" type="button">Play</button>

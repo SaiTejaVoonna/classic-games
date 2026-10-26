@@ -27,3 +27,22 @@ test('engine revs climb within a gear, drop on an upshift and idle when stopped'
   }
   assert.strictEqual(drops, 5);
 });
+
+const { ENGINES, CAR_ENGINE } = require('../racer/audio.js');
+test('every player car has an engine and each engine model stays inside its rev range', () => {
+  ['rally', 'sedan', 'ev'].forEach((c) => assert.ok(ENGINES[CAR_ENGINE[c]], c));
+  Object.keys(ENGINES).forEach((name) => {
+    const P = ENGINES[name]; let last = engineModel(0, P), shifts = 0;
+    assert.strictEqual(Math.round(last.rpm), P.idle, name);
+    for (let k = 1; k <= 300; k++) {
+      const m = engineModel(k, P);
+      if (P.ev) assert.ok(m.rpm >= last.rpm, name + ' whine rises with speed');
+      else {
+        assert.ok(m.rpm <= P.hi + 1 && m.rpm >= P.idle - 1, name + ' revs in range at ' + k);
+        if (m.gear > last.gear) { shifts++; assert.ok(m.rpm < last.rpm, name + ' upshift drops revs'); }
+      }
+      last = m;
+    }
+    assert.strictEqual(shifts, P.ev ? 0 : 5, name);
+  });
+});

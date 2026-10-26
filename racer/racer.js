@@ -131,7 +131,15 @@
   var run = { near: 0, coins: 0, hits: 0 };
 
   var CAR_KINDS = ['hatch', 'sedan', 'suv', 'sport', 'van', 'taxi', 'truck'];
-  var CAR_COLS = ['#e11d48', '#2563eb', '#f59e0b', '#7c3aed', '#10b981', '#06b6d4', '#f97316', '#ef4444', '#ec4899'];
+  var CAR_COLS = ['#e11d48', '#2563eb', '#f59e0b', '#7c3aed', '#10b981', '#06b6d4']; // few colours: each one is a prerendered sprite
+  var TYPE_OF = { hatch: 'ev', sedan: 'sedan', suv: 'cross', sport: 'sedan', van: 'pod', taxi: 'pickup', truck: 'truck' };
+  // width of each vehicle relative to the base traffic width (about 82% of a lane)
+  var TYPE_W = { truck: 1.18, pod: 1.1, cross: 1.05, ev: 1.02, pickup: 1.05, sedan: 1.05, rally: 1.07 };
+  var PLAYER_CARS = {
+    rally: { name: 'Rally', col: '#1b3fbf', acc: '#ffd34a' },
+    sedan: { name: 'Sport sedan', col: '#c9d3e6', acc: '#47e8ff' },
+    ev: { name: 'Electric', col: '#1fb89a', acc: '#7dffc0' }
+  };
   var seedN = 1;
   function rand() { seedN = (seedN * 16807) % 2147483647; return (seedN - 1) / 2147483646; }
 
@@ -154,7 +162,7 @@
   function writeJson(key, v) { try { window.localStorage.setItem(key, JSON.stringify(v)); } catch (e) { /* storage unavailable: fine */ } }
   function has(o, k) { return Object.prototype.hasOwnProperty.call(o, k); }
 
-  var prefs = { mode: 'journey', difficulty: 'easy', speed: 'relaxed', length: 'demo', music: 'on', sfx: 'on', style: 'auto', volMusic: 60, volFx: 70, bass: 50, calm: 'off' };
+  var prefs = { mode: 'journey', difficulty: 'easy', speed: 'relaxed', length: 'demo', music: 'on', sfx: 'on', style: 'auto', volMusic: 60, volFx: 70, bass: 50, calm: 'off', car: 'rally' };
   (function loadPrefs() {
     var s = readJson(PREFS_KEY); if (!s || typeof s !== 'object') return;
     if (s.mode === 'journey' || s.mode === 'endless') prefs.mode = s.mode;
@@ -165,6 +173,7 @@
     if (s.sfx === 'on' || s.sfx === 'off') prefs.sfx = s.sfx;
     if (STYLES.indexOf(s.style) >= 0) prefs.style = s.style;
     if (s.calm === 'on' || s.calm === 'off') prefs.calm = s.calm;
+    if (has(PLAYER_CARS, s.car)) prefs.car = s.car;
     ['volMusic', 'volFx', 'bass'].forEach(function (k) { if (typeof s[k] === 'number' && s[k] >= 0 && s[k] <= 100) prefs[k] = Math.round(s[k]); });
   })();
   function savePrefs() { writeJson(PREFS_KEY, prefs); }
@@ -276,8 +285,16 @@
   function sx(d, lat) { var p = pOf(d); return cx + (xoAt(d) + lat - camX) * p * RH; }
 
   // ---------- sprites ----------
+  function drawSprite(e, x, by, Wd) {
+    var s = Wd / 100, b = e.box;
+    g.drawImage(e.canvas, x + b[0] * s, by + b[1] * s, b[2] * s, b[3] * s);
+  }
   function carRear(x, by, w, col, kind, o) {
     o = o || {};
+    if (o.type && window.RacerCars) {
+      var e = window.RacerCars.sprite(o.type, col, o.acc, o.brake, o.px);
+      if (e.ready) { drawSprite(e, x, by, w * (TYPE_W[o.type] || 1)); return; }
+    }
     var T = { hatch: { bh: .36, ch: .3, ct: .74, w: 1 }, sedan: { bh: .34, ch: .28, ct: .66, w: 1.02 }, suv: { bh: .42, ch: .34, ct: .78, w: 1.08 }, sport: { bh: .3, ch: .22, ct: .62, w: 1.06, sp: 1 }, taxi: { bh: .34, ch: .28, ct: .66, w: 1.02, roof: 1 }, van: { bh: .46, ch: .4, ct: .86, w: 1.1 }, truck: { box: 1, w: 1.15 } }[kind] || { bh: .36, ch: .3, ct: .74, w: 1 };
     var Wd = w * T.w;
     g.save();
@@ -663,7 +680,7 @@
         var c = it.car; var x = cx + (xoAt(it.d) + (c.lane + (c.knock || 0) * (c.kx || 0)) / 1.7 - camX) * p * RH; var w = W * .255 * p * 1.7;
         if (S.night > .5) { glowDot(x, y, w * .7, '#ff2a4a'); }
         if (c.hurt > 0) { glowDot(x, y - w * .3, w * 1.1, Math.sin(tAnim * 40) > 0 ? '#ff3b3b' : '#ffb347'); g.globalAlpha = clamp(c.hurt * 1.6, .25, 1); }
-        carRear(x, y, w, c.col, c.kind, { brake: false, tail: '#ff3a3a', under: S.night > .85 ? c.col : null });
+        carRear(x, y, w, c.col, c.kind, { type: TYPE_OF[c.kind], brake: false, tail: '#ff3a3a', under: S.night > .85 ? c.col : null });
         g.globalAlpha = 1;
         return;
       }
@@ -687,7 +704,8 @@
     }
     var x = pb.x;
     g.save(); g.translate(x, py); g.rotate(tilt);
-    carRear(0, 0, pw, '#eef1f8', 'sport', { under: S.night > .6 ? '#35e6ff' : null, tail: '#ff3355', brake: false });
+    var pc = PLAYER_CARS[prefs.car];
+    carRear(0, 0, pw, pc.col, 'sport', { type: prefs.car, acc: pc.acc, px: 420, brake: braking, under: S.night > .6 ? '#35e6ff' : null, tail: '#ff3355' });
     g.restore();
     if (shieldT > 0) {
       var sa = shieldT < .8 ? (Math.sin(tAnim * 30) > 0 ? .5 : .15) : .45;
@@ -779,7 +797,7 @@
   function audioPrefs() {
     au('setPrefs', {
       music: prefs.music === 'on', sfx: prefs.sfx === 'on', style: prefs.style, volMusic: prefs.volMusic / 100, volFx: prefs.volFx / 100, bass: prefs.bass / 100,
-      calm: prefs.calm === 'on', sound: appChoice('sound') === 'on', haptics: appChoice('haptics') === 'on'
+      calm: prefs.calm === 'on', car: prefs.car, sound: appChoice('sound') === 'on', haptics: appChoice('haptics') === 'on'
     });
   }
   audioPrefs();
@@ -1033,11 +1051,25 @@
   window.addEventListener('resize', render);
   window.addEventListener('storage', function () { audioPrefs(); });
 
+  // ---------- vehicle sprites ----------
+  var spriteList = [];
+  (function initCars() {
+    var RC = window.RacerCars; if (!RC) return;
+    Object.keys(PLAYER_CARS).forEach(function (id) {
+      var pc = PLAYER_CARS[id]; $('car-img-' + id).src = RC.thumb(id, pc.col, pc.acc);
+      spriteList.push(RC.sprite(id, pc.col, pc.acc, false, 420), RC.sprite(id, pc.col, pc.acc, true, 420));
+    });
+    $('car-img-f1').src = RC.thumb('f1', '#d9262c', '#ffd34a');
+    var seen = {}; CAR_KINDS.forEach(function (k) { seen[TYPE_OF[k]] = 1; });
+    Object.keys(seen).forEach(function (t) { CAR_COLS.forEach(function (c) { spriteList.push(RC.sprite(t, c, null, false, 320)); }); });
+  })();
+
   // ---------- init ----------
   applyTrip(); reset(null); showOverlay('menu', { title: 'Racer', sub: 'Swipe left or right to change lane. Pass close to traffic for combos.' }); renderOpts(); hud();
   if (DEBUG) {
     // test and gallery hook: draw a still frame at a distance with demo traffic, and drive the game
     window.racerDebug = {
+      sprites: function () { return { total: spriteList.length, ready: spriteList.filter(function (e) { return e.ready; }).length }; },
       geo: function (ds) { lastScene = render(); var pb = playerBox(); return { W: W, H: H, dpr: dpr, player: pb, rows: ds.map(function (d) { var r = rowAt(d); return { d: d, y: r.y, ct: r.ct, hw: r.hw }; }), cars: traffic.map(function (c) { var d = c.z - dist; var r = rowAt(Math.max(.5, d)); return { d: d, lane: c.lane, knock: c.knock || 0, kind: c.kind, y: r.y, x: r.ct + c.lane / 1.7 * r.hw, hw: r.hw }; }) }; },
       state: function () { return { paused: paused, braking: braking, prefs: JSON.parse(JSON.stringify(prefs)), mode: mode, dist: dist, speed: speed, lane: lane, laneTarget: laneTarget, combo: combo, score: score, lives: lives, maxLives: maxLives, shield: shieldT, coins: run.coins, hits: run.hits, traffic: traffic.length, chapter: chapterAt(dist).i, chapterLen: chapterLen, tripMode: tripMode, nextStop: nextStop, checkpoint: getCheckpoint(), stats: JSON.parse(JSON.stringify(stats)) }; },
       still: function (d, t, laneV, withTraffic) {

@@ -19,15 +19,32 @@
   var STYLE_KIT = { cinematic: 'cinematic', piano: 'piano', electronic: 'electro', acoustic: 'acoustic' };
   var PROG = [0, 3, 4, 2];
 
-  // Engine model: a 4-cylinder with an automatic gearbox. Each gear covers a band of road speed
-  // and revs sweep from 2600 to 5800 rpm across it, so the engine climbs, drops on a shift and
-  // climbs again. Below the first band the engine idles up from 900 rpm.
-  var BANDS = [0, 40, 70, 100, 130, 165, 400]; // km/h
-  function engineModel(kmh) {
-    var g = 0; while (g < BANDS.length - 2 && kmh >= BANDS[g + 1]) g++;
-    var lo = BANDS[g], hi = BANDS[g + 1], f = clamp((kmh - lo) / (hi - lo), 0, 1);
-    var rpm = g === 0 ? 900 + 4900 * f : 2600 + 3200 * f;
-    return { gear: g + 1, rpm: rpm };
+  // Engine models. Each profile is a firing-order spectrum (which engine orders are loud), a rev
+  // range and a gearbox: gear n covers road speeds bands[n]..bands[n+1] km/h and revs sweep from lo
+  // to hi across it (the first gear from idle), so revs climb, drop on a shift and climb again.
+  // dom is the number of firing events per crank turn (a V8 fires 4, a V10 fires 5, and so on).
+  function spec(dom, off, pw, extra, n) {
+    var im = new Float32Array(n || 48);
+    for (var k = 1; k < im.length; k++) im[k] = k % dom === 0 ? 1 / Math.pow(k / dom, pw) : off / Math.pow(k, 1.1);
+    for (var e in extra) im[+e] = extra[e];
+    return im;
+  }
+  var ENGINES = {
+    i4: { im: spec(2, .32, .72), bands: [0, 40, 70, 100, 130, 165, 400], idle: 900, lo: 2600, hi: 5800, drive: 2.4, lpB: 380, lpK: .5, lpL: 900, sub: .5, am: .1, body: .22, intake: .035, whine: .004 },
+    v8: { im: spec(4, .38, .7, { 1: .3, 2: .55 }), bands: [0, 50, 85, 120, 155, 195, 400], idle: 800, lo: 2200, hi: 6600, drive: 3.2, lpB: 300, lpK: .4, lpL: 800, sub: .7, am: .15, body: .27, intake: .03, whine: 0, pops: .5 },
+    rally: { im: spec(2, .55, .8, { 1: .6 }), bands: [0, 35, 62, 90, 120, 155, 400], idle: 1000, lo: 3200, hi: 7400, drive: 2.8, lpB: 500, lpK: .42, lpL: 800, sub: .35, am: .13, body: .22, intake: .04, whine: 0, turbo: true, pops: 1 },
+    v10: { im: spec(5, .12, .6, { 1: .18 }), bands: [0, 55, 95, 135, 175, 215, 400], idle: 1000, lo: 4200, hi: 9000, drive: 2.2, lpB: 500, lpK: .5, lpL: 900, sub: .3, am: .05, body: .22, intake: .03, whine: 0 },
+    v12: { im: spec(6, .08, .55), bands: [0, 55, 95, 135, 175, 215, 400], idle: 900, lo: 3600, hi: 8500, drive: 1.8, lpB: 450, lpK: .55, lpL: 800, sub: .25, am: .03, body: .22, intake: .025, whine: 0 },
+    f1: { im: spec(3, .1, .45, null, 60), bands: [0, 60, 100, 140, 180, 230, 400], idle: 4000, lo: 9500, hi: 14500, drive: 1.6, lpB: 900, lpK: .7, lpL: 1200, sub: 0, am: .02, body: .2, intake: .02, whine: 0 },
+    ev: { im: spec(8, .04, 1.1), ev: true, idle: 600, perKmh: 40, drive: 1.1, lpB: 2500, lpK: .3, lpL: 1500, sub: 0, am: 0, body: .14, intake: 0, whine: 0 }
+  };
+  var CAR_ENGINE = { sedan: 'v8', rally: 'rally', ev: 'ev' };
+  function engineModel(kmh, prof) {
+    prof = prof || ENGINES.i4;
+    if (prof.ev) return { gear: 1, rpm: prof.idle + kmh * prof.perKmh };
+    var B = prof.bands, g = 0; while (g < B.length - 2 && kmh >= B[g + 1]) g++;
+    var f = clamp((kmh - B[g]) / (B[g + 1] - B[g]), 0, 1);
+    return { gear: g + 1, rpm: g === 0 ? prof.idle + (prof.hi - prof.idle) * f : prof.lo + (prof.hi - prof.lo) * f };
   }
 
   function mtof(m) { return 440 * Math.pow(2, (m - 69) / 12); }
@@ -38,10 +55,10 @@
     var Ctor = env.AudioContext;
     var ctx = null, master = null, musicBus = null, fxBus = null, comp = null, reverb = null, rvSend = null;
     var noiseBuf = null, bed = null, eng = null;
-    var prefs = { music: true, sfx: true, style: 'auto', volMusic: 0.6, volFx: 0.7, bass: 0.5, calm: false, sound: true, haptics: true };
+    var prefs = { music: true, sfx: true, style: 'auto', volMusic: 0.6, volFx: 0.7, bass: 0.5, calm: false, sound: true, haptics: true, car: 'rally' };
     var chapter = 0, intensity = 0.3, speed = 0, braking = false, running = false, paused = false;
     var timer = null, nextBar = 0, barIdx = 0, scene = {};
-    var made = { notes: 0, events: 0 };
+    var made = { notes: 0, events: 0 }, engineOverride = null;
 
     function audible() { return prefs.sound && !!ctx; }
     function speedN() { return clamp(speed / 70, 0, 1); }
@@ -151,32 +168,30 @@
       applyVolumes();
     }
     function stopBed() { if (bed) { try { bed.src.stop(); bed.lfo.stop(); } catch (e) { /* already stopped */ } bed = null; } }
-    var engWave = null;
-    function engineWave() {
-      if (engWave) return engWave;
-      var n = 28, re = new Float32Array(n), im = new Float32Array(n);
-      // engine orders: a 4-cylinder is dominated by orders 2, 4 and 6, with a little of the rest
-      for (var k = 1; k < n; k++) im[k] = (k % 2 === 0 ? 1 : .32) / Math.pow(k, k % 2 === 0 ? .72 : 1.1);
-      engWave = ctx.createPeriodicWave(re, im);
-      return engWave;
+    var waves = {};
+    function engineWave(name) {
+      if (waves[name]) return waves[name];
+      var im = ENGINES[name].im, re = new Float32Array(im.length);
+      waves[name] = ctx.createPeriodicWave(re, im);
+      return waves[name];
     }
+    function engineName() { return engineOverride || CAR_ENGINE[prefs.car] || 'i4'; }
     function startEngine() {
       if (!ctx || eng) return;
-      var t0 = ctx.currentTime;
+      var name = engineName(), P = ENGINES[name], t0 = ctx.currentTime;
       var o1 = ctx.createOscillator(), o2 = ctx.createOscillator(), sub = ctx.createOscillator();
-      o1.setPeriodicWave(engineWave()); o2.setPeriodicWave(engineWave()); o2.detune.value = 7; sub.type = 'sine';
+      o1.setPeriodicWave(engineWave(name)); o2.setPeriodicWave(engineWave(name)); o2.detune.value = P.ev ? 3 : 7; sub.type = 'sine';
       var mix = ctx.createGain(); mix.gain.value = 1;
-      var subG = ctx.createGain(); subG.gain.value = .5;
-      var am = ctx.createGain(); am.gain.value = .9; // slight uneven-firing wobble
-      var lfo = ctx.createOscillator(), lfoG = ctx.createGain(); lfo.type = 'sine'; lfoG.gain.value = .1; lfo.connect(lfoG); lfoG.connect(am.gain);
+      var subG = ctx.createGain(); subG.gain.value = P.sub;
+      var am = ctx.createGain(); am.gain.value = 1 - P.am; // uneven-firing wobble
+      var lfo = ctx.createOscillator(), lfoG = ctx.createGain(); lfo.type = 'sine'; lfoG.gain.value = P.am; lfo.connect(lfoG); lfoG.connect(am.gain);
       var sat = ctx.createWaveShaper(), curve = new Float32Array(257);
-      for (var i = 0; i < 257; i++) { var x = i / 128 - 1; curve[i] = Math.tanh(2.4 * x); }
+      for (var i = 0; i < 257; i++) { var x = i / 128 - 1; curve[i] = Math.tanh(P.drive * x); }
       sat.curve = curve;
       var lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = .9; lp.frequency.value = 900;
-      var pk1 = ctx.createBiquadFilter(); pk1.type = 'peaking'; pk1.frequency.value = 240; pk1.gain.value = 4; pk1.Q.value = 1.1;
-      var pk2 = ctx.createBiquadFilter(); pk2.type = 'peaking'; pk2.frequency.value = 820; pk2.gain.value = 2; pk2.Q.value = 1.2;
+      var pk1 = ctx.createBiquadFilter(); pk1.type = 'peaking'; pk1.frequency.value = 240; pk1.gain.value = P.ev ? 1 : 4; pk1.Q.value = 1.1;
       var body = ctx.createGain(); body.gain.value = 0;
-      o1.connect(mix); o2.connect(mix); sub.connect(subG); subG.connect(mix); mix.connect(am); am.connect(sat); sat.connect(lp); lp.connect(pk1); pk1.connect(pk2); pk2.connect(body);
+      o1.connect(mix); o2.connect(mix); sub.connect(subG); subG.connect(mix); mix.connect(am); am.connect(sat); sat.connect(lp); lp.connect(pk1); pk1.connect(body);
       // intake and road/wind noise
       var ns = ctx.createBufferSource(); ns.buffer = noiseBuf; ns.loop = true;
       var ibp = ctx.createBiquadFilter(); ibp.type = 'bandpass'; ibp.frequency.value = 700; ibp.Q.value = .8; var intake = ctx.createGain(); intake.gain.value = 0;
@@ -184,47 +199,52 @@
       var ns2 = ctx.createBufferSource(); ns2.buffer = noiseBuf; ns2.loop = true; ns2.loopStart = .37;
       var wlp = ctx.createBiquadFilter(); wlp.type = 'lowpass'; wlp.frequency.value = 400; var wind = ctx.createGain(); wind.gain.value = 0;
       ns2.connect(wlp); wlp.connect(wind);
-      var wh = ctx.createOscillator(), whG = ctx.createGain(); wh.type = 'triangle'; whG.gain.value = 0; wh.connect(whG);
+      var wh = ctx.createOscillator(), whG = ctx.createGain(); wh.type = P.turbo ? 'sine' : 'triangle'; whG.gain.value = 0; wh.connect(whG);
       var out = ctx.createGain(); out.gain.value = 0;
       body.connect(out); intake.connect(out); wind.connect(out); whG.connect(out);
       route(out, fxBus, 0, .04);
       [o1, o2, sub, lfo, ns, ns2, wh].forEach(function (n) { n.start(t0); });
-      eng = { o1: o1, o2: o2, sub: sub, lfo: lfo, ns: ns, ns2: ns2, wh: wh, lp: lp, pk1: pk1, body: body, intake: intake, ibp: ibp, wind: wind, wlp: wlp, whG: whG, out: out, gear: 1, rpm: 900, v: 0, vt: t0, acc: 0, cut: 0 };
+      eng = { name: name, P: P, o1: o1, o2: o2, sub: sub, lfo: lfo, ns: ns, ns2: ns2, wh: wh, lp: lp, pk1: pk1, body: body, intake: intake, ibp: ibp, wind: wind, wlp: wlp, whG: whG, out: out, gear: 1, rpm: 900, v: 0, vt: t0, acc: 0, cut: 0, popT: 0 };
       applyVolumes();
     }
     function stopEngine() { if (eng) { ['o1', 'o2', 'sub', 'lfo', 'ns', 'ns2', 'wh'].forEach(function (k) { try { eng[k].stop(); } catch (e) { /* already stopped */ } }); eng = null; } }
+    function restartEngine() { if (!eng) return; stopEngine(); startEngine(); }
+    function pops(t, n) { for (var i = 0; i < n; i++) noise(t + .05 + i * (.05 + Math.random() * .09), .035, .13, fxBus, 'lowpass', 900 + Math.random() * 700, (Math.random() - .5) * .3); }
     function engineUpdate(vms) {
       if (!eng || !ctx) return;
-      var t = ctx.currentTime, kmh = vms * 3.6, m = engineModel(kmh), E = eng;
+      var t = ctx.currentTime, kmh = vms * 3.6, E = eng, P = E.P, m = engineModel(kmh, P);
       var dt = Math.max(.016, t - E.vt); var a = (vms - E.v) / dt; E.acc += (a - E.acc) * .25; E.v = vms; E.vt = t;
-      var shifted = m.gear !== E.gear;
-      if (shifted && m.gear > E.gear && prefs.sfx && prefs.sound) { // upshift: short torque cut and a soft puff
-        E.cut = .12; noise(t, .09, .05 * (prefs.calm ? .4 : 1), fxBus, 'highpass', 2600, 0);
-      } else if (shifted && prefs.sfx && prefs.sound && !prefs.calm) { // downshift blip
+      var shifted = m.gear !== E.gear, sfx = prefs.sfx && prefs.sound;
+      if (shifted && m.gear > E.gear && sfx) { // upshift: short torque cut, a soft puff, blow-off on turbo cars
+        E.cut = .12; noise(t, P.turbo ? .3 : .09, P.turbo ? .06 : .05 * (prefs.calm ? .4 : 1), fxBus, 'highpass', P.turbo ? 3400 : 2600, 0);
+        if (P.pops && !prefs.calm) pops(t, P.pops > .7 ? 2 : 1);
+      } else if (shifted && sfx && !prefs.calm) { // downshift blip
         noise(t, .05, .03, fxBus, 'bandpass', 900, 0);
       }
       E.gear = m.gear;
-      var rpmN = clamp((m.rpm - 900) / 5300, 0, 1);
+      var rpmN = clamp((m.rpm - P.idle) / (P.ev ? 6000 : (P.hi - P.idle)), 0, 1);
+      var lift = braking || E.acc < -2.5;
+      if (lift && P.pops && sfx && !prefs.calm && m.rpm > P.lo && t > E.popT) { E.popT = t + .3; pops(t, P.pops > .7 ? 3 : 1); if (P.turbo) noise(t, .25, .05, fxBus, 'highpass', 3400, 0); }
       var load = braking ? .08 : clamp(.4 + E.acc * .22, .12, 1);
       if (E.cut > 0) { E.cut -= dt; load *= .35; }
       var tc = shifted ? .02 : .07, f1 = m.rpm / 60;
       E.o1.frequency.setTargetAtTime(f1, t, tc); E.o2.frequency.setTargetAtTime(f1 * 1.004, t, tc); E.sub.frequency.setTargetAtTime(f1 * 2, t, tc);
       E.lfo.frequency.setTargetAtTime(f1 * .5, t, tc);
       var calm = prefs.calm ? .62 : 1;
-      E.lp.frequency.setTargetAtTime((380 + m.rpm * .5 + load * 900) * calm, t, .06);
+      E.lp.frequency.setTargetAtTime(Math.min(16000, (P.lpB + m.rpm * P.lpK + load * P.lpL) * calm), t, .06);
       E.pk1.frequency.setTargetAtTime(160 + m.rpm * .03, t, .1);
-      E.body.gain.setTargetAtTime((.1 + .22 * load) * (.55 + .45 * rpmN) * calm, t, .05);
+      E.body.gain.setTargetAtTime((P.body * .45 + P.body * .8 * load) * (.55 + .45 * rpmN) * calm, t, .05);
       E.ibp.frequency.setTargetAtTime(500 + m.rpm * .12, t, .1);
-      E.intake.gain.setTargetAtTime(.035 * load * rpmN * calm, t, .06);
+      E.intake.gain.setTargetAtTime(P.intake * load * rpmN * calm, t, .06);
       E.wlp.frequency.setTargetAtTime(260 + kmh * 7, t, .2);
       E.wind.gain.setTargetAtTime(.012 + .09 * Math.pow(clamp(kmh / 200, 0, 1), 1.6), t, .2);
-      E.wh.frequency.setTargetAtTime(f1 * 11, t, .1);
-      E.whG.gain.setTargetAtTime(prefs.calm ? 0 : .004 * rpmN * rpmN * load, t, .1);
+      if (P.turbo) { E.wh.frequency.setTargetAtTime(1300 + rpmN * 2600, t, .1); E.whG.gain.setTargetAtTime(prefs.calm ? 0 : .007 * rpmN * rpmN * load, t, .1); }
+      else { E.wh.frequency.setTargetAtTime(f1 * 11, t, .1); E.whG.gain.setTargetAtTime(prefs.calm ? 0 : P.whine * rpmN * rpmN * load, t, .1); }
     }
     // a passing car: its own engine tone drops in pitch (Doppler) while it swells and fades on its side
     function passBy(t, side, v) {
       var f0 = 70 + 30 * clamp(v / 50, 0, 1), o = ctx.createOscillator(), g = ctx.createGain(), lp = ctx.createBiquadFilter();
-      o.setPeriodicWave(engineWave()); o.frequency.setValueAtTime(f0 * 1.14, t); o.frequency.exponentialRampToValueAtTime(f0 * .86, t + .8);
+      o.setPeriodicWave(engineWave('i4')); o.frequency.setValueAtTime(f0 * 1.14, t); o.frequency.exponentialRampToValueAtTime(f0 * .86, t + .8);
       lp.type = 'lowpass'; lp.frequency.setValueAtTime(1500, t); lp.frequency.exponentialRampToValueAtTime(420, t + .8);
       g.gain.setValueAtTime(.0001, t); g.gain.linearRampToValueAtTime(.16 * (prefs.calm ? .6 : 1), t + .3); g.gain.exponentialRampToValueAtTime(.0001, t + .85);
       o.connect(lp); lp.connect(g); route(g, fxBus, clamp(side * .6, -.85, .85), .08); o.start(t); o.stop(t + .9);
@@ -255,7 +275,9 @@
     return {
       unlock: function () { if (ensure() && ctx.state === 'suspended' && ctx.resume) { try { ctx.resume(); } catch (e) { /* ignore */ } } },
       setPrefs: function (p) {
+        var carBefore = prefs.car;
         if (p) for (var k in p) if (Object.prototype.hasOwnProperty.call(prefs, k)) prefs[k] = p[k];
+        if (prefs.car !== carBefore && !engineOverride) restartEngine();
         applyVolumes();
         if (ctx && running && !paused && prefs.music && prefs.sound) pump();
       },
@@ -280,15 +302,16 @@
         speed = v || 0;
         engineUpdate(speed);
       },
+      setEngine: function (name) { engineOverride = ENGINES[name] ? name : null; restartEngine(); },
       setIntensity: function (v) { intensity = clamp(v || 0, 0, 1); },
       setBrake: function (b) { braking = !!b; },
       setScene: function (s) { scene = s || {}; },
       event: event,
-      info: function () { return { ctx: !!ctx, state: ctx ? ctx.state : 'none', chapter: chapter, kit: kitFor(chapter), bed: bed ? bed.name : null, notes: made.notes, events: made.events, running: running, paused: paused, braking: braking, prefs: prefs, scene: scene }; }
+      info: function () { return { ctx: !!ctx, state: ctx ? ctx.state : 'none', chapter: chapter, kit: kitFor(chapter), bed: bed ? bed.name : null, notes: made.notes, events: made.events, running: running, paused: paused, braking: braking, engine: eng ? eng.name : null, prefs: prefs, scene: scene }; }
     };
   }
 
-  var exported = { create: create, CHAPTERS: CH, mtof: mtof, engineModel: engineModel };
+  var exported = { create: create, CHAPTERS: CH, mtof: mtof, engineModel: engineModel, ENGINES: ENGINES, CAR_ENGINE: CAR_ENGINE };
   if (typeof module !== 'undefined' && module.exports) module.exports = exported;
   else root.RacerAudio = exported;
 })(typeof window !== 'undefined' ? window : globalThis);
