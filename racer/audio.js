@@ -4,17 +4,17 @@
   'use strict';
 
   // Ten chapters: root note (MIDI), scale, tempo, music kit, ambience bed.
-  var CH = [
-    { root: 57, sc: [0, 2, 4, 7, 9], bpm: 84, kit: 'piano', bed: 'meadow' },
-    { root: 62, sc: [0, 2, 4, 7, 9], bpm: 88, kit: 'pluck', bed: 'meadow' },
-    { root: 55, sc: [0, 2, 3, 7, 9], bpm: 78, kit: 'handpan', bed: 'desert' },
-    { root: 60, sc: [0, 2, 4, 7, 9], bpm: 92, kit: 'acoustic', bed: 'waves' },
-    { root: 57, sc: [0, 3, 5, 7, 10], bpm: 100, kit: 'electro', bed: 'city' },
-    { root: 52, sc: [0, 3, 5, 7, 10], bpm: 108, kit: 'electro', bed: 'city' },
-    { root: 50, sc: [0, 2, 3, 7, 8], bpm: 72, kit: 'cinematic', bed: 'rain' },
-    { root: 47, sc: [0, 3, 5, 6, 7], bpm: 120, kit: 'cinematic', bed: 'storm' },
-    { root: 59, sc: [0, 2, 4, 7, 9], bpm: 70, kit: 'cello', bed: 'snow' },
-    { root: 57, sc: [0, 2, 4, 7, 9], bpm: 96, kit: 'epic', bed: 'meadow' }
+  var CH = [ // same order as the chapters in racer.js, so the sound matches the scenery
+    { root: 57, sc: [0, 2, 4, 7, 9], bpm: 84, kit: 'piano', bed: 'meadow' },     // Dawn Meadow
+    { root: 62, sc: [0, 2, 4, 7, 9], bpm: 88, kit: 'pluck', bed: 'meadow' },     // Cherry Hills
+    { root: 55, sc: [0, 2, 3, 7, 9], bpm: 78, kit: 'acoustic', bed: 'desert' },  // Desert Road
+    { root: 59, sc: [0, 2, 4, 7, 9], bpm: 76, kit: 'cello', bed: 'meadow' },     // Amber Valley
+    { root: 60, sc: [0, 2, 4, 7, 9], bpm: 92, kit: 'handpan', bed: 'waves' },    // Sunset Coast
+    { root: 57, sc: [0, 3, 5, 7, 10], bpm: 100, kit: 'electro', bed: 'city' },   // Dusk City
+    { root: 52, sc: [0, 3, 5, 7, 10], bpm: 108, kit: 'electro', bed: 'rain' },   // Neon Quarter
+    { root: 47, sc: [0, 3, 5, 6, 7], bpm: 120, kit: 'cinematic', bed: 'storm' }, // Storm Pass
+    { root: 59, sc: [0, 2, 4, 7, 9], bpm: 70, kit: 'pads', bed: 'snow' },        // Northern Lights
+    { root: 57, sc: [0, 2, 4, 7, 9], bpm: 96, kit: 'epic', bed: 'waves' }        // Sunrise Coast
   ];
   var STYLE_KIT = { cinematic: 'cinematic', piano: 'piano', electronic: 'electro', acoustic: 'acoustic' };
   var PROG = [0, 3, 4, 2];
@@ -123,6 +123,7 @@
         case 'cello': tone('sawtooth', f, t, dur * 1.2, vol * 0.45 * c, musicBus, pv, 0.4, 1100); break;
         case 'electro': tone('square', f, t, 0.22, vol * 0.3 * c, musicBus, pv, 0.2, prefs.calm ? 1400 : 2600); break;
         case 'cinematic': tone('sawtooth', f, t, dur * 2, vol * 0.4 * c, musicBus, pv, 0.6, 1500); tone('sine', f / 2, t, dur * 2, vol * 0.5 * c, musicBus, 0, 0.4); break;
+        case 'pads': tone('sine', f, t, dur * 2.6, vol * .55 * c, musicBus, pv, .7); tone('triangle', f * 1.004, t, dur * 2.6, vol * .3 * c, musicBus, -pv, .7, 1400); break;
         case 'epic': tone('sawtooth', f, t, dur * 1.4, vol * 0.5 * c, musicBus, pv, 0.5, 2200); tone('sawtooth', f * 1.005, t, dur * 1.4, vol * 0.4 * c, musicBus, -pv, 0.5, 2200); break;
         default: tone('triangle', f, t, 0.6, vol * c, musicBus, pv, 0.3);
       }

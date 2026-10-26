@@ -46,3 +46,13 @@ test('every player car has an engine and each engine model stays inside its rev 
     assert.strictEqual(shifts, P.ev ? 0 : 5, name);
   });
 });
+
+test('each chapter plays the music kit and ambience that its scenery names', () => {
+  const src = require('fs').readFileSync(require('path').join(__dirname, '../racer/racer.js'), 'utf8');
+  const scenes = [...src.matchAll(/name: '([^']+)', kit: '([^']+)', bed: '([^']+)'/g)];
+  assert.strictEqual(scenes.length, CHAPTERS.length);
+  scenes.forEach((m, i) => {
+    assert.strictEqual(CHAPTERS[i].kit, m[2] === 'electro-soft' ? 'electro' : m[2], m[1] + ' kit');
+    assert.strictEqual(CHAPTERS[i].bed, m[3], m[1] + ' bed');
+  });
+});
