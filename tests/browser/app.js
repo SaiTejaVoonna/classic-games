@@ -153,6 +153,17 @@ const st = (p) => p.evaluate(() => window.racerDebug.state());
   ok('the car that was hit is knocked aside', hitSpin);
   ok('handling tests have no errors', p.errs.length === 0, p.errs.join('|'));
 
+  // ---- environment
+  p = await mk(390, 760);
+  await p.goto(href('racer/index.html') + '?debug=1&seed=9');
+  await sleep(300);
+  const lum = (hex) => { const n = parseInt(hex.slice(1), 16); return ((n >> 16) * .3 + ((n >> 8) & 255) * .59 + (n & 255) * .11); };
+  const dawn = await p.evaluate(() => [0.02, .3, .6, .9].map((f) => window.racerDebug.scene((9 + f) * 2800)));
+  ok('Sunrise Coast brightens as you drive: the sun climbs and the sky gets lighter', dawn[0].sunY > dawn[3].sunY + .2 && lum(dawn[3].sky[0]) > lum(dawn[0].sky[0]) + 40, JSON.stringify(dawn.map((d) => [d.sunY.toFixed(2), d.sky[0]])));
+  const names = await p.evaluate(() => [8, 9].map((i) => window.racerDebug.scene((i + .5) * 2800).name));
+  ok('the last two chapters are Northern Lights and Sunrise Coast', names[0] === 'Northern Lights' && names[1] === 'Sunrise Coast', names.join());
+  ok('environment tests have no errors', p.errs.length === 0, p.errs.join('|'));
+
   await browser.close();
   const bad = R.filter(r => !r.pass);
   R.forEach(r => { if (!r.pass) console.log('FAIL', r.name, r.extra || ''); });

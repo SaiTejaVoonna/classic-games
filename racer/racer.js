@@ -56,7 +56,7 @@
     { name: 'Northern Lights', kit: 'pads', bed: 'snow', life: ['owl', 'windchimes', 'train'], sky: ['#02040d', '#0b1a3a', '#1d4a6a'], sunX: .2, sunY: .45, sunC: '#f4f1e0', ground: ['#2a4a6a', '#cfdcec'], road: '#2a3350', edge: '#cfe0ff', line: '#e8f1ff', fog: '#2a4a7a',
       ridge: ['#16264a', '#0f1c3a', '#0a1430'], mist: .5, night: 1, stars: 1, rain: 0, snow: 1, leaves: 0, petals: 0, aurora: 1, heat: 0, skyline: 0, wind: .8, tintC: '#103a7a', tintA: .1,
       objs: ['pinesnow', 'pinesnow', 'pinesnow', 'cabin', 'pinesnow'] },
-    { name: 'Sunrise Coast', kit: 'epic', bed: 'waves', life: ['gulls', 'foghorn', 'balloon', 'fireworks'], water: 1, balloon: 1, sky: ['#3f5fb0', '#ff9a8a', '#ffe0a0'], sunX: .5, sunY: .93, sunC: '#fff2c0', ground: ['#efd3a2', '#e0bb88'], road: '#4d5068', edge: '#fff0dc', line: '#fff6e6', fog: '#ffd0b0',
+    { name: 'Sunrise Coast', kit: 'epic', bed: 'waves', life: ['gulls', 'foghorn', 'balloon', 'fireworks'], water: 1, balloon: 1, sky: ['#4f9be8', '#ffbfa0', '#fff1c8'], sunX: .5, sunY: .62, sunC: '#fff2c0', ground: ['#efd3a2', '#e0bb88'], road: '#4d5068', edge: '#fff0dc', line: '#fff6e6', fog: '#ffd0b0',
       ridge: ['#8c6aa8', '#c0788a', '#3f90c8'], mist: .6, night: 0, stars: 0, rain: 0, snow: 0, leaves: 0, petals: 0, aurora: 0, heat: 0, skyline: 0, wind: 1.4, tintC: '#ffb070', tintA: .08,
       objs: ['palm', 'umbrella', 'palm', 'bush', 'lighthouse', 'umbrella', 'palm', 'house'] }
   ];
@@ -71,6 +71,8 @@
     return { i: i, idx: ((i % CHAPTERS.length) + CHAPTERS.length) % CHAPTERS.length, frac: u - i };
   }
 
+  // Sunrise Coast starts in the pre-dawn dark and brightens as you drive: the sun climbs and the sky warms.
+  var DAWN_SKY = ['#10183a', '#5a4a8a', '#c06a7a'], DAWN_SUN_Y = .97;
   var NUM_KEYS = ['water', 'lightning', 'sunX', 'sunY', 'mist', 'night', 'stars', 'rain', 'snow', 'leaves', 'petals', 'aurora', 'heat', 'skyline', 'wind', 'tintA'];
   var COL_KEYS = ['sunC', 'road', 'edge', 'line', 'fog', 'tintC'];
   // The scene at distance s: the chapter's look, blending into the next one over its last 22%.
@@ -87,6 +89,12 @@
     o.sky = a.sky.map(function (col, i) { return mix(col, b.sky[i], t); });
     o.ground = a.ground.map(function (col, i) { return mix(col, b.ground[i], t); });
     o.ridge = a.ridge.map(function (col, i) { return mix(col, b.ridge[i], t); });
+    if (c.idx === 9) { // the dawn itself
+      var f = clamp(c.frac / .72, 0, 1); f = f * f * (3 - 2 * f);
+      o.sky = a.sky.map(function (col, i) { return mix(DAWN_SKY[i], col, f); }); o.sunY = lerp(DAWN_SUN_Y, a.sunY, f); o.stars = lerp(.5, 0, f); o.night = lerp(.35, 0, f);
+    } else if (c.idx === 8 && t > 0) { // the end of Northern Lights fades into the pre-dawn, not into the bright sky
+      o.sky = a.sky.map(function (col, i) { return mix(col, DAWN_SKY[i], t); }); o.sunY = lerp(a.sunY, DAWN_SUN_Y, t);
+    }
     return o;
   }
 
@@ -111,6 +119,7 @@
   var susp = { y: 0, v: 0 }; // suspension bob in CSS pixels
   var pitch = 0;   // nose dip when braking
   var carId = 0;
+  var lastPB = null; // where the player car was drawn last frame, for spray and dust
   var BOXES = params.get('boxes') === '1'; // debug overlay of collision boxes
   var tAnim = 0;
   var traffic = [];
@@ -314,6 +323,7 @@
     if (o.type && window.RacerCars) {
       var e = window.RacerCars.sprite(o.type, col, o.acc, o.brake, o.px);
       if (e.ready) {
+        if (o.reflect > .25 && !o.rot) { g.save(); g.translate(x, by); g.scale(1, -.45); g.globalAlpha = .17 * o.reflect; drawSprite(e, 0, 0, w * (TYPE_W[o.type] || 1)); g.restore(); } // the wet road mirrors the car
         if (o.rot) { g.save(); g.translate(x, by); g.rotate(o.rot); drawSprite(e, 0, 0, w * (TYPE_W[o.type] || 1)); g.restore(); } else drawSprite(e, x, by, w * (TYPE_W[o.type] || 1));
         return;
       }
@@ -481,20 +491,22 @@
     }
     // life in the sky: a flock of birds, a slow balloon, a shooting star
     if (S.night < .5 && S.stars < .4) {
-      var bu = ((tAnim + 3) % 26) / 26;
+      for (var fl = 0; fl < 2; fl++) {
+      var bu = ((tAnim + 3 + fl * 17) % (fl ? 41 : 26)) / (fl ? 41 : 26);
       if (bu < .5) {
-        var bx0 = -W * .1 + bu * 2 * W * 1.2; var by0 = hy * .3 + Math.sin(bu * 6) * hy * .05;
+        var bx0 = fl ? W * 1.1 - bu * 2 * W * 1.2 : -W * .1 + bu * 2 * W * 1.2; var by0 = hy * (fl ? .18 : .3) + Math.sin(bu * 6) * hy * .05;
         g.strokeStyle = 'rgba(40,30,60,.7)'; g.lineWidth = 1.8 * dpr; g.lineCap = 'round';
         for (var bi = 0; bi < 7; bi++) {
-          var row = Math.ceil(bi / 2); var sd = bi % 2 ? 1 : -1; var bx = bx0 - row * 20 * dpr; var by = by0 + sd * row * 9 * dpr; var wing = Math.sin(tAnim * 8 + bi) * 4 * dpr;
+          var row = Math.ceil(bi / 2); var sd = bi % 2 ? 1 : -1; var bx = bx0 + (fl ? 1 : -1) * row * 20 * dpr; var by = by0 + sd * row * 9 * dpr; var wing = Math.sin(tAnim * 8 + bi) * 4 * dpr;
           g.beginPath(); g.moveTo(bx - 8 * dpr, by + wing * .3); g.quadraticCurveTo(bx - 4 * dpr, by - 5 * dpr - wing, bx, by); g.quadraticCurveTo(bx + 4 * dpr, by - 5 * dpr - wing, bx + 8 * dpr, by + wing * .3); g.stroke();
         }
       }
+      }
     }
-    if (S.a.balloon && S.night < .5) {
-      var lx = ((tAnim * 6 * dpr) % (W * 1.5)) - W * .25; var ly = hy * .5 + Math.sin(tAnim * .4) * 7 * dpr; var u = dpr; var sway = Math.sin(tAnim * .7) * .05;
+    if (S.a.balloon && S.night < .5) for (var bl = 0; bl < 2; bl++) { // two balloons drift at different heights and speeds
+      var lx = ((tAnim * (bl ? 4.2 : 6) * dpr + bl * W * .7) % (W * 1.5)) - W * .25; var ly = hy * (bl ? .3 : .5) + Math.sin(tAnim * .4 + bl * 2) * 7 * dpr; var u = dpr * (bl ? .62 : 1); var sway = Math.sin(tAnim * .7 + bl) * .05;
       g.save(); g.translate(lx, ly); g.rotate(sway);
-      var env = g.createRadialGradient(-6 * u, -8 * u, 2 * u, 0, 0, 30 * u); env.addColorStop(0, '#ff8a7a'); env.addColorStop(.6, '#e8483f'); env.addColorStop(1, '#a52a2a');
+      var env = g.createRadialGradient(-6 * u, -8 * u, 2 * u, 0, 0, 30 * u); env.addColorStop(0, bl ? '#7adbd0' : '#ff8a7a'); env.addColorStop(.6, bl ? '#2aa198' : '#e8483f'); env.addColorStop(1, bl ? '#14665f' : '#a52a2a');
       g.fillStyle = env; g.beginPath(); g.moveTo(0, -26 * u); g.bezierCurveTo(26 * u, -24 * u, 28 * u, 10 * u, 6 * u, 24 * u); g.lineTo(-6 * u, 24 * u); g.bezierCurveTo(-28 * u, 10 * u, -26 * u, -24 * u, 0, -26 * u); g.fill();
       g.save(); g.clip(); g.fillStyle = '#ffd966'; g.beginPath(); g.ellipse(0, 0, 8 * u, 30 * u, 0, 0, TAU); g.fill(); g.fillStyle = '#fff3d0'; g.beginPath(); g.ellipse(0, 0, 2.5 * u, 30 * u, 0, 0, TAU); g.fill(); g.fillStyle = 'rgba(255,255,255,.22)'; g.beginPath(); g.ellipse(-12 * u, -8 * u, 4 * u, 16 * u, .3, 0, TAU); g.fill(); g.restore();
       g.strokeStyle = 'rgba(60,40,30,.7)'; g.lineWidth = u; g.beginPath(); g.moveTo(-6 * u, 24 * u); g.lineTo(-4 * u, 34 * u); g.moveTo(6 * u, 24 * u); g.lineTo(4 * u, 34 * u); g.stroke();
@@ -518,16 +530,17 @@
     }
     // ridges and the far skyline sit on the hill-shifted horizon
     var far = xoAt(DRAW * .8) * .12; var hySaved = hy; hy = hyR;
-    for (var L = 0; L < 3; L++) {
-      var amp = H * (.05 + L * .012); var base = hy - H * .008 * (2 - L);
-      var rgr = g.createLinearGradient(0, base - amp * 1.1, 0, hy + 6); rgr.addColorStop(0, S.ridge[L]); rgr.addColorStop(.7, S.ridge[L]); rgr.addColorStop(1, mix(S.ridge[L], mix(S.ground[0], S.fog, .55), .92));
+    for (var L = -1; L < 3; L++) { // L = -1 is a faint, slow range far behind the others
+      var rc = L < 0 ? mix(S.ridge[0], S.fog, .55) : S.ridge[L];
+      var amp = L < 0 ? H * .07 : H * (.05 + L * .012); var base = L < 0 ? hy - H * .03 : hy - H * .008 * (2 - L);
+      var rgr = g.createLinearGradient(0, base - amp * 1.1, 0, hy + 6); rgr.addColorStop(0, rc); rgr.addColorStop(.7, rc); rgr.addColorStop(1, mix(rc, mix(S.ground[0], S.fog, .55), .92));
       g.fillStyle = rgr; g.beginPath(); g.moveTo(0, hy + 6);
       for (var xx = 0; xx <= W; xx += 8 * dpr) {
-        var q = xx / dpr - far * 40 * (.3 + L * .4) + dist * .01 * (L + 1);
+        var q = xx / dpr - far * 40 * (L < 0 ? .12 : .3 + L * .4) + dist * (L < 0 ? .004 : .01 * (L + 1));
         g.lineTo(xx, base - amp * (.5 + .5 * Math.sin(q * .011 + L * 2)) - amp * .4 * Math.sin(q * .027 + L * 5));
       }
       g.lineTo(W, hy + 6); g.fill();
-      var mg = g.createLinearGradient(0, base - amp * 1.4, 0, hy + 10); mg.addColorStop(0, 'rgba(255,255,255,0)'); mg.addColorStop(.55, mix(S.fog, '#ffffff', .1) + Math.round(S.mist * (.38 - L * .08) * 255).toString(16).padStart(2, '0')); mg.addColorStop(1, 'rgba(255,255,255,0)');
+      var mg = g.createLinearGradient(0, base - amp * 1.4, 0, hy + 10); mg.addColorStop(0, 'rgba(255,255,255,0)'); mg.addColorStop(.55, mix(S.fog, '#ffffff', .1) + Math.round(S.mist * (.38 - Math.max(L, 0) * .08) * 255).toString(16).padStart(2, '0')); mg.addColorStop(1, 'rgba(255,255,255,0)');
       g.fillStyle = mg; g.fillRect(0, base - amp * 1.4, W, hy + 10 - (base - amp * 1.4));
     }
     if (S.skyline > .02) {
@@ -535,7 +548,7 @@
       for (var i2 = 0; i2 < 20; i2++) {
         var bw = W / 20; var bh = H * (.04 + rnd(i2, 3) * .11); var bx = i2 * bw - far * 30;
         g.fillStyle = mix(S.ridge[1], '#ff4f9a', .08); g.fillRect(bx, hy - bh, bw - 2, bh + 2);
-        if (S.night > .4) { g.fillStyle = 'rgba(255,224,130,.55)'; for (var k3 = 0; k3 < bh / (9 * dpr); k3++) if (rnd(i2 * 7 + k3, 4) > .5) g.fillRect(bx + 3 * dpr, hy - bh + 3 * dpr + k3 * 9 * dpr, bw - 8 * dpr, 3 * dpr); }
+        if (S.night > .4) { g.fillStyle = 'rgba(255,224,130,.4)'; for (var k3 = 0; k3 < bh / (9 * dpr); k3++) if (rnd(i2 * 7 + k3, 4) > .5) g.fillRect(bx + 3 * dpr, hy - bh + 3 * dpr + k3 * 9 * dpr, bw - 8 * dpr, 3 * dpr); }
       }
       g.globalAlpha = 1;
     }
@@ -585,8 +598,19 @@
     var top = Math.min(hyR, rows.length ? rows[rows.length - 1].y : hy);
     var gg = g.createLinearGradient(0, top, 0, H);
     gg.addColorStop(0, mix(S.ground[0], S.fog, .55)); gg.addColorStop(.12, mix(S.ground[0], S.fog, .3)); gg.addColorStop(1, S.ground[1]);
-    g.fillStyle = gg; g.fillRect(0, top, W, H - top);
+    var c0 = mix(S.ground[0], S.fog, .55), feather = 38 * dpr, fe = g.createLinearGradient(0, top - feather, 0, top + feather * .25);
+    fe.addColorStop(0, c0 + '00'); fe.addColorStop(1, c0 + 'ff'); g.fillStyle = fe; g.fillRect(0, top - feather, W, feather * 1.25 + 1); // soft start, no hard line
+    g.fillStyle = gg; g.fillRect(0, top + feather * .25, W, H - top);
     if (S.water > .03) drawWater(S);
+    if (S.snow > .05 && rows.length > 2) { // snow along both edges of the road
+      g.fillStyle = 'rgba(244,249,255,' + (.8 * clamp(S.snow, 0, 1)) + ')';
+      [-1, 1].forEach(function (sd) {
+        g.beginPath(); g.moveTo(rows[0].ct + sd * rows[0].hw, rows[0].y);
+        for (var i = 1; i < rows.length; i++) g.lineTo(rows[i].ct + sd * rows[i].hw * (1 + .55 * rows[i].p + .05), rows[i].y);
+        for (var j = rows.length - 1; j >= 0; j--) g.lineTo(rows[j].ct + sd * rows[j].hw, rows[j].y);
+        g.closePath(); g.fill();
+      });
+    }
   }
 
   // The road is drawn as smooth filled shapes (not thin slices), so its edges are anti-aliased
@@ -618,10 +642,17 @@
       }
       g.fill();
     }
+    if (S.rain > .1) { // wet road: the sky shows in the surface, brighter in the distance
+      var ws = g.createLinearGradient(0, rows[n - 1].y, 0, H); ws.addColorStop(0, mix(S.sky[2], '#ffffff', .15) + Math.round(.34 * S.rain * 255).toString(16).padStart(2, '0')); ws.addColorStop(1, mix(S.sky[1], '#000000', .2) + Math.round(.08 * S.rain * 255).toString(16).padStart(2, '0'));
+      g.fillStyle = ws; g.beginPath(); g.moveTo(rows[0].ct - rows[0].hw, rows[0].y);
+      for (i = 1; i < n; i++) g.lineTo(rows[i].ct - rows[i].hw, rows[i].y);
+      for (i = n - 1; i >= 0; i--) g.lineTo(rows[i].ct + rows[i].hw, rows[i].y);
+      g.closePath(); g.fill();
+    }
     if (S.rain > .1) {
-      g.save(); g.globalCompositeOperation = 'lighter'; g.globalAlpha = .18 * S.rain;
+      g.save(); g.globalCompositeOperation = 'lighter'; g.globalAlpha = .11 * S.rain;
       var cols = ['#ff4fd8', '#35e6ff', '#ffe066'];
-      for (var q = 0; q < 8; q++) {
+      for (var q = 0; q < 6; q++) {
         var kk = (rnd(q, 9) * 2 - 1) * .9; var rg2 = g.createLinearGradient(0, rows[n - 1].y, 0, H); rg2.addColorStop(0, cols[q % 3]); rg2.addColorStop(1, 'rgba(0,0,0,0)');
         g.fillStyle = rg2; g.fillRect(cx + kk * RH * .5 - 3 * dpr, rows[n - 1].y + (H - rows[n - 1].y) * .05, (6 + rnd(q, 3) * 14) * dpr, (H - rows[n - 1].y) * .9);
       }
@@ -703,7 +734,7 @@
         var c = it.car; var x = cx + (xoAt(it.d) + (c.laneF + (c.knock || 0) * (c.kx || 0)) / 1.7 - camX) * p * RH; var w = W * .255 * p * 1.7;
         if (S.night > .5) { glowDot(x, y, w * .7, '#ff2a4a'); }
         if (c.hurt > 0) { glowDot(x, y - w * .3, w * 1.1, Math.sin(tAnim * 40) > 0 ? '#ff3b3b' : '#ffb347'); g.globalAlpha = clamp(c.hurt * 1.6, .25, 1); }
-        carRear(x, y, w, c.col, c.kind, { type: TYPE_OF[c.kind], brake: false, rot: c.rot, tail: '#ff3a3a', under: S.night > .85 ? c.col : null });
+        carRear(x, y, w, c.col, c.kind, { type: TYPE_OF[c.kind], brake: false, rot: c.rot, reflect: S.rain, tail: '#ff3a3a', under: S.night > .85 ? c.col : null });
         g.globalAlpha = 1;
         if (!c.knock) {
           var tw = w * (TYPE_W[TYPE_OF[c.kind]] || 1);
@@ -730,10 +761,10 @@
       var hl = g.createRadialGradient(0, 0, 0, 0, 0, W * .26); hl.addColorStop(0, 'rgba(255,244,200,.34)'); hl.addColorStop(1, 'rgba(255,244,200,0)');
       g.fillStyle = hl; g.beginPath(); g.arc(0, 0, W * .26, 0, TAU); g.fill(); g.restore();
     }
-    var x = pb.x;
+    var x = pb.x; lastPB = { x: x, y: py, w: pw };
     g.save(); g.translate(x, py); g.rotate(tilt);
     var pc = PLAYER_CARS[prefs.car];
-    carRear(0, 0, pw, pc.col, 'sport', { type: prefs.car, acc: pc.acc, px: 420, brake: braking, under: S.night > .6 ? '#35e6ff' : null, tail: '#ff3355' });
+    carRear(0, 0, pw, pc.col, 'sport', { type: prefs.car, acc: pc.acc, px: 420, brake: braking, reflect: S.rain, under: S.night > .6 ? '#35e6ff' : null, tail: '#ff3355' });
     g.restore();
     if (shieldT > 0) {
       var sa = shieldT < .8 ? (Math.sin(tAnim * 30) > 0 ? .5 : .15) : .45;
@@ -753,13 +784,13 @@
     if (flashT > 0 && mode === 'run') { g.fillStyle = 'rgba(255,60,60,' + (.28 * flashT / .35) + ')'; g.fillRect(0, 0, W, H); }
     if (S.rain > .05) {
       g.strokeStyle = 'rgba(200,225,255,' + (.34 * S.rain) + ')'; g.lineWidth = 1.5 * dpr;
-      var n = Math.round(90 * S.rain);
+      var n = Math.round(60 * S.rain);
       for (var i = 0; i < n; i++) { var x = rnd(i, 1) * W; var y = ((rnd(i, 2) * H + tAnim * 1100 * dpr) % H); g.beginPath(); g.moveTo(x, y); g.lineTo(x - 7 * dpr, y + 26 * dpr); g.stroke(); }
-      g.fillStyle = 'rgba(15,22,40,' + (.2 * S.rain) + ')'; g.fillRect(0, 0, W, H);
+      g.fillStyle = 'rgba(15,22,40,' + (.12 * S.rain) + ')'; g.fillRect(0, 0, W, H);
     }
     if (S.snow > .05) {
       g.fillStyle = '#fff';
-      for (var j = 0; j < 90 * S.snow; j++) { g.globalAlpha = .4 + rnd(j, 3) * .5; g.beginPath(); g.arc((rnd(j, 1) * W + Math.sin(tAnim * 2 + j) * 16 * dpr) % W, (rnd(j, 2) * H + tAnim * 150 * dpr * (.4 + rnd(j, 4))) % H, (1.2 + rnd(j, 3) * 2.4) * dpr, 0, TAU); g.fill(); }
+      for (var j = 0; j < 60 * S.snow; j++) { g.globalAlpha = .3 + rnd(j, 3) * .4; g.beginPath(); g.arc((rnd(j, 1) * W + Math.sin(tAnim * 2 + j) * 16 * dpr) % W, (rnd(j, 2) * H + tAnim * 150 * dpr * (.4 + rnd(j, 4))) % H, (1.2 + rnd(j, 3) * 2.4) * dpr, 0, TAU); g.fill(); }
       g.globalAlpha = 1;
     }
     if (S.leaves > .05) {
@@ -777,15 +808,9 @@
       g.globalAlpha = 1;
     }
     // fog band at the horizon
-    var fg = g.createLinearGradient(0, hy - H * .05, 0, hy + H * .26);
+    var fg = g.createLinearGradient(0, hyR - H * .06, 0, hyR + H * .28);
     fg.addColorStop(0, S.fog + '00'); fg.addColorStop(.3, S.fog + 'ff'); fg.addColorStop(1, S.fog + '00');
     g.globalAlpha = .5 + S.mist * .2; g.fillStyle = fg; g.fillRect(0, hyR - H * .06, W, H * .34); g.globalAlpha = 1;
-    // speed lines
-    if (mode === 'run' && speed > 82) {
-      g.save(); g.strokeStyle = 'rgba(255,255,255,' + clamp((speed - 82) / 120, 0, .1) + ')'; g.lineWidth = 1.5 * dpr;
-      for (var i2 = 0; i2 < 18; i2++) { var a = rnd(i2, 11) * TAU, r0 = W * (.5 + rnd(i2, 2) * .15), r1 = W * (.9 + rnd(i2, 3) * .4); g.beginPath(); g.moveTo(cx + Math.cos(a) * r0, hy + H * .2 + Math.sin(a) * r0 * .8); g.lineTo(cx + Math.cos(a) * r1, hy + H * .2 + Math.sin(a) * r1 * .8); g.stroke(); }
-      g.restore();
-    }
     // tint, light vignette
     g.fillStyle = S.tintC; g.globalAlpha = S.tintA; g.fillRect(0, 0, W, H); g.globalAlpha = 1;
     var vg = g.createRadialGradient(cx, H * .55, W * .35, cx, H * .55, W * .95);
@@ -958,6 +983,19 @@
   }
   // A few cars far ahead signal for a moment, then slide into the next lane if it is clear.
   // While changing, a car counts as being in both lanes, so a lane is never left without a gap.
+  // Weather and ground react to the car: spray in rain, snow kicked up, dust on the desert road, leaves in autumn.
+  function emitRoadParticles(dt, S) {
+    var B = lastPB, rate = 0, col, vy, gv = 40, life = .6, r = 2.5, grow = 8, kind = null;
+    if (S.rain > .2) { rate = 46 * S.rain; col = 'rgba(225,238,255,.42)'; kind = 'spray'; }
+    else if (S.snow > .3) { rate = 26 * S.snow; col = 'rgba(255,255,255,.55)'; kind = 'snow'; }
+    else if (S.heat > .5) { rate = 24 * S.heat; col = 'rgba(214,182,126,.36)'; kind = 'dust'; r = 3; grow = 14; }
+    else if (S.leaves > .3) { rate = 16 * S.leaves; kind = 'leaf'; }
+    if (!kind || Math.random() > dt * rate) return;
+    var sd = Math.random() < .5 ? -1 : 1, x = B.x + sd * B.w * (.28 + Math.random() * .1), y = B.y - 2 * dpr;
+    if (kind === 'leaf') { col = ['#e8b040', '#c2410c', '#e08a2e'][Math.floor(Math.random() * 3)]; particles.push({ x: x, y: y, vx: sd * (40 + Math.random() * 120), vy: -(60 + Math.random() * 120), life: 1, r: 3, c: col, gv: 160, decay: 1.1 }); return; }
+    vy = -(20 + Math.random() * 60);
+    particles.push({ x: x, y: y, vx: sd * (10 + Math.random() * 40), vy: vy, life: 1, r: r, c: col, gv: kind === 'dust' ? -10 : gv, grow: grow, decay: 1 / life });
+  }
   function stepLaneChange(c, dt, d) {
     if (!c.lc && c.canLc && d > 150 && d < 230) {
       c.canLc = false;
@@ -975,7 +1013,7 @@
   function step(dt) {
     if (paused) return;
     tAnim += dt;
-    particles.forEach(function (p) { p.x += p.vx * dt * dpr; p.y += p.vy * dt * dpr; p.vy += 300 * dt; p.life -= dt * 1.4; });
+    particles.forEach(function (p) { p.x += p.vx * dt * dpr; p.y += p.vy * dt * dpr; p.vy += (p.gv == null ? 300 : p.gv) * dt; p.r += (p.grow || 0) * dt; p.life -= dt * (p.decay || 1.4); });
     particles = particles.filter(function (p) { return p.life > 0; });
     if (shake > 0) shake = Math.max(0, shake - dt * 40);
     if (flashT > 0) flashT = Math.max(0, flashT - dt);
@@ -993,6 +1031,7 @@
     var bumpF = (rnd(Math.floor(dist / 2.2), 61) - .5) * 460 * sn, hillF = (elev(dist + 3) - 2 * elev(dist) + elev(dist - 3)) * 1500 * sn;
     susp.v += (bumpF + hillF - 190 * susp.y - 8 * susp.v) * dt; susp.y = clamp(susp.y + susp.v * dt, -5, 5);
     pitch += ((braking ? 1 : 0) - pitch) * Math.min(1, dt * 6);
+    if (mode === 'run' && lastPB && lastScene && speed > 14) emitRoadParticles(dt, lastScene);
     if (lastScene && lastScene.lightning > .5 && lightningT <= 0 && Math.random() < dt * .16) { lightningT = .4; au('event', 'thunder'); }
     if (mode === 'menu') { dist += 20 * dt; return; }
     if (mode !== 'run') return;
@@ -1160,6 +1199,7 @@
     // test and gallery hook: draw a still frame at a distance with demo traffic, and drive the game
     window.racerDebug = {
       audio: function () { return A && A.info ? A.info() : null; },
+      scene: function (d) { var S = sceneAt(d); return { sunY: S.sunY, sky: S.sky.slice(), rain: S.rain, snow: S.snow, name: S.name }; },
       sprites: function () { return { total: spriteList.length, ready: spriteList.filter(function (e) { return e.ready; }).length }; },
       geo: function (ds) { lastScene = render(); var pb = playerBox(); return { W: W, H: H, dpr: dpr, player: pb, rows: ds.map(function (d) { var r = rowAt(d); return { d: d, y: r.y, ct: r.ct, hw: r.hw }; }), cars: traffic.map(function (c) { var d = c.z - dist; var r = rowAt(Math.max(.5, d)); return { d: d, lane: c.lane, laneF: c.laneF, lc: !!c.lc, knock: c.knock || 0, kind: c.kind, y: r.y, x: r.ct + c.lane / 1.7 * r.hw, hw: r.hw }; }) }; },
       state: function () { return { susp: susp.y, laneV: laneV, pitch: pitch, paused: paused, braking: braking, prefs: JSON.parse(JSON.stringify(prefs)), mode: mode, dist: dist, speed: speed, lane: lane, laneTarget: laneTarget, combo: combo, score: score, lives: lives, maxLives: maxLives, shield: shieldT, coins: run.coins, hits: run.hits, traffic: traffic.length, chapter: chapterAt(dist).i, chapterLen: chapterLen, tripMode: tripMode, nextStop: nextStop, checkpoint: getCheckpoint(), stats: JSON.parse(JSON.stringify(stats)) }; },
