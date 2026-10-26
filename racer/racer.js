@@ -160,6 +160,10 @@
   // Speed choices (game units per second) and difficulty (lives, traffic, shield time).
   // Speed rises by itself across the Journey, from 85 to 150 km/h (units are metres per second).
   var RAMP = { v0: 23.6, v1: 41.7, endlessMax: 44.5 };
+  // The player sets the pace: a multiplier on that ramp, changed any time with the + and - buttons.
+  // A faster pace also makes the Journey longer in distance, so it still takes about 15 minutes.
+  var SPEED_STEPS = [1, 1.2, 1.4, 1.6, 1.8, 2, 2.3];
+    var runMul = 1.6; // the pace the current run started at; it sets the chapter length
   var DIFFS = {
     easy: { lives: 3, gapMin: 140, gapRand: 70, twoFrom: 14000, twoChance: .25, shield: 2.6, vMin: .5, vVar: .2 },
     normal: { lives: 2, gapMin: 95, gapRand: 60, twoFrom: 1800, twoChance: .3, shield: 2, vMin: .4, vVar: .3 },
@@ -177,7 +181,7 @@
   function writeJson(key, v) { try { window.localStorage.setItem(key, JSON.stringify(v)); } catch (e) { /* storage unavailable: fine */ } }
   function has(o, k) { return Object.prototype.hasOwnProperty.call(o, k); }
 
-  var prefs = { mode: 'journey', difficulty: 'easy', speed: 'relaxed', length: 'full', music: 'on', sfx: 'on', style: 'auto', volMusic: 60, volFx: 70, bass: 50, calm: 'off', car: 'rally' };
+  var prefs = { mode: 'journey', difficulty: 'easy', speed: 'relaxed', length: 'full', music: 'on', sfx: 'on', style: 'auto', volMusic: 60, volFx: 70, bass: 50, calm: 'off', car: 'rally', speedIdx: 3 };
   (function loadPrefs() {
     var s = readJson(PREFS_KEY); if (!s || typeof s !== 'object') return;
     if (s.music === 'on' || s.music === 'off') prefs.music = s.music;
@@ -185,6 +189,7 @@
     if (STYLES.indexOf(s.style) >= 0) prefs.style = s.style;
     if (s.calm === 'on' || s.calm === 'off') prefs.calm = s.calm;
     if (has(PLAYER_CARS, s.car)) prefs.car = s.car;
+    if (typeof s.speedIdx === 'number' && s.speedIdx >= 0 && s.speedIdx < SPEED_STEPS.length) prefs.speedIdx = Math.round(s.speedIdx);
     ['volMusic', 'volFx', 'bass'].forEach(function (k) { if (typeof s[k] === 'number' && s[k] >= 0 && s[k] <= 100) prefs[k] = Math.round(s[k]); });
   })();
   function savePrefs() { writeJson(PREFS_KEY, prefs); }
@@ -207,6 +212,8 @@
   }
 
   var calmUntil = 0; // after a bump the next stretch of road is quieter
+  if (params.get('speed') !== null && !isNaN(parseInt(params.get('speed'), 10))) prefs.speedIdx = clamp(parseInt(params.get('speed'), 10), 0, SPEED_STEPS.length - 1); // for tests: &speed=0 is the gentlest pace
+  function mul() { return SPEED_STEPS[prefs.speedIdx]; }
   var keepOn = false; // true after the finish when the player chooses Keep driving
   function journeyLen() { return JOURNEY_CHAPTERS * chapterLen; }
   // Rest stops slow the car smoothly for 260 m either side.
@@ -217,24 +224,24 @@
   }
   function targetSpeed(d) {
     var S = journeyLen(), v = d < S ? RAMP.v0 + (RAMP.v1 - RAMP.v0) * d / S : Math.min(RAMP.endlessMax, RAMP.v1 + (d - S) * .0002);
-    return v * (tripMode === 'journey' ? stopEase(d) : 1);
+    return v * mul() * (tripMode === 'journey' ? stopEase(d) : 1);
   }
   // Minutes left on the ramp: the integral of ds/v over the rest of the Journey, plus a few seconds per rest stop.
   function secondsLeft(d) {
     var S = journeyLen(), r = Math.max(0, S - d); if (r <= 0) return 0;
     var v = RAMP.v0 + (RAMP.v1 - RAMP.v0) * d / S, t = S / (RAMP.v1 - RAMP.v0) * Math.log(RAMP.v1 / v), stops = 0;
     for (var i = 0; i < REST_STOPS.length; i++) if (REST_STOPS[i] * chapterLen > d) stops++;
-    return t + stops * 8;
+    return t / mul() + stops * 8;
   }
 
   function applyTrip() {
-    tripMode = keepOn ? 'endless' : 'journey'; chapterLen = params.get('len') === 'demo' ? CHAPTER_LENS.demo : CHAPTER_LENS.full;
+    tripMode = keepOn ? 'endless' : 'journey'; chapterLen = params.get('len') === 'demo' ? CHAPTER_LENS.demo : Math.round(CHAPTER_LENS.full * runMul);
     maxLives = DIFFS[prefs.difficulty].lives;
   }
 
   function reset(fromCheckpoint) {
     applyTrip();
-    keepOn = false; applyTrip(); dist = 0; speed = RAMP.v0; lane = 0; laneV = 0; susp = { y: 0, v: 0 }; pitch = 0; laneTarget = 0; traffic = []; nextSpawn = 300; combo = 0; comboTimer = 0;
+    keepOn = false; runMul = mul(); applyTrip(); dist = 0; speed = RAMP.v0 * mul(); lane = 0; laneV = 0; susp = { y: 0, v: 0 }; pitch = 0; laneTarget = 0; traffic = []; nextSpawn = 300; combo = 0; comboTimer = 0;
     score = 0; shake = 0; particles = []; lastChapter = -1; nearTimer = 0; shieldT = 0; flashT = 0; lives = maxLives; nextStop = 0; collected = {};
     run = { near: 0, coins: 0, hits: 0 }; coinNote = 0; coinNoteT = 0; braking = false; paused = false; calmUntil = 0;
     if (fromCheckpoint) {
@@ -1050,7 +1057,7 @@
     var diff = DIFFS[prefs.difficulty];
     while (nextSpawn < dist + DRAW) {
       if (!nearStop(nextSpawn)) spawnWave(nextSpawn);
-      var dens = (1 - .22 * clamp(dist / journeyLen(), 0, 1)) * (dist < calmUntil ? 1.35 : 1);
+      var dens = (1 - .22 * clamp(dist / journeyLen(), 0, 1)) * (dist < calmUntil ? 1.35 : 1) * Math.pow(mul(), .6); // faster means more road between cars
       nextSpawn += (diff.gapMin + rand() * diff.gapRand) * dens; if (chapterAt(nextSpawn).frac < .08) nextSpawn += 50;
     }
     // pickups
@@ -1089,7 +1096,7 @@
       }
     }
     traffic = traffic.filter(function (c) { return c.z > dist - 30; });
-    au('setSpeed', speed); au('setIntensity', clamp((speed - RAMP.v0) / (RAMP.v1 - RAMP.v0) * .8 + combo * .06 + (shieldT > 0 ? .05 : 0), 0, 1)); au('setBrake', braking);
+    au('setSpeed', speed); au('setIntensity', clamp((speed / mul() - RAMP.v0) / (RAMP.v1 - RAMP.v0) * .8 + combo * .06 + (shieldT > 0 ? .05 : 0), 0, 1)); au('setBrake', braking);
     au('setChapterProgress', c0.frac); au('setLives', lives, maxLives);
     sceneTick = (sceneTick + 1) % 8;
     if (sceneTick === 0 && lastScene) au('setScene', { water: lastScene.water, rain: lastScene.rain, night: lastScene.night, snow: lastScene.snow, wind: lastScene.wind, heat: lastScene.heat, bed: lastScene.a.bed, nextBed: lastScene.b.bed, t: lastScene.t, life: lastScene.a.life, idx: c0.idx });
@@ -1127,16 +1134,16 @@
 
   function renderOpts() {
     Array.prototype.forEach.call(document.querySelectorAll('.opt'), function (row) {
-      var name = row.getAttribute('data-opt');
+      var name = row.getAttribute('data-opt'); if (!name) return; // the speed row has its own handler
       Array.prototype.forEach.call(row.querySelectorAll('button'), function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-val') === String(prefs[name]))); });
     });
-    $('best-line').textContent = 'Best score: ' + getBest();
+    $('best-line').textContent = 'Best score: ' + getBest(); renderSpeedUi();
     var vm = $('vol-music'); var vf = $('vol-fx'); var vb = $('vol-bass'); vm.value = prefs.volMusic; vf.value = prefs.volFx; vb.value = prefs.bass;
     var cp = getCheckpoint(); contBtn.hidden = !cp || $('ov').getAttribute('data-kind') !== 'menu'; if (cp) contBtn.textContent = 'Continue: chapter ' + (cp.chapter + 1) + '  ' + new Array(cp.lives + 1).join('♥');
   }
   Array.prototype.forEach.call(document.querySelectorAll('.opt button'), function (b) {
     b.addEventListener('click', function () {
-      var name = b.closest('.opt').getAttribute('data-opt'); var v = b.getAttribute('data-val');
+      var name = b.closest('.opt').getAttribute('data-opt'); var v = b.getAttribute('data-val'); if (!name) return;
       prefs[name] = v; savePrefs(); applyTrip(); renderOpts(); audioPrefs(); au('unlock');
     });
   });
@@ -1150,6 +1157,24 @@
     var before = laneTarget; laneTarget = clamp(laneTarget + dir, -1, 1);
     if (before !== laneTarget) { au('unlock'); au('event', 'lane', { dir: dir }); }
   }
+  // Speed control: the + and - buttons beside the speed readout, the + and - keys, and Up for faster.
+  function changeSpeed(dir) {
+    var n = clamp(prefs.speedIdx + dir, 0, SPEED_STEPS.length - 1); if (n === prefs.speedIdx) return;
+    prefs.speedIdx = n; savePrefs(); renderSpeedUi(); au('unlock');
+  }
+  function renderSpeedUi() {
+    $('spd-minus').disabled = prefs.speedIdx <= 0; $('spd-plus').disabled = prefs.speedIdx >= SPEED_STEPS.length - 1;
+    $('spd-pace').textContent = 'pace ' + mul().toFixed(1) + 'x';
+    Array.prototype.forEach.call(document.querySelectorAll('[data-speedidx]'), function (b) {
+      var near = [0, 3, 5, 6].reduce(function (a, i) { return Math.abs(i - prefs.speedIdx) < Math.abs(a - prefs.speedIdx) ? i : a; }, 0);
+      b.setAttribute('aria-pressed', String(parseInt(b.getAttribute('data-speedidx'), 10) === near));
+    });
+  }
+  $('spd-minus').addEventListener('click', function () { changeSpeed(-1); });
+  $('spd-plus').addEventListener('click', function () { changeSpeed(1); });
+  Array.prototype.forEach.call(document.querySelectorAll('[data-speedidx]'), function (b) {
+    b.addEventListener('click', function () { prefs.speedIdx = parseInt(b.getAttribute('data-speedidx'), 10); savePrefs(); renderSpeedUi(); au('unlock'); });
+  });
   playBtn.addEventListener('click', function () { start(null); });
   contBtn.addEventListener('click', function () { var cp = getCheckpoint(); if (cp) start(cp); });
   $('keep').addEventListener('click', keepDriving);
@@ -1168,6 +1193,8 @@
     var k = e.key;
     if (k === 'ArrowLeft' || k === 'a') { go(-1); e.preventDefault(); }
     else if (k === 'ArrowRight' || k === 'd') { go(1); e.preventDefault(); }
+    else if (k === 'ArrowUp' || k === 'w' || k === '+' || k === '=') { if (mode === 'run' && !paused) changeSpeed(1); e.preventDefault(); }
+    else if (k === '-' || k === '_') { if (mode === 'run' && !paused) changeSpeed(-1); e.preventDefault(); }
     else if (k === 'ArrowDown' || k === 's') { if (mode === 'run' && !paused) braking = true; e.preventDefault(); }
     else if (k === 'p' || k === 'Escape') { if (!$('ss').hidden) closeSound(); else if (paused) resumeGame(); else pauseGame(); }
     else if (k === 'Enter' && !$('ov').hidden && document.activeElement && document.activeElement.tagName !== 'BUTTON') { start(null); e.preventDefault(); }
@@ -1203,7 +1230,7 @@
   })();
 
   // ---------- init ----------
-  applyTrip(); reset(null); showOverlay('menu', { title: 'Racer', sub: 'Swipe left or right to change lane. Pass close to traffic for combos.' }); renderOpts(); hud();
+  runMul = mul(); renderSpeedUi(); applyTrip(); reset(null); showOverlay('menu', { title: 'Racer', sub: 'Swipe left or right to change lane. Pass close to traffic for combos.' }); renderOpts(); hud();
   if (DEBUG) {
     // test and gallery hook: draw a still frame at a distance with demo traffic, and drive the game
     window.racerDebug = {

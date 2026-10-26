@@ -25,6 +25,10 @@ canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block
 .hint.show { opacity: 1; }
 .hint span { color: var(--accent); font-size: 18px; }
 .spd { position: absolute; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); text-align: right; }
+.spdctl { display: flex; gap: 8px; justify-content: flex-end; margin-bottom: 8px; pointer-events: auto; }
+.spdctl button { width: 44px; height: 44px; border-radius: 50%; border: 1px solid #ffffff40; background: #0a0d18b0; color: #fff; font: inherit; font-size: 22px; line-height: 1; cursor: pointer; backdrop-filter: blur(8px); touch-action: manipulation; }
+.spdctl button:disabled { opacity: .35; }
+.spd .pace { display: block; margin-top: 2px; letter-spacing: 1px; text-transform: none; }
 .spd b { font-size: 26px; font-weight: 300; display: block; line-height: 1; }
 .brake { position: absolute; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom)); transform: translateX(-50%); pointer-events: auto; min-height: 48px; padding: 0 20px; border-radius: 999px; border: 1px solid #ffffff40; background: #0a0d1899; color: #fff; font: inherit; font-size: 13px; backdrop-filter: blur(8px); touch-action: none; user-select: none; }
 .brake[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }

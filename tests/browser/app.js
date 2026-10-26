@@ -36,7 +36,7 @@ const st = (p) => p.evaluate(() => window.racerDebug.state());
 
   // ---- racer
   p = await mk(390, 760);
-  await p.goto(href('racer/index.html') + '?debug=1&seed=11');
+  await p.goto(href('racer/index.html') + '?debug=1&seed=11&speed=0');
   ok('the start screen is just the car picker and Play, with no level, speed or length choices', await p.isVisible('#play') && (await p.$$('.opt[data-opt=difficulty], .opt[data-opt=speed], .opt[data-opt=length], .opt[data-opt=mode]')).length === 0);
   await sleep(800);
   const sp = await p.evaluate(() => window.racerDebug.sprites());
@@ -76,7 +76,7 @@ const st = (p) => p.evaluate(() => window.racerDebug.state());
   ok('racer has no errors', p.errs.length === 0, p.errs.join('|'));
 
   p = await mk(390, 760);
-  await p.goto(href('racer/index.html') + '?debug=1&seed=3');
+  await p.goto(href('racer/index.html') + '?debug=1&seed=3&speed=0');
   await p.tap('#play'); await sleep(200);
   const len = (await st(p)).chapterLen;
   await p.evaluate(() => { window.racerDebug.stopSpawning(); window.racerDebug.teleport(14000); window.racerDebug.advance(8); });
@@ -158,7 +158,7 @@ const st = (p) => p.evaluate(() => window.racerDebug.state());
 
   // ---- environment
   p = await mk(390, 760);
-  await p.goto(href('racer/index.html') + '?debug=1&seed=9');
+  await p.goto(href('racer/index.html') + '?debug=1&seed=9&speed=0');
   await sleep(300);
   const lum = (hex) => { const n = parseInt(hex.slice(1), 16); return ((n >> 16) * .3 + ((n >> 8) & 255) * .59 + (n & 255) * .11); };
   const dawn = await p.evaluate(() => [0.02, .3, .6, .9].map((f) => window.racerDebug.scene((9 + f) * 2800)));
@@ -166,6 +166,26 @@ const st = (p) => p.evaluate(() => window.racerDebug.state());
   const names = await p.evaluate(() => [8, 9].map((i) => window.racerDebug.scene((i + .5) * 2800).name));
   ok('the last two chapters are Northern Lights and Sunrise Coast', names[0] === 'Northern Lights' && names[1] === 'Sunrise Coast', names.join());
   ok('environment tests have no errors', p.errs.length === 0, p.errs.join('|'));
+
+  // ---- speed control
+  p = await mk(390, 760);
+  await p.goto(href('racer/index.html') + '?debug=1&seed=9');
+  await sleep(300);
+  ok('the start screen has a Speed row with four choices', (await p.$$('[data-speedidx]')).length === 4);
+  await p.tap('[data-speedidx="0"]'); await sleep(80);
+  ok('choosing Cruise is remembered', (await st(p)).prefs.speedIdx === 0 && (await p.getAttribute('[data-speedidx="0"]', 'aria-pressed')) === 'true');
+  await p.tap('[data-speedidx="3"]'); await sleep(80);
+  await p.tap('#play'); await sleep(250);
+  s = await st(p);
+  ok('the default pace starts at about 136 km/h and makes the Journey longer so it still takes 15 minutes', Math.round(s.speed * 3.6) === 136 && s.chapterLen === 4480 && /about 15 min left/.test(await p.textContent('#trip-label')), JSON.stringify([s.speed * 3.6, s.chapterLen]));
+  await p.evaluate(() => { window.racerDebug.stopSpawning(); });
+  await p.tap('#spd-plus'); await p.tap('#spd-plus'); await sleep(60);
+  await p.evaluate(() => window.racerDebug.advance(10)); const fast = await st(p);
+  ok('+ makes the car faster, live', fast.prefs.speedIdx === 5 && fast.speed * 3.6 > 165, JSON.stringify([fast.prefs.speedIdx, fast.speed * 3.6]));
+  await p.keyboard.press('-'); await p.keyboard.press('-'); await p.keyboard.press('-'); await p.keyboard.press('-'); await p.keyboard.press('-'); await sleep(60);
+  await p.evaluate(() => window.racerDebug.advance(10)); const slow = await st(p);
+  ok('the - key slows it down and stops at the gentlest pace', slow.prefs.speedIdx === 0 && slow.speed * 3.6 < 100 + 5 && await p.isDisabled('#spd-minus'), JSON.stringify([slow.prefs.speedIdx, slow.speed * 3.6]));
+  ok('speed control has no errors', p.errs.length === 0, p.errs.join('|'));
 
   await browser.close();
   const bad = R.filter(r => !r.pass);

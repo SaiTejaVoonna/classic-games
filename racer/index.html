@@ -25,7 +25,7 @@
       <div class="near" id="near" aria-live="polite"></div>
       <div class="hint" id="hint" hidden><span>&#8592;</span> Swipe or tap left and right to change lane <span>&#8594;</span></div>
       <button class="brake" id="brake" type="button" aria-pressed="false">Hold to ease off</button>
-      <div class="spd"><b id="spd">0</b><small>km/h</small></div>
+      <div class="spd"><div class="spdctl"><button type="button" id="spd-minus" aria-label="Slower">&minus;</button><button type="button" id="spd-plus" aria-label="Faster">+</button></div><b id="spd">0</b><small>km/h</small><small id="spd-pace" class="pace"></small></div>
     </div>
 
     <div class="overlay" id="ov" data-kind="menu">
@@ -33,6 +33,7 @@
       <p class="ov-sub" id="ov-sub"></p>
       <div class="stats" id="ov-stats" hidden></div>
       <div class="opts" id="opts">
+        <div class="opt" role="group" aria-label="Speed"><span>Speed</span><button type="button" data-speedidx="0">Cruise</button><button type="button" data-speedidx="3">Normal</button><button type="button" data-speedidx="5">Fast</button><button type="button" data-speedidx="6">Rush</button></div>
         <div class="opt carsel" data-opt="car" role="group" aria-label="Your car"><span>Car</span><button type="button" data-val="rally"><img alt="" id="car-img-rally"><b>Rally</b></button><button type="button" data-val="sedan"><img alt="" id="car-img-sedan"><b>Sedan</b></button><button type="button" data-val="ev"><img alt="" id="car-img-ev"><b>Electric</b></button><button type="button" disabled class="soon"><img alt="" id="car-img-f1"><b>Formula, later</b></button></div>
         <p class="best" id="best-line"></p>
       </div>

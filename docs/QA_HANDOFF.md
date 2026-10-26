@@ -6,11 +6,11 @@ Branch: `claude/classic-games-app`. Test the pinned commit given in the latest r
 
 `https://raw.githack.com/SaiTejaVoonna/classic-games/<commit>/racer/index.html`
 
-Useful flags: `?debug=1` (adds `window.racerDebug`), `&boxes=1` (collision boxes), `&seed=N` (repeatable road and traffic), `&len=demo` (900 m chapters).
+Useful flags: `?debug=1` (adds `window.racerDebug`), `&boxes=1` (collision boxes), `&seed=N` (repeatable road and traffic), `&len=demo` (900 m chapters), `&speed=N` (pace step 0 to 6).
 
 ## Changes since the last tester report (6cd313d)
 
-1. One tuned game: the start screen is the car picker and Play. Speed rises 85 to 150 km/h. About 15 minutes. The label shows minutes left.
+1. One tuned game: the start screen is a Speed row, the car picker and Play. Speed rises across the Journey; the pace multiplier (default 1.6x, 136 to 240 km/h) can be changed live with + and -. About 15 minutes. The label shows minutes left.
 2. Keep driving after the finish.
 3. Handling: spring lane change, roll, bob, rain and snow softness.
 4. Traffic: some far cars signal and change lane. Brake lights flash. The car you hit spins off.
@@ -20,7 +20,7 @@ Useful flags: `?debug=1` (adds `window.racerDebug`), `&boxes=1` (collision boxes
 
 ## Please check
 
-- **Early deaths on Easy (earlier report, P2).** Play Journey. Record distance, bumps and lives at each crash. Does the ramp (85 km/h to start) feel fair? Run with `&boxes=1` once and note any crash where the red boxes did not touch.
+- **Early deaths on Easy (earlier report, P2).** Play Journey at each Speed choice. Record distance, bumps and lives at each crash. Does the pace feel fair, and is the default fast enough? Run with `&boxes=1` once and note any crash where the red boxes did not touch.
 - **Traffic overlap.** Look for cars touching the player or each other in chapters 4, 5 and 10.
 - **Lane-change cars.** Does a signalling car ever move into a lane you were about to use with no time to react?
 - **Readability.** City, rain and snow chapters: can you see road edges and traffic?
