@@ -348,8 +348,7 @@
       g.save(); rr(tx, by - th * .96, tdw, th * .94, tw * .3); g.clip();
       for (var k = 0; k < n; k++) {
         var yy = by - ((ph + k * per) % (h + per)) * s;
-        g.fillStyle = 'rgba(0,0,0,.6)'; g.fillRect(tx, yy - per * .38 * s, tdw, per * .38 * s);
-        g.fillStyle = 'rgba(255,255,255,.16)'; g.fillRect(tx, yy - per * .52 * s, tdw, per * .12 * s);
+        g.fillStyle = 'rgba(0,0,0,.28)'; g.fillRect(tx, yy - per * .3 * s, tdw, per * .3 * s);
       }
       g.restore();
     });
@@ -423,7 +422,7 @@
     g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill(); g.restore();
   }
 
-  var RIGID = { tower: 1, neon: 1, house: 1, hut: 1, cabin: 1, lighthouse: 1, windmill: 1, lamp: 1, rock: 1, umbrella: 1 };
+  var RIGID = { post: 1, tower: 1, neon: 1, house: 1, hut: 1, cabin: 1, lighthouse: 1, windmill: 1, lamp: 1, rock: 1, umbrella: 1 };
   // Roadside objects stand on the ground at (x, y) with scale s. sw = wind sway.
   function drawObj(kind, x, y, s, k, S, sw, lit) {
     var col, v = .8 + rnd(k, 7) * .5;
@@ -508,6 +507,9 @@
         var onn = ((tAnim * (1 + rnd(k, 2))) % 1) > .12;
         g.save(); g.shadowColor = nc; g.shadowBlur = onn ? 18 : 2; g.fillStyle = onn ? nc : '#333'; rr(-tw * .5 - 14 * s, -th * .5, 28 * s, 18 * s, 4 * s); g.fill(); g.restore();
       }
+    } else if (kind === 'post') {
+      g.fillStyle = 'rgba(0,0,0,.18)'; g.beginPath(); g.ellipse(0, 0, 5 * s, 1.5 * s, 0, 0, TAU); g.fill();
+      g.fillStyle = '#f3efe6'; g.fillRect(-1.6 * s, -26 * s, 3.2 * s, 26 * s); g.fillStyle = '#e8661a'; g.fillRect(-1.6 * s, -23 * s, 3.2 * s, 6 * s); g.fillStyle = '#222'; g.fillRect(-1.6 * s, -9 * s, 3.2 * s, 3 * s);
     } else if (kind === 'lamp') {
       g.fillStyle = '#2f3644'; g.fillRect(-2 * s, -64 * s, 4 * s, 64 * s); g.fillRect(0, -66 * s, 16 * s, 3 * s);
       if (lit > .2) { glowDot(14 * s, -62 * s, 28 * s, '#ffd98a'); g.fillStyle = '#ffe9a8'; g.beginPath(); g.arc(14 * s, -62 * s, 4 * s, 0, TAU); g.fill(); }
@@ -527,6 +529,7 @@
     var gl = g.createRadialGradient(sx0, sy0, 0, sx0, sy0, W * .55 * breathe);
     gl.addColorStop(0, 'rgba(255,240,200,' + (.85 * sunA) + ')'); gl.addColorStop(.2, 'rgba(255,210,150,' + (.4 * sunA) + ')'); gl.addColorStop(1, 'rgba(255,190,120,0)');
     g.fillStyle = gl; g.fillRect(0, 0, W, hy + 30 * dpr);
+    g.save(); g.globalCompositeOperation = 'lighter'; var bl = g.createRadialGradient(sx0, sy0, W * .04, sx0, sy0, W * .75); bl.addColorStop(0, 'rgba(255,214,150,' + (.38 * sunA) + ')'); bl.addColorStop(.35, 'rgba(255,190,120,' + (.12 * sunA) + ')'); bl.addColorStop(1, 'rgba(255,170,100,0)'); g.fillStyle = bl; g.fillRect(0, 0, W, hy + 40 * dpr); g.restore();
     g.fillStyle = S.sunC; g.beginPath(); g.arc(sx0, sy0, W * .05, 0, TAU); g.fill();
     if (S.stars > .5) { g.fillStyle = 'rgba(8,10,24,.7)'; g.beginPath(); g.arc(sx0 + W * .02, sy0, W * .05, 0, TAU); g.fill(); }
     // clouds
@@ -647,6 +650,10 @@
     var c0 = mix(S.ground[0], S.fog, .55), feather = 38 * dpr, fe = g.createLinearGradient(0, top - feather, 0, top + feather * .25);
     fe.addColorStop(0, c0 + '00'); fe.addColorStop(1, c0 + 'ff'); g.fillStyle = fe; g.fillRect(0, top - feather, W, feather * 1.25 + 1); // soft start, no hard line
     g.fillStyle = gg; g.fillRect(0, top + feather * .25, W, H - top);
+    for (var bm = Math.floor(dist / 16); bm * 16 < dist + DRAW; bm++) { // alternate light and dark bands of ground: they rush past and show speed
+      if (bm % 2) continue; var b0 = Math.max(.6, bm * 16 - dist), b1 = Math.min(DRAW, bm * 16 + 16 - dist); if (b1 <= b0) continue;
+      var ra = rowAt(b0), rb = rowAt(b1); g.fillStyle = 'rgba(' + (S.night > .5 ? '120,140,200' : '255,240,205') + ',' + (.085 * (1 - clamp(b0 / DRAW, 0, 1))) + ')'; g.fillRect(0, rb.y, W, Math.max(1, ra.y - rb.y));
+    }
     if (S.water > .03) drawWater(S);
     if (S.snow > .05 && rows.length > 2) { // snow along both edges of the road
       g.fillStyle = 'rgba(244,249,255,' + (.8 * clamp(S.snow, 0, 1)) + ')';
@@ -675,6 +682,21 @@
       for (var a = 1; a < n; a++) g.lineTo(rows[a].ct + sd * rows[a].hw, rows[a].y);
       for (var b = n - 1; b >= 0; b--) g.lineTo(rows[b].ct + sd * rows[b].hw * .955, rows[b].y);
       g.closePath(); g.fill();
+    });
+    g.fillStyle = 'rgba(0,0,0,.075)'; // worn tracks where tyres run: two faint dark strips in every lane
+    [-1, 0, 1].forEach(function (ln) { [-.17, .17].forEach(function (off) {
+      g.beginPath(); var cc = ln * LANE + off * LANE * 1.0, wd = .055;
+      g.moveTo(rows[0].ct + (cc - wd) * rows[0].hw, rows[0].y); for (var w1 = 1; w1 < n; w1 += 2) g.lineTo(rows[w1].ct + (cc - wd) * rows[w1].hw, rows[w1].y);
+      for (var w2 = n - 1; w2 >= 0; w2 -= 2) g.lineTo(rows[w2].ct + (cc + wd) * rows[w2].hw, rows[w2].y); g.closePath(); g.fill();
+    }); });
+    var RUM = mix(S.edge, '#000000', .45); g.fillStyle = RUM; // rumble strips: short dark blocks along the edge lines
+    [-1, 1].forEach(function (sd) {
+      g.beginPath();
+      for (var rm = Math.floor(dist / 5); rm * 5 < dist + 150; rm++) {
+        var r0 = Math.max(.5, rm * 5 - dist), r1 = rm * 5 + 2.4 - dist; if (r1 < .5) continue; var A = rowAt(r0), B = rowAt(r1);
+        g.moveTo(A.ct + sd * A.hw * .955, A.y); g.lineTo(A.ct + sd * A.hw, A.y); g.lineTo(B.ct + sd * B.hw, B.y); g.lineTo(B.ct + sd * B.hw * .955, B.y); g.closePath();
+      }
+      g.fill();
     });
     // lane dashes: each dash is one smooth shape that follows the curve and the hill
     var LEN = 7; var PER = 16; g.fillStyle = S.line;
@@ -724,6 +746,7 @@
         items.push({ d: d, kind: objectKind(use, k), side: sd, k: k, lat: sd * (1.12 + rnd(k, 44) * .75), lit: Math.max(use.night, S.night * .5), snow: use.snow, S: use });
       }
     }
+    for (var pn = Math.floor((dist + 6) / 30); pn <= Math.floor((dist + DRAW) / 30); pn++) for (var ps = -1; ps <= 1; ps += 2) { var pd = pn * 30 - dist; if (pd > 4 && pd < DRAW) items.push({ d: pd, kind: 'post', side: ps, k: pn * 2 + (ps > 0 ? 1 : 0), lat: ps * 1.1, lit: 0 }); }
     var MS = 55;
     for (var mn = Math.floor((dist + 10) / MS); mn <= Math.floor((dist + DRAW) / MS); mn++) {
       for (var ms = -1; ms <= 1; ms += 2) {
@@ -915,12 +938,16 @@
   // Thin streaks that fly outwards from the vanishing point, only at high speed and only near the edges.
   function drawSpeedLines() {
     var sn = clamp((speed - 28) / 14, 0, 1); if (sn <= 0 || mode !== 'run') return;
-    g.save(); g.globalCompositeOperation = 'lighter'; g.lineCap = 'round';
-    for (var i = 0; i < 16; i++) {
-      var side = i % 2 ? 1 : -1, a0 = (rnd(i, 31) * .5 + .08) * Math.PI, ph = (tAnim * (1.2 + rnd(i, 32)) + rnd(i, 33)) % 1;
-      var ang = side < 0 ? Math.PI - a0 * .6 : a0 * .6 - .12, r0 = (.25 + ph * .75) * W * .75, r1 = r0 + (.06 + ph * .22) * W;
-      g.strokeStyle = 'rgba(255,255,255,' + (.07 * sn * Math.sin(ph * Math.PI)) + ')'; g.lineWidth = (1 + ph * 1.6) * dpr;
-      g.beginPath(); g.moveTo(cx + Math.cos(ang) * r0, hy + Math.sin(ang) * r0 * .9); g.lineTo(cx + Math.cos(ang) * r1, hy + Math.sin(ang) * r1 * .9); g.stroke();
+    var n = rows.length; if (n < 3) return;
+    g.save(); g.beginPath(); g.rect(0, 0, W, H); // keep the streaks off the road and the cars: clip the road out
+    g.moveTo(rows[0].ct - rows[0].hw * 1.06, rows[0].y); for (var i = 1; i < n; i++) g.lineTo(rows[i].ct - rows[i].hw * 1.06, rows[i].y);
+    for (i = n - 1; i >= 0; i--) g.lineTo(rows[i].ct + rows[i].hw * 1.06, rows[i].y); g.closePath(); g.clip('evenodd');
+    g.lineCap = 'round';
+    for (var k = 0; k < 22; k++) {
+      var side = k % 2 ? 1 : -1, ph = (tAnim * (.9 + rnd(k, 32) * .8) + rnd(k, 33)) % 1, r = rows[Math.min(n - 1, Math.floor((1 - ph * ph) * (n - 1)))];
+      var lat = side * (1.25 + rnd(k, 31) * 1.9), x0 = r.ct + lat * r.hw, y0 = r.y, x1 = r.ct + lat * r.hw * 1.12, y1 = y0 + (H - y0) * .07 * (.4 + ph);
+      var lg = g.createLinearGradient(x0, y0, x1, y1); lg.addColorStop(0, 'rgba(255,255,255,0)'); lg.addColorStop(1, 'rgba(255,248,230,' + (.34 * sn * Math.sin(ph * Math.PI)) + ')');
+      g.strokeStyle = lg; g.lineWidth = Math.max(1, r.p * 3.2 * dpr); g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
     }
     g.restore();
   }

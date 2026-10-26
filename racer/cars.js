@@ -14,15 +14,15 @@ const mir=s=>`${s}<g transform="scale(-1 1)">${s}</g>`;
 function glowLine(y,x1,x2,h,col,core){return `<rect x="${x1}" y="${y-h*1.8}" width="${x2-x1}" height="${h*3.6}" rx="${h*1.8}" fill="${col}" opacity=".55" filter="url(#bl2)"/><rect x="${x1}" y="${y-h/2}" width="${x2-x1}" height="${h}" rx="${h/2}" fill="${core||col}"/>`;}
 // Tyre geometry per vehicle (x of the right tyre, width, height) in sprite units. The game redraws the tread over
 // these rectangles with a scrolling pattern, so the wheels look like they are turning.
-const TYRE={sedan:[34,20,30],hyper:[34,20,30],ev:[36,17,28],cross:[35,19,34],pickup:[34,21,35],pod:[35,19,31],truck:[36,18,30],rally:[32,22,36]};
+const TYRE={sedan:[29,15,24],hyper:[29,15,24],ev:[30,14,23],cross:[30,15,27],pickup:[30,16,28],pod:[30,15,25],truck:[31,14,24],rally:[28,16,29]};
 function tyrePair(type,rim){const [x0,w,h]=TYRE[type];
- const g=lin([[0,'#050608'],[.5,'#13161d'],[.82,'#262b38'],[1,'#3b4256']],1,0);
- return mir(`<ellipse cx="${x0+w*.5}" cy="0" rx="${w*.66}" ry="${w*.16}" fill="#000" opacity=".4"/>`
-  +`<rect x="${x0}" y="${-h}" width="${w}" height="${h}" rx="${w*.42}" fill="${g}"/>`
-  +`<rect x="${x0+w*.14}" y="${-h+h*.03}" width="${w*.72}" height="${h*.05}" rx="${w*.1}" fill="#fff" opacity=".14"/>`
-  +`<rect x="${x0+w*.82}" y="${-h*.88}" width="${w*.14}" height="${h*.7}" rx="${w*.07}" fill="${rim||'#aab4cb'}" opacity=".6"/>`
-  +[0,1,2,3,4].map(i=>`<line x1="${x0+w*.82}" y1="${-h*.82+i*h*.14}" x2="${x0+w*.96}" y2="${-h*.82+i*h*.14}" stroke="#0a0b10" stroke-width=".8" opacity=".7"/>`).join(''));}
-function underglow(col){return `<ellipse cx="0" cy="1" rx="60" ry="9" fill="#06080d" opacity=".45" filter="url(#bl)"/><ellipse cx="0" cy="-1" rx="46" ry="5" fill="${col}" opacity=".55" filter="url(#bl2)"/>`;}
+ const g=lin([[0,'#07080b'],[.55,'#171a22'],[1,'#2b303d']],1,0);
+ return mir(`<path d="M${x0-3},${-h-2} Q${x0+w*.5},${-h-11} ${x0+w+3},${-h-2} L${x0+w+3},${-h*.55} L${x0-3},${-h*.55}Z" fill="#040508" opacity=".6"/>`
+  +`<ellipse cx="${x0+w*.5}" cy="1" rx="${w*.75}" ry="${w*.2}" fill="#000" opacity=".55"/>`
+  +`<rect x="${x0}" y="${-h}" width="${w}" height="${h}" rx="${w*.32}" fill="${g}"/>`
+  +`<rect x="${x0+w*.12}" y="${-h+h*.04}" width="${w*.76}" height="${h*.06}" rx="${w*.1}" fill="#fff" opacity=".1"/>`
+  +`<rect x="${x0+w*.86}" y="${-h*.9}" width="${w*.07}" height="${h*.74}" rx="${w*.04}" fill="${rim||'#aab4cb'}" opacity=".35"/>`);}
+function underglow(col){return `<ellipse cx="0" cy="2" rx="54" ry="5" fill="#05070b" opacity=".55"/><ellipse cx="0" cy="1" rx="38" ry="2.6" fill="#000" opacity=".5"/>`;}
 function plate(y){return `<rect x="-12" y="${y}" width="24" height="9" rx="1.5" fill="#f1f4fa"/><rect x="-9" y="${y+3.2}" width="18" height="1.6" fill="#8a93a6"/>`;}
 
 function hyper(c,acc,brake){ // low wide supercar
