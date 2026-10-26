@@ -655,10 +655,6 @@
     var c0 = mix(S.ground[0], S.fog, .55), feather = 38 * dpr, fe = g.createLinearGradient(0, top - feather, 0, top + feather * .25);
     fe.addColorStop(0, c0 + '00'); fe.addColorStop(1, c0 + 'ff'); g.fillStyle = fe; g.fillRect(0, top - feather, W, feather * 1.25 + 1); // soft start, no hard line
     g.fillStyle = gg; g.fillRect(0, top + feather * .25, W, H - top);
-    for (var bm = Math.floor(dist / 16); bm * 16 < dist + DRAW; bm++) { // alternate light and dark bands of ground: they rush past and show speed
-      if (bm % 2) continue; var b0 = Math.max(.6, bm * 16 - dist), b1 = Math.min(DRAW, bm * 16 + 16 - dist); if (b1 <= b0) continue;
-      var ra = rowAt(b0), rb = rowAt(b1); g.fillStyle = 'rgba(' + (S.night > .5 ? '120,140,200' : '255,240,205') + ',' + (.085 * (1 - clamp(b0 / DRAW, 0, 1))) + ')'; g.fillRect(0, rb.y, W, Math.max(1, ra.y - rb.y));
-    }
     if (S.water > .03) drawWater(S);
     if (S.snow > .05 && rows.length > 2) { // snow along both edges of the road
       g.fillStyle = 'rgba(244,249,255,' + (.8 * clamp(S.snow, 0, 1)) + ')';
@@ -688,16 +684,10 @@
       for (var b = n - 1; b >= 0; b--) g.lineTo(rows[b].ct + sd * rows[b].hw * .955, rows[b].y);
       g.closePath(); g.fill();
     });
-    g.fillStyle = 'rgba(0,0,0,.075)'; // worn tracks where tyres run: two faint dark strips in every lane
-    [-1, 0, 1].forEach(function (ln) { [-.17, .17].forEach(function (off) {
-      g.beginPath(); var cc = ln * LANE + off * LANE * 1.0, wd = .055;
-      g.moveTo(rows[0].ct + (cc - wd) * rows[0].hw, rows[0].y); for (var w1 = 1; w1 < n; w1 += 2) g.lineTo(rows[w1].ct + (cc - wd) * rows[w1].hw, rows[w1].y);
-      for (var w2 = n - 1; w2 >= 0; w2 -= 2) g.lineTo(rows[w2].ct + (cc + wd) * rows[w2].hw, rows[w2].y); g.closePath(); g.fill();
-    }); });
     var RUM = mix(S.edge, '#000000', .45); g.fillStyle = RUM; // rumble strips: short dark blocks along the edge lines
     [-1, 1].forEach(function (sd) {
       g.beginPath();
-      for (var rm = Math.floor(dist / 5); rm * 5 < dist + 150; rm++) {
+      for (var rm = Math.floor(dist / 5); rm * 5 < dist + 40; rm++) { // near only: far away they turn into a jittery dashed line
         var r0 = Math.max(.5, rm * 5 - dist), r1 = rm * 5 + 2.4 - dist; if (r1 < .5) continue; var A = rowAt(r0), B = rowAt(r1);
         g.moveTo(A.ct + sd * A.hw * .955, A.y); g.lineTo(A.ct + sd * A.hw, A.y); g.lineTo(B.ct + sd * B.hw, B.y); g.lineTo(B.ct + sd * B.hw * .955, B.y); g.closePath();
       }
@@ -921,7 +911,10 @@
       });
       g.globalAlpha = 1;
     }
-    if (S.heat > .05) { g.save(); g.globalAlpha = .1 * S.heat; g.fillStyle = '#fff'; for (var h = 0; h < 5; h++) g.fillRect(0, hy + (10 + h * 16 + Math.sin(tAnim * 3 + h) * 3) * dpr, W, 3 * dpr); g.restore(); }
+    if (S.heat > .05) { // heat haze: a soft warm glow just above the ground, no hard edges (bars read as lines)
+      var hz = g.createLinearGradient(0, hyR - 20 * dpr, 0, hyR + 90 * dpr); hz.addColorStop(0, 'rgba(255,236,200,0)'); hz.addColorStop(.45, 'rgba(255,236,200,' + (.16 * S.heat) + ')'); hz.addColorStop(1, 'rgba(255,236,200,0)');
+      g.fillStyle = hz; g.fillRect(0, hyR - 20 * dpr, W, 110 * dpr);
+    }
     if (S.night > .25 && S.rain < .3 && S.snow < .3) { // fireflies
       for (var ff = 0; ff < 16; ff++) {
         var fx = rnd(ff, 1) * W + Math.sin(tAnim * .6 + ff) * 30 * dpr; var fy = hy + (H - hy) * (.25 + rnd(ff, 2) * .45) + Math.cos(tAnim * .5 + ff) * 20 * dpr;
