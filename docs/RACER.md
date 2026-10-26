@@ -24,8 +24,10 @@ All rules are Classic Games prototype choices; nothing here copies any original 
 
 ## Systems
 
-- **Handling:** lane change is a damped spring (about 0.28 s on dry road, softer with a little sway in rain and snow), body roll from lane speed, suspension bob from bumps and hills, nose dip when braking.
-- **Traffic:** about 82 percent of a lane wide. Far cars sometimes signal and change lane (they count as being in both lanes while moving). Contact is tested at the depth where the cars are drawn. The car that was hit is knocked aside.
+- **Handling:** lane change is a damped spring (about 0.28 s on dry road, softer with a little sway in rain and snow). The body leans into a move (the base stays on the road, so no wheel lifts), the camera banks about one degree into a lane change or a bend, the suspension bobs on bumps and hills, and the nose dips when braking.
+- **Lanes:** one definition, `LANE = 2/3` of the road half-width, so lane centres sit at 0 and +-2/3 and the painted lines at +-1/3. Drawing, coin pickup and contact all use it. A vehicle fills 78 percent of its lane (the widest, a truck, 87).
+- **Traffic:** each car has its own pace but eases down to the speed of the car in front, so cars in one lane never drive through each other, and a car never joins two others to fill all three lanes. Far cars sometimes signal and change lane (they count in both lanes while moving). Contact is tested at the depth where the cars are drawn, with the real widths of the two vehicles. A close call needs a gap under 0.95 lane, so it takes a real squeeze; passing in the next lane (gap 1) does not count. The car that was hit is knocked aside.
+- **Pickups:** coins and hearts are collected where the car is drawn, 9 m ahead of the camera. Things closer to the camera than the car are drawn after it.
 - **Environment:** each chapter has its own sky, ridges, ground, roadside set, weather and life. Sunrise Coast starts in pre-dawn and brightens. Rain wets the road and throws spray, snow lines the verge, dust and leaves react to the car.
 - **Sound:** see `docs/RACER_AUDIO.md`.
 
@@ -36,6 +38,8 @@ All rules are Classic Games prototype choices; nothing here copies any original 
 - `&seed=N` makes traffic and the road repeatable.
 - `&len=demo` shortens chapters to 900 m for quick looks.
 - `&speed=N` sets the pace step (0 to 6) without saving it; `&speed=0` gives the gentlest pace.
+- `&fps=1` shows how long a frame takes (average and worst, in milliseconds). `racerDebug.perf()` returns the same numbers.
+- Resolution adapts: if frames keep arriving late the picture is rendered at a lower resolution (down to 1x) and goes back up after a long smooth stretch. `racerDebug.slowDown(true)` forces the low setting.
 
 ## Storage (local only)
 

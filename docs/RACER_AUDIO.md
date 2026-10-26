@@ -25,3 +25,11 @@ Each voice and layer was measured alone and trimmed so every chapter sits at abo
 ## Not verified
 
 The balance and taste of the music have only been checked by measurement and by the owner listening to previews. Nothing has been listened to on a real phone speaker by the tester.
+
+## Mix notes (latest round)
+
+- The engine has its own bus and its own slider; Effects volume no longer scales it. It still follows the Effects on/off switch.
+- Effect bells take their notes from the chapter's own theme in `score.js` (one scale for music and effects). The near-miss bell climbs the scale with the combo.
+- Effect and life-sound buses are made once per level and reused.
+- The engine is updated about 30 times a second, and only the loops next to the one playing follow the pitch.
+- Pausing and resuming keeps the music schedule (the audio clock stops while paused), so nothing doubles up.

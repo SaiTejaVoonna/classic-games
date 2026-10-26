@@ -6,7 +6,7 @@ Branch: `claude/classic-games-app`. Test the pinned commit given in the latest r
 
 `https://raw.githack.com/SaiTejaVoonna/classic-games/<commit>/racer/index.html`
 
-Useful flags: `?debug=1` (adds `window.racerDebug`), `&boxes=1` (collision boxes), `&seed=N` (repeatable road and traffic), `&len=demo` (900 m chapters), `&speed=N` (pace step 0 to 6).
+Useful flags: `?debug=1` (adds `window.racerDebug`), `&boxes=1` (collision boxes), `&seed=N` (repeatable road and traffic), `&len=demo` (900 m chapters), `&speed=N` (pace step 0 to 6), `&fps=1` (frame time on screen).
 
 ## Changes since the last tester report (6cd313d)
 

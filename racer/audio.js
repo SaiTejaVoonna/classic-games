@@ -3,18 +3,19 @@
 (function (root) {
   'use strict';
 
-  // Ten chapters: root note (MIDI), scale, tempo, music kit, ambience bed.
-  var CH = [ // same order as the chapters in racer.js, so the sound matches the scenery
-    { root: 57, sc: [0, 2, 4, 7, 9], bpm: 84, kit: 'piano', bed: 'meadow' },     // Dawn Meadow
-    { root: 62, sc: [0, 2, 4, 7, 9], bpm: 88, kit: 'pluck', bed: 'meadow' },     // Cherry Hills
-    { root: 55, sc: [0, 2, 3, 7, 9], bpm: 78, kit: 'acoustic', bed: 'desert' },  // Desert Road
-    { root: 59, sc: [0, 2, 4, 7, 9], bpm: 76, kit: 'cello', bed: 'meadow' },     // Amber Valley
-    { root: 60, sc: [0, 2, 4, 7, 9], bpm: 92, kit: 'handpan', bed: 'waves' },    // Sunset Coast
-    { root: 57, sc: [0, 3, 5, 7, 10], bpm: 100, kit: 'electro', bed: 'city' },   // Dusk City
-    { root: 52, sc: [0, 3, 5, 7, 10], bpm: 108, kit: 'electro', bed: 'rain' },   // Neon Quarter
-    { root: 47, sc: [0, 3, 5, 6, 7], bpm: 120, kit: 'cinematic', bed: 'storm' }, // Storm Pass
-    { root: 59, sc: [0, 2, 4, 7, 9], bpm: 70, kit: 'pads', bed: 'snow' },        // Northern Lights
-    { root: 57, sc: [0, 2, 4, 7, 9], bpm: 96, kit: 'epic', bed: 'waves' }        // Sunrise Coast
+  // Ten chapters: music kit and ambience bed, in the same order as the chapters in racer.js so the sound matches the
+  // scenery. Notes, scale and tempo live in score.js; the effects use the same theme as the music.
+  var CH = [
+    { kit: 'piano', bed: 'meadow' },     // Dawn Meadow
+    { kit: 'pluck', bed: 'meadow' },     // Cherry Hills
+    { kit: 'acoustic', bed: 'desert' },  // Desert Road
+    { kit: 'cello', bed: 'meadow' },     // Amber Valley
+    { kit: 'handpan', bed: 'waves' },    // Sunset Coast
+    { kit: 'electro', bed: 'city' },   // Dusk City
+    { kit: 'electro', bed: 'rain' },   // Neon Quarter
+    { kit: 'cinematic', bed: 'storm' }, // Storm Pass
+    { kit: 'pads', bed: 'snow' },        // Northern Lights
+    { kit: 'epic', bed: 'waves' }        // Sunrise Coast
   ];
   var Score = typeof module !== 'undefined' && module.exports ? require('./score.js') : root.RacerScore;
 
@@ -53,12 +54,12 @@
     env = env || {};
     var Ctor = env.AudioContext;
     var ctx = null, master = null, musicBus = null, fxBus = null, comp = null, reverb = null, rvSend = null;
-    var noiseBuf = null, bed = null, eng = null;
+    var noiseBuf = null, bed = null, eng = null, engBus = null;
     var prefs = { music: true, sfx: true, style: 'auto', volMusic: 0.6, volFx: 0.7, bass: 0.5, calm: false, sound: true, haptics: true, car: 'rally', volEngine: .7 };
     var chapter = 0, intensity = 0.3, speed = 0, braking = false, running = false, paused = false;
     var timer = null, nextBar = 0, scene = {}, driveSlope = 0, driveSteer = 0;
     var nextLife = 0, duckedUntil = 0, stemBus = {}, duckNode = null, chBar = 0, chStart = 0, chapFrac = 0, restUntil = 0, lives = 3, maxLives = 3;
-    var made = { notes: 0, events: 0 }, engineOverride = null;
+    var made = { notes: 0, events: 0 }, engineOverride = null, lastEngine = -1;
 
     function audible() { return prefs.sound && !!ctx; }
     function speedN() { return clamp(speed / 70, 0, 1); }
@@ -73,6 +74,7 @@
       var limiter = ctx.createDynamicsCompressor(); limiter.threshold.value = -2; limiter.knee.value = 0; limiter.ratio.value = 20; limiter.attack.value = .002; limiter.release.value = .1; // catches anything that would clip
       comp.connect(hp); hp.connect(mud); mud.connect(air); air.connect(master); master.connect(limiter); limiter.connect(ctx.destination);
       musicBus = ctx.createGain(); fxBus = ctx.createGain(); musicBus.connect(comp); fxBus.connect(comp);
+      engBus = ctx.createGain(); engBus.gain.value = .7; engBus.connect(comp); // the engine is mixed on its own, so Engine volume is all that scales it
       duckNode = ctx.createGain(); duckNode.connect(musicBus); // the whole score dips under big effects
       reverb = ctx.createConvolver(); // a 3.4 s hall: dense early reflections, a tail that darkens as it fades
       var len = Math.floor(ctx.sampleRate * 3.4), ir = ctx.createBuffer(2, len, ctx.sampleRate);
@@ -94,7 +96,7 @@
       var f = (prefs.sfx && prefs.sound ? prefs.volFx : 0);
       musicBus.gain.setTargetAtTime(m, t, 0.08); fxBus.gain.setTargetAtTime(f, t, 0.08);
       if (bed) bed.out.gain.setTargetAtTime(prefs.sound ? 0.5 : 0, t, 0.2);
-      if (eng) eng.out.gain.setTargetAtTime(running && !paused && f ? prefs.volEngine / .7 : 0, t, 0.1);
+      if (eng) eng.out.gain.setTargetAtTime(running && !paused && prefs.sfx && prefs.sound ? prefs.volEngine / .7 : 0, t, 0.1);
     }
 
     function route(node, bus, pv, wet) {
@@ -120,7 +122,7 @@
       g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.3); o.connect(g); route(g, bus || musicBus, 0); o.start(t); o.stop(t + 0.35);
     }
 
-    function degree(c, d) { var n = c.sc.length; return c.root + c.sc[((d % n) + n) % n] + 12 * Math.floor(d / n); }
+    function degree(T, d) { return Score.midi(T, d); } // scale degree d of the chapter's own theme (0 is the tonic, 7 an octave up)
     function rnd() { return Math.random(); }
     var curFx = null; // while an effect is being built, 'fx' means its own trimmed bus
     function B(name) { return name === 'fx' ? curFx || fxBus : stemBus[name] || musicBus; }
@@ -133,7 +135,7 @@
     function pianoNote(m, t, dur, v, bus, pv, wet) {
       var f = mtof(m), A = [1, .5, .3, .18, .1, .06], tau = clamp(2.6 - (m - 48) * .03, .6, 2.8) * Math.min(1.5, .6 + dur * .4);
       var lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 900 + v * 5200; route(lp, B(bus), pv, wet);
-      for (var i = 0; i < 6; i++) {
+      for (var i = 0, np = dur < .6 ? 4 : 6; i < np; i++) { // short notes (the rolling pulse) need fewer partials
         var n = i + 1, o = ctx.createOscillator(), g = ctx.createGain(), life = tau / (1 + i * .45);
         o.frequency.value = f * n * Math.sqrt(1 + .0004 * n * n); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(A[i] * v * .45 * (i > 1 ? .6 + v * .6 : 1), t + .004); g.gain.exponentialRampToValueAtTime(0.0001, t + life);
         o.connect(g); g.connect(lp); o.start(t); o.stop(t + life + .05); made.notes++;
@@ -376,7 +378,7 @@
       var wh = ctx.createOscillator(), whG = ctx.createGain(); wh.type = P.turbo ? 'sine' : 'triangle'; whG.gain.value = 0; wh.connect(whG);
       var out = ctx.createGain(); out.gain.value = 0;
       body.connect(out); intake.connect(out); wind.connect(out); whG.connect(out);
-      route(out, fxBus, 0, .04);
+      route(out, engBus, 0, .04);
       [o1, o2, sub, lfo, ns, ns2, wh].forEach(function (n) { n.start(t0); });
       eng = { name: name, mode: loops ? 'loops' : 'osc', loops: loops, P: P, o1: o1, o2: o2, sub: sub, lfo: lfo, ns: ns, ns2: ns2, wh: wh, lp: lp, pk1: pk1, body: body, intake: intake, ibp: ibp, wind: wind, wlp: wlp, whG: whG, out: out, gear: 1, rpm: 900, v: 0, vt: t0, acc: 0, cut: 0, popT: 0 };
       applyVolumes();
@@ -417,8 +419,8 @@
         else { var fr = clamp(Math.log(m.rpm / r0) / Math.log(r1 / r0), 0, 1); wl = Math.cos(fr * Math.PI / 2); wh2 = Math.sin(fr * Math.PI / 2); }
         for (var li = 0; li < n; li++) {
           var gw = li === lo ? wl : li === lo + 1 ? wh2 : 0;
-          L[li].gain.gain.setTargetAtTime(gw, t, .03);
-          L[li].src.playbackRate.setTargetAtTime(m.rpm / L[li].rpm, t, tc); // every loop keeps the current pitch, so one fading in never glides from an old one
+          if (gw > 0 || L[li].on) { L[li].gain.gain.setTargetAtTime(gw, t, .03); L[li].on = gw > 0; }
+          if (gw > 0 || (li >= lo - 1 && li <= lo + 2)) L[li].src.playbackRate.setTargetAtTime(m.rpm / L[li].rpm, t, tc); // the loops next to the one playing already follow the pitch, so one fading in never glides from an old one
         }
         E.lp.frequency.setTargetAtTime(Math.min(16000, (1200 + m.rpm * .6 + load * 3500) * calm), t, .06);
       } else E.lp.frequency.setTargetAtTime(Math.min(16000, (P.lpB + m.rpm * P.lpK + load * P.lpL) * calm), t, .06);
@@ -458,7 +460,7 @@
       var now = ctx ? ctx.currentTime : 0;
       if (name === 'rest') restUntil = now + 11; // the score eases back whether or not effects are on
       if (!audible() || !prefs.sfx) { if (name === 'bump' || name === 'crash') buzz(60); return; }
-      var t = now + 0.01, c = CH[chapter], pv = clamp((o.side || 0) * 0.5, -0.8, 0.8), F = trimBus(EVENT_TRIM[name] || 1), k;
+      var t = now + 0.01, c = Score.THEMES[chapter], pv = clamp((o.side || 0) * 0.5, -0.8, 0.8), F = trimBus(EVENT_TRIM[name] || 1), k;
       curFx = F;
       made.events++;
       if (name === 'near') duck(.72, .35); else if (name === 'bump') duck(.45, .7); else if (name === 'crash') duck(.3, 1.4); else if (name === 'heart') duck(.8, .6);
@@ -473,7 +475,7 @@
           bellNote(degree(c, 7) + 24, t + .25, .9, .14, 'fx', 0, .6, 3.5, 1.4); sub(t, 80, 55, .22, .18, F); sub(t + .16, 80, 55, .22, .12, F); break;
         case 'near': { // a rising whoosh, a bell that climbs with the combo, a sparkle and a low push
           var cb = clamp(o.combo || 1, 1, 8);
-          sweep(t, .3, 500, 3400, .15, F, pv * .6); bellNote(c.root + 36 + cb * 2, t + .05, .45, .2, 'fx', 0, .35, 3.5, 1.4); noise(t + .08, .08, .05, F, 'highpass', 5200, 0); sub(t, 110, 70, .15, .08, F); buzz(10); break; }
+          sweep(t, .3, 500, 3400, .15, F, pv * .6); bellNote(Score.midi(c, 7 + cb), t + .05, .45, .2, 'fx', 0, .35, 3.5, 1.4); noise(t + .08, .08, .05, F, 'highpass', 5200, 0); sub(t, 110, 70, .15, .08, F); buzz(10); break; }
         case 'pass': passBy(t, o.side || 0, o.v || speed); sweep(t, .35, 400, 1500, .08 * (.4 + speedN()), F, pv); break;
         case 'bump': // impact, body thump, a glass tinkle and a rattle
           sub(t, 150, 40, .5, .55, F); noise(t, .28, .3, F, 'lowpass', 1100, 0); metalHit(t + .01, 1400 + rnd() * 400, .2, F, rnd() - .5, .25); rattle(t + .05, 6, .4, .12, F); sweep(t, .35, 2400, 500, .1, F, 0, 'bandpass'); buzz(80); break;
@@ -494,7 +496,11 @@
     // Level trims from measuring each sound alone: life sounds sit quietly under everything, effects stand out.
     var LIFE_TRIM = { songbirds: 3.5, balloon: 5, windmill: .4, windchimes: 1.4, butterflies: 1.8, flag: 4, crickets: 3.2, crow: 2.8, churchbell: 1, gulls: 1, bellbuoy: 1.4, boathorn: .4, siren: 1, cityhorns: 1, plane: 1.4, train: 4, thunderfar: .7, raingust: 1, thunderclose: .7, tunnel: 1.25, owl: 1, foghorn: .3, fireworks: 1 };
     var EVENT_TRIM = { lane: 3.5, coin: 5.6, heart: 1.6, near: 4, pass: 1.8, bump: 4, crash: 2.8, chapter: 2.2, rest: 2, thunder: 1, finish: 1 };
-    function trimBus(trim) { var g = ctx.createGain(), w = ctx.createGain(); g.gain.value = w.gain.value = trim; g.connect(fxBus); w.connect(rvSend); g._wet = w; return g; }
+    var trimBuses = {};
+    function trimBus(trim) { // one bus per level, reused by every sound with that level (making a new one each time would leave a node behind per sound)
+      if (trimBuses[trim]) return trimBuses[trim];
+      var g = ctx.createGain(), w = ctx.createGain(); g.gain.value = w.gain.value = trim; g.connect(fxBus); w.connect(rvSend); g._wet = w; trimBuses[trim] = g; return g;
+    }
     // ---- life sounds: the small sounds of each place. Every chapter lists its own (see racer.js).
     var LIFE_LEVEL = { songbirds: 1, balloon: 1, windmill: 1, windchimes: 1, butterflies: 1, flag: 1, crickets: 1, crow: 1, churchbell: 1, gulls: 1, bellbuoy: 1, boathorn: 1, siren: 1, cityhorns: 1, plane: 1, train: 1, thunderfar: 1, raingust: 1, thunderclose: 1, tunnel: 1, owl: 1, foghorn: 1, fireworks: 1 };
     function lifeSound(name, t, pv, v) {
@@ -557,14 +563,15 @@
         stopBed(); stopEngine();
       },
       pause: function () { paused = true; if (ctx && ctx.suspend) { try { ctx.suspend(); } catch (e) { /* ignore */ } } },
-      resume: function () { paused = false; nextBar = 0; if (ctx && ctx.resume) { try { ctx.resume(); } catch (e) { /* ignore */ } } },
+      resume: function () { paused = false; if (ctx && ctx.resume) { try { ctx.resume(); } catch (e) { /* ignore */ } } },
       setChapter: function (i) {
         chapter = clamp(i | 0, 0, CH.length - 1); chBar = 0; chStart = ctx ? Math.max(ctx.currentTime, nextBar) : 0; chapFrac = 0;
         if (ctx && running && (!bed || bed.name !== CH[chapter].bed)) startBed(CH[chapter].bed);
       },
       setSpeed: function (v) {
         speed = v || 0;
-        engineUpdate(speed);
+        var tn = ctx ? ctx.currentTime : 0;
+        if (!ctx || tn - lastEngine >= .03 || tn < lastEngine) { lastEngine = tn; engineUpdate(speed); } // about 30 times a second is plenty for the engine
       },
       setEngine: function (name) { engineOverride = ENGINES[name] ? name : null; requestLoops(engineName()); restartEngine(); },
       setIntensity: function (v) { intensity = clamp(v || 0, 0, 1); },
@@ -576,7 +583,7 @@
       life: function (name, pv) { if (audible()) lifeSound(name, ctx.currentTime + .02, pv || 0, 1); },
       lifeNames: Object.keys(LIFE_LEVEL),
       event: event,
-      info: function () { return { ctx: !!ctx, state: ctx ? ctx.state : 'none', chapter: chapter, kit: Score.THEMES[chapter].lead, bed: bed ? bed.name : null, notes: made.notes, events: made.events, running: running, paused: paused, braking: braking, engine: eng ? eng.name : null, engineMode: eng ? eng.mode : null, loops: Object.keys(loopRaw), prefs: prefs, scene: scene }; }
+      info: function () { return { ctx: !!ctx, state: ctx ? ctx.state : 'none', chapter: chapter, kit: Score.THEMES[chapter].lead, bed: bed ? bed.name : null, notes: made.notes, events: made.events, running: running, paused: paused, braking: braking, engine: eng ? eng.name : null, engineGain: eng ? eng.out.gain.value : null, engineMode: eng ? eng.mode : null, loops: Object.keys(loopRaw), prefs: prefs, scene: scene }; }
     };
   }
 

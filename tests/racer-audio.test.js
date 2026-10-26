@@ -3,9 +3,9 @@ const test = require('node:test');
 const assert = require('node:assert');
 const { create, CHAPTERS, mtof } = require('../racer/audio.js');
 
-test('ten chapters with a scale, tempo, kit and bed each', () => {
+test('ten chapters, each with a kit and a bed', () => {
   assert.strictEqual(CHAPTERS.length, 10);
-  CHAPTERS.forEach((c) => { assert.ok(c.sc.length >= 5 && c.bpm > 60 && c.kit && c.bed); });
+  CHAPTERS.forEach((c) => { assert.ok(c.kit && c.bed); });
 });
 test('mtof maps A4 to 440 Hz', () => { assert.strictEqual(mtof(69), 440); });
 test('without Web Audio every call is silent and safe', () => {

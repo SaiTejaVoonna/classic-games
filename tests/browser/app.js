@@ -101,33 +101,95 @@ const st = (p) => p.evaluate(() => window.racerDebug.state());
   let edge = 0, scr = 0, n = 0;
   for (let d = 300; d < 9000; d += 97) for (const ln of [-1, 0, 1]) {
     await p.evaluate(([dd, l]) => { window.racerDebug.teleport(dd); window.racerDebug.setLane(l); }, [d, ln]);
-    const g = await p.evaluate(() => window.racerDebug.geo([9])); const pl = g.player, r = g.rows[0], half = pl.w * 1.06 / 2;
-    n++; if (Math.max(r.ct - r.hw - (pl.x - half), pl.x + half - (r.ct + r.hw)) > 0) edge++; if (pl.x - half < 0 || pl.x + half > g.W) scr++;
+    const g = await p.evaluate(() => window.racerDebug.geo([9])); const pl = g.player, r = g.rows[0], half = pl.w * 1.05 / 2;
+    n++; if (Math.max(r.ct - r.hw * .955 - (pl.x - half), pl.x + half - (r.ct + r.hw * .955)) > 0) edge++; if (pl.x - half < 0 || pl.x + half > g.W) scr++;
     if (Math.abs(pl.y - r.y) > 0.01) edge++;
   }
-  ok('the player car stays inside the road and the screen in every lane, on bends and hills', n > 100 && edge === 0 && scr === 0, `${n} samples, ${edge} off road, ${scr} off screen`);
+  ok('the player car stays inside the edge lines and the screen in every lane, on bends and hills', n > 100 && edge === 0 && scr === 0, `${n} samples, ${edge} off road, ${scr} off screen`);
   let overlap = 0;
   for (const kind of ['hatch', 'suv', 'van', 'truck']) for (const cl of [-1, 1]) {
     await p.evaluate(([k, l]) => { window.racerDebug.teleport(1500); window.racerDebug.setLane(0); window.racerDebug.addCar(l, 9, k); }, [kind, cl]);
     const g = await p.evaluate(() => window.racerDebug.geo([9])); const c = g.cars[g.cars.length - 1], r = g.rows[0];
-    const f = { hatch: 1, suv: 1.08, van: 1.1, truck: 1.15 }[kind];
-    if (Math.abs(c.x - g.player.x) - (g.W * 0.255 * (r.hw / (g.W * 0.9)) * 1.7 * f + g.player.w * 1.06) / 2 <= 0) overlap++;
+    const f = { hatch: 1, suv: 1.04, van: 1.07, truck: 1.12 }[kind];
+    if (Math.abs(c.x - g.player.x) - (r.hw * 2 / 3 * .78 * f + g.player.w * 1.05) / 2 <= 0) overlap++;
   }
   ok('a car in the next lane never overlaps the player', overlap === 0, String(overlap));
   await p.evaluate(() => { const D = window.racerDebug; D.teleport(1500); D.setLane(0); D.advance(4); D.addCar(0, 14, 'sedan'); D.advance(.5); });
   const g2 = await p.evaluate(() => window.racerDebug.geo([9])); const s2 = await st(p);
   ok('hitting a car costs a life and the car that was hit stays visible, knocked aside', s2.lives === 2 && g2.cars.some(c => c.knock), JSON.stringify([s2.lives, g2.cars.map(c => c.knock)]));
   const sim = await p.evaluate(() => {
-    const D = window.racerDebug; let three = 0, steps = 0;
+    const D = window.racerDebug; let three = 0, steps = 0, stack = 0;
     for (let i = 0; i < 4000; i++) {
       D.advance(.02); const s = D.state(); if (s.mode !== 'run') break;
       const g = D.geo([9]); const lanes = new Set(g.cars.filter((c) => c.d > 9 && c.d < 60 && !c.knock).map((c) => c.lane)); steps++; if (lanes.size >= 3) three++;
+      const live = g.cars.filter((c) => c.d > 1 && !c.knock); for (const a of live) for (const b of live) if (a !== b && a.lane === b.lane && Math.abs(a.laneF - b.laneF) < .5 && b.d > a.d && b.d - a.d < 9) stack++;
       const ahead = g.cars.filter((c) => c.d > 2 && c.d < 70);
       if (ahead.some((c) => c.lane === s.laneTarget) && i % 5 === 0) { const cand = [-1, 0, 1].filter((l) => Math.abs(l - s.laneTarget) <= 1 && !ahead.some((c) => c.lane === l)); if (cand.length) { const k = cand[0] > s.laneTarget ? 'ArrowRight' : 'ArrowLeft'; document.dispatchEvent(new KeyboardEvent('keydown', { key: k, code: k, bubbles: true })); } }
     }
-    return { threeShare: three / Math.max(1, steps), mode: D.state().mode, dist: Math.round(D.state().dist) };
+    return { threeShare: three / Math.max(1, steps), stack, mode: D.state().mode, dist: Math.round(D.state().dist) };
   });
-  ok('on Easy a simple driver can play 80 s, and all three lanes are almost never filled ahead', sim.mode === 'run' && sim.threeShare < .03, JSON.stringify(sim));
+  ok('on Easy a simple driver can play 80 s; all three lanes are never filled ahead and cars in one lane never run into each other', sim.mode === 'run' && sim.threeShare === 0 && sim.stack === 0, JSON.stringify(sim));
+  // lane centres match the painted lines, and everything is picked up and touched where the car is drawn
+  const lanePos = await p.evaluate(() => { const D = window.racerDebug; D.stopSpawning(); D.teleport(1500); const out = []; for (const l of [-1, 0, 1]) { D.setLane(l); const g = D.geo([9]); out.push((g.player.x - g.rows[0].ct) / g.rows[0].hw); } return out; });
+  ok('lane centres sit at -2/3, 0 and +2/3 of the road half-width, the middle of each painted lane', Math.abs(lanePos[0] + 2 / 3) < .002 && Math.abs(lanePos[1]) < .002 && Math.abs(lanePos[2] - 2 / 3) < .002, JSON.stringify(lanePos));
+  const coinTest = await p.evaluate(() => {
+    const D = window.racerDebug; D.stopSpawning(); let cn = 20; while (!D.coinChunk(cn)) cn++; const ck = D.coinChunk(cn); D.setLane(ck.lane);
+    const before = D.state().coins, out = {};
+    D.teleport(ck.start - 9 - 6.5); D.advance(.02); out.early = D.state().coins - before;
+    D.teleport(ck.start - 9 - .5); D.advance(.02); out.atCar = D.state().coins - before;
+    return out;
+  });
+  ok('a coin is collected when it reaches the car, not when it is under the camera', coinTest.early === 0 && coinTest.atCar >= 1, JSON.stringify(coinTest));
+  const follow = await p.evaluate(() => {
+    const D = window.racerDebug; D.stopSpawning(); D.teleport(1500); D.setLives(3); D.setLane(1); D.advance(.3);
+    D.addCar(0, 80, 'sedan', false, 18); D.addCar(0, 40, 'sedan', false, 34); // the rear car is much faster and would drive through the front one
+    let minGap = 1e9, wall = 0;
+    for (let i = 0; i < 250; i++) { D.advance(.02); const cs = D.geo([9]).cars.filter((c) => c.lane === 0 && !c.knock); if (cs.length === 2) minGap = Math.min(minGap, Math.abs(cs[0].d - cs[1].d)); }
+    D.teleport(3000); D.advance(.5);
+    D.addCar(-1, 70, 'sedan', false, 24); D.addCar(1, 70, 'sedan', false, 24); D.addCar(0, 30, 'sedan', false, 36); // a faster car arrives between two others
+    for (let i = 0; i < 400; i++) { D.advance(.02); const cs = D.geo([9]).cars.filter((c) => c.d > 1 && !c.knock); const rear = cs.slice().sort((a, b) => a.d - b.d); for (const c of rear) { const l = new Set(cs.filter((o) => Math.abs(o.d - c.d) < 20).map((o) => o.lane)); if (l.size >= 3) { wall++; break; } } }
+    return { minGap: Math.round(minGap), wall };
+  });
+  ok('a faster car slows behind a slower one instead of driving through it, and never forms a wall of three', follow.minGap >= 12 && follow.wall === 0, JSON.stringify(follow));
+  const wide = await p.evaluate(() => {
+    const D = window.racerDebug, out = {}; D.stopSpawning();
+    for (const kind of ['truck', 'hatch']) { D.teleport(1500); D.setLives(3); D.setLane(0); D.advance(.5); D.addCar(1, 9, kind); D.advance(.1); out[kind] = D.state().lives; }
+    return out;
+  });
+  ok('a vehicle in the next lane is a near miss, not a crash, for the widest one too', wide.truck === 3 && wide.hatch === 3, JSON.stringify(wide));
+  const squeeze = await p.evaluate(() => {
+    const D = window.racerDebug; D.stopSpawning(); D.teleport(1500); D.setLives(3); D.setLane(.3); D.addCar(1, 9, 'sedan'); D.advance(.1); return D.state().lives;
+  });
+  ok('drifting into a car does cost a life', squeeze === 2, String(squeeze));
+  const near2 = await p.evaluate(() => {
+    const D = window.racerDebug; D.stopSpawning(); D.teleport(1500); D.setLives(3); D.setLane(0); D.advance(.3); D.addCar(1, 40, 'sedan'); D.advance(2.5); const plain = D.state().combo;
+    D.teleport(1500); D.setLane(0); D.advance(.3); D.addCar(1, 30, 'sedan'); D.advance(.3); D.setLane(.2); D.advance(2.5); return { plain, squeezed: D.state().combo, lives: D.state().lives };
+  });
+  ok('passing in the next lane is no longer a combo, but squeezing past a car is', near2.plain === 0 && near2.squeezed >= 1 && near2.lives === 3, JSON.stringify(near2));
+  const keys = await p.evaluate(() => {
+    const D = window.racerDebug; D.stopSpawning(); D.setLane(0); const i0 = D.state().prefs.speedIdx;
+    const k1 = new KeyboardEvent('keydown', { key: '+', ctrlKey: true, bubbles: true, cancelable: true }); document.dispatchEvent(k1);
+    const i1 = D.state().prefs.speedIdx;
+    const k2 = new KeyboardEvent('keydown', { key: 'D', bubbles: true, cancelable: true }); document.dispatchEvent(k2); D.advance(.5);
+    return { ctrlBlocked: k1.defaultPrevented, sameSpeed: i1 === i0, capitalMoved: D.state().laneTarget === 1 };
+  });
+  ok('Ctrl+plus (browser zoom) is left to the browser, and a capital D still steers', !keys.ctrlBlocked && keys.sameSpeed && keys.capitalMoved, JSON.stringify(keys));
+  const crash = await p.evaluate(() => { const D = window.racerDebug; D.stopSpawning(); D.teleport(1500); D.setLane(0); D.setLives(1); D.addCar(0, 9, 'sedan'); D.advance(.04); return { mode: D.state().mode, flash: D.state().flash }; });
+  ok('a crash flashes the screen red even though the run has ended', crash.mode === 'over' && crash.flash > 0, JSON.stringify(crash));
+  p = await mk(390, 760);
+  await p.goto(href('racer/index.html') + '?debug=1&seed=5&speed=0');
+  await p.click('#play'); await sleep(150);
+  const quit = await p.evaluate(() => { const D = window.racerDebug; D.stopSpawning(); const r0 = D.state().stats.runs; D.advance(5); D.backToMenu(); return D.state().stats.runs - r0; });
+  ok('leaving a run through the menu still counts it in the stats', quit === 1, String(quit));
+  // the engine has its own volume: the Effects slider does not scale it
+  const eng = await (async () => {
+    await p.click('#play'); await sleep(200);
+    await p.evaluate(() => { const f = document.getElementById('vol-fx'); f.value = 0; f.dispatchEvent(new Event('input', { bubbles: true })); const D = window.racerDebug; D.stopSpawning(); D.advance(.5); });
+    await sleep(900); const q = await p.evaluate(() => window.racerDebug.audio()); return q;
+  })();
+  ok('the engine keeps its level when the Effects volume is turned to zero', eng && eng.engine && eng.engineGain > .5, JSON.stringify(eng && { engine: eng.engine, gain: eng.engineGain, state: eng.state }));
+  const res = await p.evaluate(() => { const D = window.racerDebug, c = document.getElementById('c'); Object.defineProperty(window, 'devicePixelRatio', { value: 2, configurable: true }); D.slowDown(false); D.geo([]); const full = c.width; D.slowDown(true); D.geo([]); const low = c.width; D.slowDown(false); D.geo([]); return { full, low, back: c.width, css: c.getBoundingClientRect().width, dpr: devicePixelRatio }; });
+  ok('a slow device renders at a lower resolution and can go back', res.low === Math.round(res.css) && res.full === 2 * res.low && res.back === res.full, JSON.stringify(res));
   await p.evaluate(() => { window.racerDebug.stopSpawning(); window.racerDebug.teleport(5000); window.racerDebug.advance(.1); });
   ok('the Journey bar says which chapter and how much time is left', /Chapter \d+ of 10 .*(min left|a minute and a half left)/.test(await p.textContent('#trip-label')), await p.textContent('#trip-label'));
   ok('road tests have no errors', p.errs.length === 0, p.errs.join('|'));
