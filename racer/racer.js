@@ -800,6 +800,42 @@
     }
   }
 
+  // Petals and leaves are real things in the air beside the road: each has a distance ahead, a side
+  // position and a height. The car drives through them, the wind carries them across, they fall
+  // and flutter (a petal shows its face, then its edge). Far ones are drawn behind the car, near
+  // ones in front, and they fade with the scene instead of popping in and out.
+  var FLURRY_N = 56, flurry = [];
+  function seedFlake(f, far) {
+    f.d = far ? 70 + Math.random() * 60 : 1 + Math.random() * 129; f.lat = (Math.random() * 2 - 1) * 3.2; f.h = .05 + Math.random() * 1.6;
+    f.fall = .12 + Math.random() * .22; f.ph = Math.random() * TAU; f.flip = 3 + Math.random() * 5; f.size = .7 + Math.random() * .6; f.c = Math.random(); f.spin = (Math.random() - .5) * 4; return f;
+  }
+  function stepFlurry(dt, S) {
+    var amt = Math.max(S.petals, S.leaves); if (amt < .02) { flurry.length = 0; return; }
+    while (flurry.length < FLURRY_N) flurry.push(seedFlake({}, false));
+    var v = mode === 'run' ? speed : mode === 'menu' ? 20 : 0, wind = S.wind;
+    flurry.forEach(function (f) {
+      f.ph += f.flip * dt; f.d -= v * dt - Math.sin(f.ph * .5) * .3 * dt; // carried towards the camera by the car's own motion
+      f.lat += (wind * .35 + Math.sin(f.ph * .7) * .25) * dt; f.h -= f.fall * (1 + .5 * Math.sin(f.ph)) * dt;
+      if (f.d < .6 || f.h < 0 || Math.abs(f.lat) > 3.6) seedFlake(f, true);
+    });
+  }
+  function drawFlurry(S, far) {
+    var amt = Math.max(S.petals, S.leaves); if (amt < .02 || !flurry.length) return;
+    var petal = S.petals >= S.leaves, cols = petal ? ['#ffd1e8', '#ffb7d0', '#fff3c4', '#ff9fc0'] : ['#e8b040', '#c2410c', '#e08a2e', '#b5532f'];
+    var amtN = FLURRY_N * clamp(amt / (petal ? 1.6 : 1), 0, 1); // how many show; the last one fades rather than pops
+    for (var i = 0; i < FLURRY_N && i < amtN; i++) {
+      var f = flurry[i]; if ((f.d >= PD) !== far || f.d > DRAW) continue;
+      var r = rowAt(f.d), x = cx + (xoAt(f.d) + f.lat - camX) * r.p * RH, y = r.y - f.h * r.hw;
+      var rad = Math.min(16 * dpr, (petal ? .024 : .03) * f.size * r.hw), face = Math.abs(Math.cos(f.ph)); // flutter: face, edge, face
+      g.globalAlpha = clamp(amtN - i, 0, 1) * clamp((130 - f.d) / 30, 0, 1) * (.55 + .45 * face); // fade in far away
+      g.fillStyle = cols[Math.floor(f.c * cols.length)];
+      g.save(); g.translate(x, y); g.rotate(f.ph * .4 * f.spin);
+      g.beginPath(); g.ellipse(0, 0, rad, Math.max(.5, rad * (petal ? .55 : .5) * (.15 + .85 * face)), 0, 0, TAU); g.fill();
+      if (!petal && face > .4) { g.strokeStyle = 'rgba(90,50,20,.5)'; g.lineWidth = Math.max(.5, rad * .12); g.beginPath(); g.moveTo(-rad, 0); g.lineTo(rad, 0); g.stroke(); } // leaf vein
+      g.restore();
+    }
+    g.globalAlpha = 1;
+  }
   function drawWeather(S) {
     if (lightningT > 0) {
       var la = lightningT / .4;
@@ -818,12 +854,6 @@
       g.fillStyle = '#fff';
       for (var j = 0; j < 60 * S.snow; j++) { g.globalAlpha = .3 + rnd(j, 3) * .4; g.beginPath(); g.arc((rnd(j, 1) * W + Math.sin(tAnim * 2 + j) * 16 * dpr) % W, (rnd(j, 2) * H + tAnim * 150 * dpr * (.4 + rnd(j, 4))) % H, (1.2 + rnd(j, 3) * 2.4) * dpr, 0, TAU); g.fill(); }
       g.globalAlpha = 1;
-    }
-    if (S.leaves > .05) {
-      for (var l = 0; l < 16 * S.leaves; l++) { var x3 = (rnd(l, 1) * W + Math.sin(tAnim * 2 + l) * 30 * dpr + tAnim * 120 * dpr) % W; var y3 = (rnd(l, 2) * H + tAnim * 110 * dpr) % H; g.fillStyle = ['#e8b040', '#c2410c', '#e08a2e'][l % 3]; g.save(); g.translate(x3, y3); g.rotate(tAnim + l); g.beginPath(); g.ellipse(0, 0, 6 * dpr, 3 * dpr, 0, 0, TAU); g.fill(); g.restore(); }
-    }
-    if (S.petals > .05) {
-      for (var q = 0; q < 22 * S.petals; q++) { var x4 = (rnd(q, 1) * W + tAnim * 170 * dpr + q * 9) % W; var y4 = H * .5 + rnd(q, 2) * H * .4 + Math.sin(tAnim * 3 + q) * 14 * dpr; g.fillStyle = ['#ffd1e8', '#fff3c4'][q % 2]; g.beginPath(); g.ellipse(x4, y4, 5 * dpr, 2.4 * dpr, tAnim * 3 + q, 0, TAU); g.fill(); }
     }
     if (S.heat > .05) { g.save(); g.globalAlpha = .1 * S.heat; g.fillStyle = '#fff'; for (var h = 0; h < 5; h++) g.fillRect(0, hy + (10 + h * 16 + Math.sin(tAnim * 3 + h) * 3) * dpr, W, 3 * dpr); g.restore(); }
     if (S.night > .25 && S.rain < .3 && S.snow < .3) { // fireflies
@@ -887,7 +917,7 @@
     var S = sceneAt(dist);
     g.save();
     if (shake > 0) g.translate((Math.random() - .5) * shake * dpr, (Math.random() - .5) * shake * dpr);
-    drawSky(S); drawGround(S); drawRoad(S); drawWorld(S); drawParticles(true); drawPlayer(S); drawSpeedLines(); drawWeather(S); drawParticles(false);
+    drawSky(S); drawGround(S); drawRoad(S); drawWorld(S); drawFlurry(S, true); drawParticles(true); drawPlayer(S); drawSpeedLines(); drawWeather(S); drawFlurry(S, false); drawParticles(false);
     if (BOXES) drawBoxes();
     g.restore();
     return S;
@@ -1063,6 +1093,7 @@
     susp.v += (bumpF + hillF - 190 * susp.y - 8 * susp.v) * dt; susp.y = clamp(susp.y + susp.v * dt, -5, 5);
     pitch += ((braking ? 1 : 0) - pitch) * Math.min(1, dt * 6);
     if (mode === 'run' && lastPB && lastScene && speed > 14) emitRoadParticles(dt, lastScene);
+    if (lastScene) stepFlurry(dt, lastScene);
     if (lastScene && lastScene.lightning > .5 && lightningT <= 0 && Math.random() < dt * .16) { lightningT = .4; au('event', 'thunder'); }
     if (mode === 'menu') { dist += 20 * dt; return; }
     if (mode !== 'run') return;
