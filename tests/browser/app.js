@@ -37,7 +37,7 @@ const st = (p) => p.evaluate(() => window.racerDebug.state());
   // ---- racer
   p = await mk(390, 760);
   await p.goto(href('racer/index.html') + '?debug=1&seed=11');
-  ok('menu offers Play, Journey and Easy by default', await p.isVisible('#play') && (await st(p)).prefs.mode === 'journey' && (await st(p)).prefs.difficulty === 'easy');
+  ok('the start screen is just the car picker and Play, with no level, speed or length choices', await p.isVisible('#play') && (await p.$$('.opt[data-opt=difficulty], .opt[data-opt=speed], .opt[data-opt=length], .opt[data-opt=mode]')).length === 0);
   await sleep(800);
   const sp = await p.evaluate(() => window.racerDebug.sprites());
   ok('all vehicle sprites are drawn and ready', sp.total >= 30 && sp.ready === sp.total, JSON.stringify(sp));
@@ -45,12 +45,10 @@ const st = (p) => p.evaluate(() => window.racerDebug.state());
   await p.tap('.carsel button[data-val=ev]'); await sleep(80);
   ok('choosing a car is saved', (await st(p)).prefs.car === 'ev');
   await p.tap('.carsel button[data-val=rally]'); await sleep(80);
-  await p.tap('.opt[data-opt=difficulty] button[data-val=hard]'); await sleep(80);
-  ok('choices are saved', (await st(p)).prefs.difficulty === 'hard' && !!(await p.evaluate(() => localStorage.getItem('classic-games.racer.prefs'))));
-  await p.tap('.opt[data-opt=difficulty] button[data-val=easy]'); await sleep(80);
+  ok('the car pick is written to storage', !!(await p.evaluate(() => localStorage.getItem('classic-games.racer.prefs'))));
   await p.tap('#play'); await sleep(300);
   let s = await st(p);
-  ok('Play starts a run with three lives', s.mode === 'run' && s.lives === 3 && !(await p.isVisible('#ov')), JSON.stringify([s.mode, s.lives]));
+  ok('Play starts a run with three lives, at 85 km/h, in a 28 km Journey', s.mode === 'run' && s.lives === 3 && !(await p.isVisible('#ov')) && Math.round(s.speed * 3.6) === 85 && s.chapterLen === 2800, JSON.stringify([s.mode, s.lives, s.speed, s.chapterLen]));
   await p.keyboard.press('ArrowLeft'); await p.keyboard.press('ArrowLeft'); s = await st(p);
   ok('lane changes stop at the edge', s.laneTarget === -1);
   await p.evaluate(() => { window.racerDebug.stopSpawning(); window.racerDebug.setLane(0); window.racerDebug.addCar(0, 8); });
@@ -62,7 +60,7 @@ const st = (p) => p.evaluate(() => window.racerDebug.state());
   ok('distance does not move while paused', Math.abs((await st(p)).dist - d0) < 0.01);
   await p.tap('#ps-resume'); await sleep(150);
   ok('resume continues', !(await st(p)).paused);
-  await p.evaluate(() => { window.racerDebug.stopSpawning(); window.racerDebug.teleport(1700); }); await sleep(300);
+  await p.evaluate(() => { window.racerDebug.stopSpawning(); window.racerDebug.teleport(3000); }); await sleep(300);
   const L = (await st(p)).chapterLen;
   await p.evaluate((l) => { window.racerDebug.stopSpawning(); window.racerDebug.teleport(2 * l - 3); window.racerDebug.advance(1); }, L);
   s = await st(p);
@@ -77,19 +75,25 @@ const st = (p) => p.evaluate(() => window.racerDebug.state());
   p = await mk(390, 760);
   await p.goto(href('racer/index.html') + '?debug=1&seed=3');
   await p.tap('#play'); await sleep(200);
-  await p.evaluate(() => { window.racerDebug.stopSpawning(); window.racerDebug.teleport(3 * 900 * 1 + 10); }); // near end of a short Journey is chapter-length based
   const len = (await st(p)).chapterLen;
-  ok('Short journey is shorter than Full', len > 0);
+  await p.evaluate(() => { window.racerDebug.stopSpawning(); window.racerDebug.teleport(14000); window.racerDebug.advance(8); });
+  s = await st(p);
+  ok('speed rises by itself: about 118 km/h in the middle of the Journey', Math.abs(s.speed * 3.6 - 118) < 6, String(s.speed * 3.6));
+  ok('the trip label estimates minutes left', /about \d+ min left/.test(await p.textContent('#trip-label')), await p.textContent('#trip-label'));
   await p.evaluate((l) => { window.racerDebug.stopSpawning(); window.racerDebug.teleport(l * 10 + 5); window.racerDebug.advance(1); }, len);
   await sleep(300); s = await st(p);
   ok('reaching the end of a Journey finishes it', s.mode === 'done' || s.mode === 'over', s.mode);
+  await sleep(1600);
+  ok('the finish offers Keep driving, which continues in Endless with full hearts', await p.isVisible('#keep'));
+  await p.tap('#keep'); await sleep(250); s = await st(p);
+  ok('Keep driving starts Endless', s.mode === 'run' && s.tripMode === 'endless' && s.lives === 3, JSON.stringify([s.mode, s.tripMode, s.lives]));
   ok('journey run has no errors', p.errs.length === 0, p.errs.join('|'));
 
 
   // ---- road anchoring and traffic (Easy)
   p = await mk(390, 760);
   await p.goto(href('racer/index.html') + '?debug=1&seed=5');
-  await p.click('.opt[data-opt=difficulty] button[data-val=easy]'); await p.click('#play'); await sleep(150);
+  await p.click('#play'); await sleep(150);
   await p.evaluate(() => window.racerDebug.stopSpawning());
   let edge = 0, scr = 0, n = 0;
   for (let d = 300; d < 9000; d += 97) for (const ln of [-1, 0, 1]) {
@@ -122,7 +126,7 @@ const st = (p) => p.evaluate(() => window.racerDebug.state());
   });
   ok('on Easy a simple driver can play 80 s, and spawns never fill all three lanes ahead', sim.mode === 'run' && sim.worst <= 2, JSON.stringify(sim));
   await p.evaluate(() => { window.racerDebug.stopSpawning(); window.racerDebug.teleport(5000); window.racerDebug.advance(.1); });
-  ok('the Journey bar says which chapter and how far is left', /Chapter \d+ of 10 .* to finish/.test(await p.textContent('#trip-label')), await p.textContent('#trip-label'));
+  ok('the Journey bar says which chapter and how much time is left', /Chapter \d+ of 10 .*(min left|a minute and a half left)/.test(await p.textContent('#trip-label')), await p.textContent('#trip-label'));
   ok('road tests have no errors', p.errs.length === 0, p.errs.join('|'));
 
   await browser.close();

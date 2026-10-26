@@ -61,8 +61,8 @@
       objs: ['palm', 'umbrella', 'palm', 'bush', 'lighthouse', 'umbrella', 'palm', 'house'] }
   ];
   var JOURNEY_CHAPTERS = CHAPTERS.length;
-  var CHAPTER_LENS = { demo: 900, full: 3600 }; // metres per chapter. Demo shows every look in about 3 minutes.
-  var chapterLen = 900;
+  var CHAPTER_LENS = { demo: 900, full: 2800 }; // metres per chapter. Full is about 15 minutes with the speed ramp below; demo (?len=demo) is for quick checks.
+  var chapterLen = 2800;
   var tripMode = 'journey'; // journey | endless
 
   function chapterAt(s) {
@@ -144,9 +144,10 @@
   function rand() { seedN = (seedN * 16807) % 2147483647; return (seedN - 1) / 2147483646; }
 
   // Speed choices (game units per second) and difficulty (lives, traffic, shield time).
-  var SPEEDS = { relaxed: { start: 34, max: 72 }, normal: { start: 44, max: 92 }, fast: { start: 56, max: 110 } };
+  // Speed rises by itself across the Journey, from 85 to 150 km/h (units are metres per second).
+  var RAMP = { v0: 23.6, v1: 41.7, endlessMax: 44.5 };
   var DIFFS = {
-    easy: { lives: 3, gapMin: 140, gapRand: 70, twoFrom: 99999, twoChance: 0, shield: 2.6, vMin: .5, vVar: .2 },
+    easy: { lives: 3, gapMin: 140, gapRand: 70, twoFrom: 14000, twoChance: .25, shield: 2.6, vMin: .5, vVar: .2 },
     normal: { lives: 2, gapMin: 95, gapRand: 60, twoFrom: 1800, twoChance: .3, shield: 2, vMin: .4, vVar: .3 },
     hard: { lives: 1, gapMin: 75, gapRand: 50, twoFrom: 900, twoChance: .45, shield: 1.4, vMin: .38, vVar: .3 }
   };
@@ -162,13 +163,9 @@
   function writeJson(key, v) { try { window.localStorage.setItem(key, JSON.stringify(v)); } catch (e) { /* storage unavailable: fine */ } }
   function has(o, k) { return Object.prototype.hasOwnProperty.call(o, k); }
 
-  var prefs = { mode: 'journey', difficulty: 'easy', speed: 'relaxed', length: 'demo', music: 'on', sfx: 'on', style: 'auto', volMusic: 60, volFx: 70, bass: 50, calm: 'off', car: 'rally' };
+  var prefs = { mode: 'journey', difficulty: 'easy', speed: 'relaxed', length: 'full', music: 'on', sfx: 'on', style: 'auto', volMusic: 60, volFx: 70, bass: 50, calm: 'off', car: 'rally' };
   (function loadPrefs() {
     var s = readJson(PREFS_KEY); if (!s || typeof s !== 'object') return;
-    if (s.mode === 'journey' || s.mode === 'endless') prefs.mode = s.mode;
-    if (has(DIFFS, s.difficulty)) prefs.difficulty = s.difficulty;
-    if (has(SPEEDS, s.speed)) prefs.speed = s.speed;
-    if (s.length === 'demo' || s.length === 'full') prefs.length = s.length;
     if (s.music === 'on' || s.music === 'off') prefs.music = s.music;
     if (s.sfx === 'on' || s.sfx === 'off') prefs.sfx = s.sfx;
     if (STYLES.indexOf(s.style) >= 0) prefs.style = s.style;
@@ -191,25 +188,43 @@
   function submitBest(sc) { var b = readJson(BESTS_KEY) || {}; var k = bestKey(); var isBest = sc > (typeof b[k] === 'number' ? b[k] : 0); if (isBest) { b[k] = sc; writeJson(BESTS_KEY, b); } return isBest; }
   function getCheckpoint() {
     var c = readJson(CHECK_KEY);
-    if (!c || c.mode !== 'journey' || typeof c.chapter !== 'number' || c.chapter < 1 || c.chapter >= JOURNEY_CHAPTERS || !has(DIFFS, c.difficulty) || !has(CHAPTER_LENS, c.length)) return null;
+    if (!c || c.mode !== 'journey' || typeof c.chapter !== 'number' || c.chapter < 1 || c.chapter >= JOURNEY_CHAPTERS || !has(DIFFS, c.difficulty)) return null;
     return c;
   }
 
-  function cfgSpeed() { return SPEEDS[prefs.speed]; }
-  function targetSpeed(d) { var sp = cfgSpeed(); return Math.min(sp.max, sp.start + d * 0.005); }
+  var calmUntil = 0; // after a bump the next stretch of road is quieter
+  var keepOn = false; // true after the finish when the player chooses Keep driving
+  function journeyLen() { return JOURNEY_CHAPTERS * chapterLen; }
+  // Rest stops slow the car smoothly for 260 m either side.
+  function stopEase(d) {
+    var f = 1;
+    for (var i = 0; i < REST_STOPS.length; i++) { var dd = Math.abs(d - REST_STOPS[i] * chapterLen); if (dd < 260) f = Math.min(f, 1 - .35 * (.5 + .5 * Math.cos(Math.PI * dd / 260))); }
+    return f;
+  }
+  function targetSpeed(d) {
+    var S = journeyLen(), v = d < S ? RAMP.v0 + (RAMP.v1 - RAMP.v0) * d / S : Math.min(RAMP.endlessMax, RAMP.v1 + (d - S) * .0002);
+    return v * (tripMode === 'journey' ? stopEase(d) : 1);
+  }
+  // Minutes left on the ramp: the integral of ds/v over the rest of the Journey, plus a few seconds per rest stop.
+  function secondsLeft(d) {
+    var S = journeyLen(), r = Math.max(0, S - d); if (r <= 0) return 0;
+    var v = RAMP.v0 + (RAMP.v1 - RAMP.v0) * d / S, t = S / (RAMP.v1 - RAMP.v0) * Math.log(RAMP.v1 / v), stops = 0;
+    for (var i = 0; i < REST_STOPS.length; i++) if (REST_STOPS[i] * chapterLen > d) stops++;
+    return t + stops * 8;
+  }
 
   function applyTrip() {
-    tripMode = prefs.mode; chapterLen = CHAPTER_LENS[prefs.length];
+    tripMode = keepOn ? 'endless' : 'journey'; chapterLen = params.get('len') === 'demo' ? CHAPTER_LENS.demo : CHAPTER_LENS.full;
     maxLives = DIFFS[prefs.difficulty].lives;
   }
 
   function reset(fromCheckpoint) {
     applyTrip();
-    dist = 0; speed = cfgSpeed().start; lane = 0; laneTarget = 0; traffic = []; nextSpawn = 300; combo = 0; comboTimer = 0;
+    keepOn = false; applyTrip(); dist = 0; speed = RAMP.v0; lane = 0; laneTarget = 0; traffic = []; nextSpawn = 300; combo = 0; comboTimer = 0;
     score = 0; shake = 0; particles = []; lastChapter = -1; nearTimer = 0; shieldT = 0; flashT = 0; lives = maxLives; nextStop = 0; collected = {};
-    run = { near: 0, coins: 0, hits: 0 }; coinNote = 0; coinNoteT = 0; braking = false; paused = false;
+    run = { near: 0, coins: 0, hits: 0 }; coinNote = 0; coinNoteT = 0; braking = false; paused = false; calmUntil = 0;
     if (fromCheckpoint) {
-      dist = fromCheckpoint.chapter * chapterLen; lives = clamp(fromCheckpoint.lives, 1, maxLives); score = fromCheckpoint.score || 0; run.hits = 1;
+      dist = fromCheckpoint.chapter * chapterLen; lives = clamp(fromCheckpoint.lives, 1, maxLives); score = fromCheckpoint.score || 0; run.hits = 1; speed = targetSpeed(dist);
       nextSpawn = dist + 260; while (nextStop < REST_STOPS.length && REST_STOPS[nextStop] * chapterLen <= dist) nextStop++;
     }
     seedN = (Date.now() % 100000) + 7;
@@ -818,8 +833,8 @@
     if (showTrip) {
       var tot = JOURNEY_CHAPTERS * chapterLen;
       elFill.style.width = clamp(dist / tot * 100, 0, 100).toFixed(1) + '%';
-      var left = Math.max(0, tot - dist);
-      setText(elTripLabel, 'tl', 'Chapter ' + Math.min(JOURNEY_CHAPTERS, chapterAt(dist).i + 1) + ' of ' + JOURNEY_CHAPTERS + '  \u00b7  ' + (left >= 1000 ? (left / 1000).toFixed(1) + ' km' : Math.ceil(left / 10) * 10 + ' m') + ' to finish');
+      var sec = secondsLeft(dist), mins = Math.round(sec / 60);
+      setText(elTripLabel, 'tl', 'Chapter ' + Math.min(JOURNEY_CHAPTERS, chapterAt(dist).i + 1) + ' of ' + JOURNEY_CHAPTERS + '  \u00b7  ' + (sec < 75 ? 'under a minute and a half left' : 'about ' + mins + ' min left'));
     }
   }
   function buildTrip() {
@@ -851,6 +866,7 @@
     ovStats.hidden = !(o.stats && o.stats.length);
     optsBox.hidden = kind !== 'menu';
     playBtn.textContent = kind === 'menu' ? 'Play' : 'Play again';
+    $('keep').hidden = kind !== 'done';
     var cp = tripMode === 'journey' || kind === 'menu' ? getCheckpoint() : null;
     contBtn.hidden = !cp; if (cp) contBtn.textContent = 'Continue: chapter ' + (cp.chapter + 1) + '  ' + new Array(cp.lives + 1).join('♥');
     $('ov').setAttribute('data-kind', kind); $('ov').hidden = false;
@@ -875,14 +891,19 @@
     burst(cx, H * .5, 50, ['#ffd166', '#ff9ab0', '#9fe9ff', '#fff']);
     window.setTimeout(function () {
       if (mode !== 'done') return;
-      showOverlay('done', { title: 'You made it', sub: (isBest ? 'New best. ' : '') + 'Sunrise Coast reached.', stats: [['Distance', Math.floor(dist) + ' m'], ['Score', String(s)], ['Lives left', hearts()], ['Coins', String(run.coins)], ['Close calls', String(run.near)], ['Bumps', String(run.hits)]] });
+      showOverlay('done', { title: 'You made it', sub: (isBest ? 'New best. ' : '') + 'Sunrise Coast reached. The road does not have to end.', stats: [['Distance', Math.floor(dist) + ' m'], ['Score', String(s)], ['Lives left', hearts()], ['Coins', String(run.coins)], ['Close calls', String(run.near)], ['Bumps', String(run.hits)]] });
     }, 1400);
+  }
+  // After the finish the player can carry on: Endless keeps the speed near the top and the chapters cycle.
+  function keepDriving() {
+    keepOn = true; applyTrip(); mode = 'run'; $('ov').hidden = true; traffic = []; nextSpawn = dist + 260; lives = maxLives; shieldT = 3; braking = false; paused = false; last = null;
+    run = { near: 0, coins: 0, hits: 0 }; collected = {}; lastChapter = -1; au('unlock'); audioPrefs(); au('setChapter', chapterAt(dist).idx); au('start'); hud();
   }
   function bump(hit) {
     run.hits += 1; lives -= 1; combo = 0; comboTimer = 0;
     if (hit) { hit.knock = hit.lane === 0 ? (rand() < .5 ? -1 : 1) : hit.lane; hit.kx = 0; hit.hurt = 1.1; hit.v = Math.min(hit.v, speed * .5); }
     if (lives <= 0) { gameOver(); return; }
-    shieldT = DIFFS[prefs.difficulty].shield; shake = 12; flashT = .35;
+    shieldT = DIFFS[prefs.difficulty].shield; shake = 12; flashT = .35; calmUntil = dist + 500;
     traffic = traffic.filter(function (c) { var d = c.z - dist; return c === hit || d > 90 || d < PD - 4; }); // the road ahead clears so you can recover, except the car you hit
     nextSpawn = Math.max(nextSpawn, dist + 120);
     burst(cx, H * .8, 14, ['#ffb347', '#ffd166']);
@@ -923,7 +944,8 @@
     var diff = DIFFS[prefs.difficulty];
     while (nextSpawn < dist + DRAW) {
       if (!nearStop(nextSpawn)) spawnWave(nextSpawn);
-      nextSpawn += diff.gapMin + rand() * diff.gapRand - Math.min(25, dist * .002); if (chapterAt(nextSpawn).frac < .08) nextSpawn += 50;
+      var dens = (1 - .22 * clamp(dist / journeyLen(), 0, 1)) * (dist < calmUntil ? 1.35 : 1);
+      nextSpawn += (diff.gapMin + rand() * diff.gapRand) * dens; if (chapterAt(nextSpawn).frac < .08) nextSpawn += 50;
     }
     // pickups
     var cn;
@@ -973,7 +995,6 @@
 
   // ---------- starting, pausing and the menu ----------
   function start(fromCheckpoint) {
-    if (fromCheckpoint) { prefs.mode = 'journey'; prefs.difficulty = fromCheckpoint.difficulty; prefs.length = fromCheckpoint.length; savePrefs(); }
     reset(fromCheckpoint); mode = 'run'; $('ov').hidden = true; $('ps').hidden = true; $('ss').hidden = true;
     buildTrip(); au('unlock'); audioPrefs(); au('setChapter', chapterAt(dist).idx); au('start'); hud();
   }
@@ -992,8 +1013,7 @@
       var name = row.getAttribute('data-opt');
       Array.prototype.forEach.call(row.querySelectorAll('button'), function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-val') === String(prefs[name]))); });
     });
-    $('opt-length').hidden = prefs.mode !== 'journey';
-    $('best-line').textContent = 'Best in this mode: ' + getBest();
+    $('best-line').textContent = 'Best score: ' + getBest();
     var vm = $('vol-music'); var vf = $('vol-fx'); var vb = $('vol-bass'); vm.value = prefs.volMusic; vf.value = prefs.volFx; vb.value = prefs.bass;
     var cp = getCheckpoint(); contBtn.hidden = !cp || $('ov').getAttribute('data-kind') !== 'menu'; if (cp) contBtn.textContent = 'Continue: chapter ' + (cp.chapter + 1) + '  ' + new Array(cp.lives + 1).join('♥');
   }
@@ -1015,6 +1035,7 @@
   }
   playBtn.addEventListener('click', function () { start(null); });
   contBtn.addEventListener('click', function () { var cp = getCheckpoint(); if (cp) start(cp); });
+  $('keep').addEventListener('click', keepDriving);
   $('menu-btn').addEventListener('click', backToMenu);
   $('pause').addEventListener('click', function () { if (paused) resumeGame(); else pauseGame(); });
   $('ps-resume').addEventListener('click', resumeGame);
