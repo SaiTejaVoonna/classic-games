@@ -589,12 +589,12 @@
       var rc = L < 0 ? mix(S.ridge[0], S.fog, .55) : S.ridge[L];
       var amp = L < 0 ? H * .07 : H * (.05 + L * .012); var base = L < 0 ? hy - H * .03 : hy - H * .008 * (2 - L);
       var rgr = g.createLinearGradient(0, base - amp * 1.1, 0, hy + 6); rgr.addColorStop(0, rc); rgr.addColorStop(.7, rc); rgr.addColorStop(1, mix(rc, mix(S.ground[0], S.fog, .55), .92));
-      g.fillStyle = rgr; g.beginPath(); g.moveTo(0, hy + 6);
-      for (var xx = 0; xx <= W; xx += 8 * dpr) {
+      g.fillStyle = rgr; g.beginPath(); g.moveTo(0, hy + 24 * dpr); // ends under the solid ground, so its edge never shows through the fade
+      for (var xx = 0; xx <= W + 8 * dpr; xx += 8 * dpr) { // run past the right edge so the range never ends in a slanted cut
         var q = xx / dpr - far * 40 * (L < 0 ? .12 : .3 + L * .4) + dist * (L < 0 ? .004 : .01 * (L + 1));
         g.lineTo(xx, base - amp * (.5 + .5 * Math.sin(q * .011 + L * 2)) - amp * .4 * Math.sin(q * .027 + L * 5));
       }
-      g.lineTo(W, hy + 6); g.fill();
+      g.lineTo(W, hy + 24 * dpr); g.fill();
       var mg = g.createLinearGradient(0, base - amp * 1.4, 0, hy + 10); mg.addColorStop(0, 'rgba(255,255,255,0)'); mg.addColorStop(.55, mix(S.fog, '#ffffff', .1) + Math.round(S.mist * (.38 - Math.max(L, 0) * .08) * 255).toString(16).padStart(2, '0')); mg.addColorStop(1, 'rgba(255,255,255,0)');
       g.fillStyle = mg; g.fillRect(0, base - amp * 1.4, W, hy + 10 - (base - amp * 1.4));
     }
@@ -651,11 +651,13 @@
 
   function drawGround(S) {
     var top = Math.min(hyR, rows.length ? rows[rows.length - 1].y : hy);
-    var gg = g.createLinearGradient(0, top, 0, H);
-    gg.addColorStop(0, mix(S.ground[0], S.fog, .55)); gg.addColorStop(.12, mix(S.ground[0], S.fog, .3)); gg.addColorStop(1, S.ground[1]);
-    var c0 = mix(S.ground[0], S.fog, .55), feather = 38 * dpr, fe = g.createLinearGradient(0, top - feather, 0, top + feather * .25);
-    fe.addColorStop(0, c0 + '00'); fe.addColorStop(1, c0 + 'ff'); g.fillStyle = fe; g.fillRect(0, top - feather, W, feather * 1.25 + 1); // soft start, no hard line
-    g.fillStyle = gg; g.fillRect(0, top + feather * .25, W, H - top);
+    var c0 = mix(S.ground[0], S.fog, .55), feather = 38 * dpr, gy = top + feather * .25;
+    var gg = g.createLinearGradient(0, gy, 0, H); // starts where the feather ends, in the same colour, so there is no step
+    gg.addColorStop(0, c0); gg.addColorStop(.12, mix(S.ground[0], S.fog, .3)); gg.addColorStop(1, S.ground[1]);
+    var fe = g.createLinearGradient(0, top - feather, 0, gy); // eased fade-in: a straight ramp leaves a visible crease at both ends
+    [[0, 0], [.25, .06], [.5, .25], [.75, .62], [.9, .88], [1, 1]].forEach(function (st) { fe.addColorStop(st[0], c0 + Math.round(st[1] * 255).toString(16).padStart(2, '0')); });
+    g.fillStyle = fe; g.fillRect(0, top - feather, W, gy - (top - feather) + 1);
+    g.fillStyle = gg; g.fillRect(0, gy, W, H - gy);
     if (S.water > .03) drawWater(S);
     if (S.snow > .05 && rows.length > 2) { // snow along both edges of the road
       g.fillStyle = 'rgba(244,249,255,' + (.8 * clamp(S.snow, 0, 1)) + ')';
