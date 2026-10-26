@@ -16,8 +16,7 @@
     { root: 59, sc: [0, 2, 4, 7, 9], bpm: 70, kit: 'pads', bed: 'snow' },        // Northern Lights
     { root: 57, sc: [0, 2, 4, 7, 9], bpm: 96, kit: 'epic', bed: 'waves' }        // Sunrise Coast
   ];
-  var STYLE_KIT = { cinematic: 'cinematic', piano: 'piano', electronic: 'electro', acoustic: 'acoustic' };
-  var PROG = [0, 3, 4, 2];
+  var Score = typeof module !== 'undefined' && module.exports ? require('./score.js') : root.RacerScore;
 
   // Engine models. Each profile is a firing-order spectrum (which engine orders are loud), a rev
   // range and a gearbox: gear n covers road speeds bands[n]..bands[n+1] km/h and revs sweep from lo
@@ -57,7 +56,8 @@
     var noiseBuf = null, bed = null, eng = null;
     var prefs = { music: true, sfx: true, style: 'auto', volMusic: 0.6, volFx: 0.7, bass: 0.5, calm: false, sound: true, haptics: true, car: 'rally' };
     var chapter = 0, intensity = 0.3, speed = 0, braking = false, running = false, paused = false;
-    var timer = null, nextBar = 0, barIdx = 0, scene = {};
+    var timer = null, nextBar = 0, scene = {};
+    var stemBus = {}, duckNode = null, chBar = 0, chStart = 0, chapFrac = 0, restUntil = 0, lives = 3, maxLives = 3;
     var made = { notes: 0, events: 0 }, engineOverride = null;
 
     function audible() { return prefs.sound && !!ctx; }
@@ -70,12 +70,19 @@
       var hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 28;
       var mud = ctx.createBiquadFilter(); mud.type = 'peaking'; mud.frequency.value = 280; mud.gain.value = -2.5; mud.Q.value = 0.9;
       var air = ctx.createBiquadFilter(); air.type = 'highshelf'; air.frequency.value = 9000; air.gain.value = 1.5;
-      comp.connect(hp); hp.connect(mud); mud.connect(air); air.connect(master); master.connect(ctx.destination);
+      var limiter = ctx.createDynamicsCompressor(); limiter.threshold.value = -2; limiter.knee.value = 0; limiter.ratio.value = 20; limiter.attack.value = .002; limiter.release.value = .1; // catches anything that would clip
+      comp.connect(hp); hp.connect(mud); mud.connect(air); air.connect(master); master.connect(limiter); limiter.connect(ctx.destination);
       musicBus = ctx.createGain(); fxBus = ctx.createGain(); musicBus.connect(comp); fxBus.connect(comp);
-      reverb = ctx.createConvolver();
-      var len = Math.floor(ctx.sampleRate * 2.2), ir = ctx.createBuffer(2, len, ctx.sampleRate);
-      for (var c = 0; c < 2; c++) { var d = ir.getChannelData(c); for (var i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.6); }
-      reverb.buffer = ir; rvSend = ctx.createGain(); rvSend.gain.value = 0.28; rvSend.connect(reverb); reverb.connect(comp);
+      duckNode = ctx.createGain(); duckNode.connect(musicBus); // the whole score dips under big effects
+      reverb = ctx.createConvolver(); // a 3.4 s hall: dense early reflections, a tail that darkens as it fades
+      var len = Math.floor(ctx.sampleRate * 3.4), ir = ctx.createBuffer(2, len, ctx.sampleRate);
+      for (var c = 0; c < 2; c++) {
+        var d = ir.getChannelData(c), lpv = 0;
+        for (var i = 0; i < len; i++) { var u = i / len, a2 = .6 - .52 * Math.pow(u, .5); lpv += a2 * ((Math.random() * 2 - 1) - lpv); d[i] = lpv * Math.pow(1 - u, 2.2) * (i < ctx.sampleRate * .02 ? i / (ctx.sampleRate * .02) : 1); }
+      }
+      reverb.buffer = ir; rvSend = ctx.createGain(); rvSend.gain.value = 0.32; rvSend.connect(reverb); reverb.connect(comp);
+      // each score layer has a dry bus and a reverb bus that share one level, so a muted layer leaves no reverb tail behind
+      Score.STEMS.concat(['heart']).forEach(function (k) { var sg = ctx.createGain(), wg = ctx.createGain(); sg.gain.value = 0; wg.gain.value = 0; sg.connect(duckNode); wg.connect(rvSend); sg._wet = wg; stemBus[k] = sg; });
       noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
       var nd = noiseBuf.getChannelData(0); for (var j = 0; j < nd.length; j++) nd[j] = Math.random() * 2 - 1;
       applyVolumes();
@@ -83,7 +90,7 @@
     }
     function applyVolumes() {
       if (!ctx) return;
-      var t = ctx.currentTime, m = (prefs.music && prefs.sound ? prefs.volMusic : 0) * (prefs.calm ? 0.6 : 1);
+      var t = ctx.currentTime, m = (prefs.music && prefs.sound ? prefs.volMusic : 0) * (prefs.calm ? 0.6 : 1) * .38;
       var f = (prefs.sfx && prefs.sound ? prefs.volFx : 0);
       musicBus.gain.setTargetAtTime(m, t, 0.08); fxBus.gain.setTargetAtTime(f, t, 0.08);
       if (bed) bed.out.gain.setTargetAtTime(prefs.sound ? 0.5 : 0, t, 0.2);
@@ -94,7 +101,7 @@
       var tail = node;
       if (ctx.createStereoPanner) { var p = ctx.createStereoPanner(); p.pan.value = pv || 0; tail.connect(p); tail = p; }
       tail.connect(bus);
-      if (wet) { var s = ctx.createGain(); s.gain.value = wet; tail.connect(s); s.connect(rvSend); }
+      if (wet) { var s = ctx.createGain(); s.gain.value = wet; tail.connect(s); s.connect(bus._wet || rvSend); }
     }
     function tone(type, f, t, dur, vol, bus, pv, wet, lp) {
       var o = ctx.createOscillator(), g = ctx.createGain(); o.type = type; o.frequency.setValueAtTime(f, t);
@@ -113,41 +120,177 @@
       g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.3); o.connect(g); route(g, bus || musicBus, 0); o.start(t); o.stop(t + 0.35);
     }
 
-    function note(kit, m, t, dur, vol, pv) {
-      var f = mtof(m), c = prefs.calm ? 0.7 : 1;
-      switch (kit) {
-        case 'piano': tone('triangle', f, t, dur * 1.5, vol * c, musicBus, pv, 0.35, 3200); tone('sine', f * 2, t, dur, vol * 0.25 * c, musicBus, pv, 0.3); break;
-        case 'pluck': tone('triangle', f, t, 0.5, vol * c, musicBus, pv, 0.3, 2600); break;
-        case 'acoustic': tone('sawtooth', f, t, 0.7, vol * 0.5 * c, musicBus, pv, 0.3, 1800); break;
-        case 'handpan': tone('sine', f, t, 1.4, vol * c, musicBus, pv, 0.45); tone('sine', f * 2.01, t, 0.6, vol * 0.3 * c, musicBus, pv, 0.45); break;
-        case 'cello': tone('sawtooth', f, t, dur * 1.2, vol * 0.45 * c, musicBus, pv, 0.4, 1100); break;
-        case 'electro': tone('square', f, t, 0.22, vol * 0.3 * c, musicBus, pv, 0.2, prefs.calm ? 1400 : 2600); break;
-        case 'cinematic': tone('sawtooth', f, t, dur * 2, vol * 0.4 * c, musicBus, pv, 0.6, 1500); tone('sine', f / 2, t, dur * 2, vol * 0.5 * c, musicBus, 0, 0.4); break;
-        case 'pads': tone('sine', f, t, dur * 2.6, vol * .55 * c, musicBus, pv, .7); tone('triangle', f * 1.004, t, dur * 2.6, vol * .3 * c, musicBus, -pv, .7, 1400); break;
-        case 'epic': tone('sawtooth', f, t, dur * 1.4, vol * 0.5 * c, musicBus, pv, 0.5, 2200); tone('sawtooth', f * 1.005, t, dur * 1.4, vol * 0.4 * c, musicBus, -pv, 0.5, 2200); break;
-        default: tone('triangle', f, t, 0.6, vol * c, musicBus, pv, 0.3);
+    function degree(c, d) { var n = c.sc.length; return c.root + c.sc[((d % n) + n) % n] + 12 * Math.floor(d / n); }
+    function rnd() { return Math.random(); }
+    function B(name) { return stemBus[name] || musicBus; }
+    function shape(g, t, a, peak, hold, rel) { // attack, hold, release gain shape
+      g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(peak, t + a);
+      g.gain.setValueAtTime(peak, t + a + hold); g.gain.exponentialRampToValueAtTime(0.0001, t + a + hold + rel);
+    }
+
+    // ---- instruments. Each takes (midi note, start time, length in seconds, velocity 0..1, layer, pan, reverb send).
+    function pianoNote(m, t, dur, v, bus, pv, wet) {
+      var f = mtof(m), A = [1, .5, .3, .18, .1, .06], tau = clamp(2.6 - (m - 48) * .03, .6, 2.8) * Math.min(1.5, .6 + dur * .4);
+      var lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 900 + v * 5200; route(lp, B(bus), pv, wet);
+      for (var i = 0; i < 6; i++) {
+        var n = i + 1, o = ctx.createOscillator(), g = ctx.createGain(), life = tau / (1 + i * .45);
+        o.frequency.value = f * n * Math.sqrt(1 + .0004 * n * n); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(A[i] * v * .45 * (i > 1 ? .6 + v * .6 : 1), t + .004); g.gain.exponentialRampToValueAtTime(0.0001, t + life);
+        o.connect(g); g.connect(lp); o.start(t); o.stop(t + life + .05); made.notes++;
+      }
+      noise(t, .03, .05 * v, B(bus), 'bandpass', 2400, pv);
+    }
+    var ksCache = {};
+    function ksBuffer(m, bright) { // Karplus-Strong: a looped burst of noise that loses its highs as it rings, like a plucked string
+      var key = m + '|' + (bright ? 1 : 0); if (ksCache[key]) return ksCache[key];
+      var sr = ctx.sampleRate, n = Math.max(2, Math.round(sr / mtof(m))), len = Math.floor(sr * 1.8), buf = ctx.createBuffer(1, len, sr), d = buf.getChannelData(0), ring = new Float32Array(n), p = 0, seed = (m * 7919) % 2147483647 || 1, i;
+      for (i = 0; i < n; i++) { seed = (seed * 16807) % 2147483647; ring[i] = seed / 1073741823.5 - 1; }
+      var decay = bright ? .9972 : .9945;
+      for (i = 0; i < len; i++) { var a = ring[p], b2 = ring[(p + 1) % n]; d[i] = a; ring[p] = (a + b2) * .5 * decay; p = (p + 1) % n; }
+      ksCache[key] = buf; return buf;
+    }
+    function pluckNote(m, t, dur, v, bus, pv, wet, bright) {
+      var s = ctx.createBufferSource(), g = ctx.createGain(), lp = ctx.createBiquadFilter();
+      s.buffer = ksBuffer(m, bright); lp.type = 'lowpass'; lp.frequency.value = bright ? 5200 : 2600; g.gain.setValueAtTime(v * .9, t); g.gain.exponentialRampToValueAtTime(0.0001, t + Math.max(.5, Math.min(1.7, dur * 1.6)));
+      s.connect(lp); lp.connect(g); route(g, B(bus), pv, wet); s.start(t); s.stop(t + 1.8); made.notes++;
+    }
+    function bellNote(m, t, dur, v, bus, pv, wet, ratio, idx) { // FM bell: a modulator that fades quickly leaves a pure tone
+      var f = mtof(m), c = ctx.createOscillator(), mo = ctx.createOscillator(), mg = ctx.createGain(), g = ctx.createGain();
+      c.frequency.value = f; mo.frequency.value = f * (ratio || 3.5); mg.gain.setValueAtTime(f * (idx || 2), t); mg.gain.exponentialRampToValueAtTime(f * .05, t + dur * .7);
+      mo.connect(mg); mg.connect(c.frequency); shape(g, t, .004, v * .5, 0, dur); c.connect(g); route(g, B(bus), pv, wet);
+      c.start(t); mo.start(t); c.stop(t + dur + .05); mo.stop(t + dur + .05); made.notes++;
+    }
+    function handpanNote(m, t, dur, v, bus, pv, wet) {
+      var f = mtof(m), p = [1, 2, 3.01], a = [1, .38, .14];
+      p.forEach(function (r, i) { var o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.setValueAtTime(f * r * 1.012, t); o.frequency.exponentialRampToValueAtTime(f * r, t + .06); shape(g, t, .003, v * .45 * a[i], 0, 1.6 / (1 + i * .8)); o.connect(g); route(g, B(bus), pv, wet); o.start(t); o.stop(t + 1.8); made.notes++; });
+    }
+    function epianoNote(m, t, dur, v, bus, pv, wet) { // electric piano: gentle FM with a short bright tine
+      bellNote(m, t, Math.max(1.2, dur * 1.3), v * .9, bus, pv, wet, 1, 1.4); bellNote(m, t, .25, v * .35, bus, pv, wet, 14, 1.2);
+    }
+    function synthNote(m, t, dur, v, bus, pv, wet, short) {
+      var f = mtof(m), len = short ? .22 : Math.max(.25, dur * .9), lp = ctx.createBiquadFilter(), g = ctx.createGain();
+      lp.type = 'lowpass'; lp.frequency.setValueAtTime(short ? 3600 : 3200, t); lp.frequency.exponentialRampToValueAtTime(900, t + len); lp.Q.value = 3;
+      [['sawtooth', 0], ['square', 6]].forEach(function (w) { var o = ctx.createOscillator(); o.type = w[0]; o.frequency.value = f; o.detune.value = w[1]; o.connect(lp); o.start(t); o.stop(t + len + .1); made.notes++; });
+      shape(g, t, .006, v * .22 * (prefs.calm ? .7 : 1), len * .3, len * .7); lp.connect(g); route(g, B(bus), pv, wet);
+    }
+    function celloNote(m, t, dur, v, bus, pv, wet) { // bowed: saw with vibrato, a slow attack and a woody body
+      var f = mtof(m), o = ctx.createOscillator(), lfo = ctx.createOscillator(), lg = ctx.createGain(), lp = ctx.createBiquadFilter(), bp = ctx.createBiquadFilter(), g = ctx.createGain(), len = Math.max(.6, dur);
+      o.type = 'sawtooth'; o.frequency.value = f; lfo.frequency.value = 5.2; lg.gain.setValueAtTime(0, t); lg.gain.linearRampToValueAtTime(7, t + .5); lfo.connect(lg); lg.connect(o.detune);
+      lp.type = 'lowpass'; lp.frequency.value = 1300 + v * 900; bp.type = 'peaking'; bp.frequency.value = 520; bp.gain.value = 6; bp.Q.value = 1;
+      shape(g, t, .12, v * .35, Math.max(0, len - .3), .35); o.connect(lp); lp.connect(bp); bp.connect(g); route(g, B(bus), pv, wet);
+      o.start(t); lfo.start(t); o.stop(t + len + .5); lfo.stop(t + len + .5); made.notes++;
+    }
+    function stringsChord(notes, t, dur, v, bus, wet, att) { // an ensemble: detuned saws, vibrato, slow swell
+      var lfo = ctx.createOscillator(), lg = ctx.createGain(); lfo.frequency.value = 5.4; lg.gain.value = 6; lfo.connect(lg); lfo.start(t); lfo.stop(t + dur + 1.4);
+      var lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.setValueAtTime(900, t); lp.frequency.linearRampToValueAtTime(1500 + v * 2200, t + att);
+      var g = ctx.createGain(); shape(g, t, att, v * .16 / Math.sqrt(notes.length), Math.max(0, dur - att), .9);
+      lp.connect(g); route(g, B(bus), -.25, wet); var g2 = ctx.createGain(); g2.gain.value = .8; lp.connect(g2); route(g2, B(bus), .3, wet);
+      notes.forEach(function (m) { [-9, 0, 9].forEach(function (c) { var o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = mtof(m); o.detune.value = c; lg.connect(o.detune); o.connect(lp); o.start(t); o.stop(t + dur + 1.4); made.notes++; }); });
+    }
+    function brassChord(notes, t, dur, v, bus, wet, att) { // low brass swell: the filter opens as the note grows
+      var lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = 2; lp.frequency.setValueAtTime(260, t); lp.frequency.exponentialRampToValueAtTime(2300 * (prefs.calm ? .5 : 1), t + att);
+      var g = ctx.createGain(); shape(g, t, att, v * .2 / Math.sqrt(notes.length), Math.max(0, dur - att), .5); lp.connect(g); route(g, B(bus), 0, wet);
+      notes.forEach(function (m) { [['sawtooth', 0, m], ['sawtooth', 7, m], ['square', 0, m - 12]].forEach(function (w) { var o = ctx.createOscillator(); o.type = w[0]; o.frequency.value = mtof(w[2]); o.detune.value = w[1]; o.connect(lp); o.start(t); o.stop(t + dur + .6); made.notes++; }); });
+    }
+    function braam(m, t, v, bus) { // the big low brass hit
+      var sh = ctx.createWaveShaper(), cv = new Float32Array(257); for (var i = 0; i < 257; i++) cv[i] = Math.tanh(3 * (i / 128 - 1)); sh.curve = cv;
+      var lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.setValueAtTime(3000, t); lp.frequency.exponentialRampToValueAtTime(500, t + 2.2);
+      var g = ctx.createGain(); shape(g, t, .06, v * .3, .3, 2.6); sh.connect(lp); lp.connect(g); route(g, B(bus), 0, .45);
+      [[0, 0], [7, 0], [0, -12], [12, 0]].forEach(function (w) { var o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = mtof(m + w[1]); o.detune.value = w[0] * 8 + (rnd() - .5) * 10; o.connect(sh); o.start(t); o.stop(t + 3.2); made.notes++; });
+      var sub = ctx.createOscillator(), sg = ctx.createGain(); sub.frequency.value = mtof(m - 12); shape(sg, t, .03, v * .35, 0, 2.2); sub.connect(sg); route(sg, B(bus), 0, 0); sub.start(t); sub.stop(t + 2.4);
+    }
+    function choirChord(notes, t, dur, v, bus, wet) { // 'aah': saws through three vowel resonances
+      var lfo = ctx.createOscillator(), lg = ctx.createGain(); lfo.frequency.value = 5.8; lg.gain.value = 9; lfo.connect(lg); lfo.start(t); lfo.stop(t + dur + 1.6);
+      var src = ctx.createGain(), sum = ctx.createGain(); shape(sum, t, Math.min(1.4, dur * .5), v * .2, Math.max(0, dur * .5 - .2), 1.1);
+      [[700, 1], [1220, .55], [2600, .22]].forEach(function (fm) { var bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = fm[0]; bp.Q.value = 7; var gg = ctx.createGain(); gg.gain.value = fm[1]; src.connect(bp); bp.connect(gg); gg.connect(sum); });
+      notes.forEach(function (m) { [-8, 0, 8].forEach(function (c) { var o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = mtof(m); o.detune.value = c; lg.connect(o.detune); o.connect(src); o.start(t); o.stop(t + dur + 1.6); made.notes++; }); });
+      route(sum, B(bus), 0, wet);
+    }
+    function taiko(t, v, bus) {
+      var o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.setValueAtTime(110, t); o.frequency.exponentialRampToValueAtTime(46, t + .22); shape(g, t, .004, v * .6, 0, .9); o.connect(g); route(g, B(bus), 0, .35); o.start(t); o.stop(t + 1);
+      noise(t, .14, v * .22, B(bus), 'bandpass', 220, 0);
+    }
+    function frameDrum(t, v, bus) { var o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.setValueAtTime(140, t); o.frequency.exponentialRampToValueAtTime(70, t + .12); shape(g, t, .003, v * .35, 0, .35); o.connect(g); route(g, B(bus), 0, .25); o.start(t); o.stop(t + .5); noise(t, .05, v * .06, B(bus), 'bandpass', 800, 0); }
+    function swell(t, dur, v, bus) { // a rising wash of noise, used to open a chapter and to lead into peaks
+      var s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain(); s.buffer = noiseBuf; s.loop = true; f.type = 'bandpass'; f.Q.value = .7; f.frequency.setValueAtTime(500, t); f.frequency.exponentialRampToValueAtTime(6500, t + dur);
+      shape(g, t, dur * .92, v * .16, 0, dur * .12); s.connect(f); f.connect(g); route(g, B(bus), 0, .5); s.start(t); s.stop(t + dur * 1.1);
+    }
+    function duck(depth, secs) { if (!ctx || !duckNode) return; var t = ctx.currentTime; duckNode.gain.cancelScheduledValues(t); duckNode.gain.setTargetAtTime(depth, t, .03); duckNode.gain.setTargetAtTime(1, t + secs, .18); }
+
+    // ---- the voice a theme uses for its lead and pulse. Style choices in the sound sheet override the lead.
+    // Level trims from measuring each voice and layer alone, so every chapter sits at a similar loudness.
+    var VOICE_TRIM = { piano: 3.35, pluck: 6, guitar: 5.4, cello: 2.1, handpan: 3.9, epiano: 3.9, synth: 3, staccato: 3, brass: 1.07, bell: 3.5, strings: .08 };
+    var KIT_TRIM = { soft: 7.1, electro: 3.5, epic: 1.6 };
+    var STYLE_LEAD = { piano: 'piano', electronic: 'synth', acoustic: 'guitar', cinematic: 'strings' };
+    function leadVoice(T) { return STYLE_LEAD[prefs.style] || T.lead; }
+    function playVoice(voice, m, t, len, v, bus, pv, wet) {
+      v *= VOICE_TRIM[voice] || 1;
+      switch (voice) {
+        case 'piano': pianoNote(m, t, len, v, bus, pv, wet); break;
+        case 'pluck': pluckNote(m, t, len, v, bus, pv, wet, true); break;
+        case 'guitar': pluckNote(m, t, len, v, bus, pv, wet, false); break;
+        case 'cello': celloNote(m, t, len, v, bus, pv, wet); break;
+        case 'handpan': handpanNote(m, t, len, v, bus, pv, wet); break;
+        case 'epiano': epianoNote(m, t, len, v, bus, pv, wet); break;
+        case 'synth': synthNote(m, t, len, v, bus, pv, wet, false); break;
+        case 'staccato': synthNote(m, t, len, v, bus, pv, wet, true); break;
+        case 'bell': bellNote(m, t, Math.max(1.6, len * 1.4), v, bus, pv, wet, 3.5, 2); break;
+        case 'brass': brassChord([m - 12], t, len, v * 1.4, bus, wet, .12); break;
+        case 'strings': stringsChord([m, m + 7], t, len * 1.05, v * 1.3, bus, wet, .15); break;
+        default: pianoNote(m, t, len, v, bus, pv, wet);
       }
     }
-    function kitFor(ch) { return STYLE_KIT[prefs.style] || CH[ch].kit; }
-    function degree(c, d) { var n = c.sc.length; return c.root + c.sc[((d % n) + n) % n] + 12 * Math.floor(d / n); }
 
+    // ---- one bar of the score. Every layer decides for itself whether to play, from the level the plan gives it.
     function scheduleBar(t) {
-      var c = CH[chapter], beat = 60 / c.bpm, bar = beat * 4, kit = kitFor(chapter), I = intensity, d0 = PROG[barIdx % 4];
-      tone('sine', mtof(degree(c, d0) - 24), t, bar * 0.95, 0.35 * (0.4 + prefs.bass * 1.2), musicBus, 0, 0);
-      note('cinematic', degree(c, d0) - 12, t, bar, 0.08 + 0.05 * I, 0);
-      var steps = I < 0.35 ? [0, 8] : I < 0.7 ? [0, 4, 8, 12] : [0, 2, 4, 6, 8, 10, 12, 14];
-      for (var i = 0; i < steps.length; i++) {
-        var deg = d0 + [0, 2, 1, 3, 2, 4, 3, 1][(i + barIdx) % 8];
-        note(kit, degree(c, deg), t + steps[i] * beat / 4, beat, 0.13, (i % 2) ? 0.35 : -0.35);
+      var T = Score.THEMES[chapter], beat = 60 / T.bpm, bar = beat * 4, b = chBar++, r = Score.progression(T, b), ch = Score.chord(T, r);
+      var I = Score.intensity(chapter, chapFrac, intensity), L = Score.levels(T, I, { chT: t - chStart, rest: t < restUntil, calm: prefs.calm, lives: lives, maxLives: maxLives });
+      var gain = { air: 5.4, lead: 1, pulse: 1.6, strings: .19, brass: 2.9, perc: .9 * (KIT_TRIM[T.kit] || 1), choir: 3.2, bass: .45 + prefs.bass * .8, heart: 1 }, k, i;
+      for (k in L) if (stemBus[k]) { var lv = L[k] * (gain[k] || 1), at = Math.max(ctx.currentTime, t - .05); stemBus[k].gain.setTargetAtTime(lv, at, .3); stemBus[k]._wet.gain.setTargetAtTime(lv, at, .3); }
+      var vel = .55 + .35 * I;
+      // chapter opening: a swell and a bell
+      if (b === 0) { swell(t, bar * .9, .5 + TENSIONSAFE(chapter) * .6, 'air'); bellNote(Score.midi(T, 14), t + bar * .9, 3, .09, 'air', 0, .9, 3.5, 2); }
+      // air: high, sparse, long-tailed bells
+      if (L.air > .04 && b % 2 === 0) for (i = 0; i < 1 + (rnd() > .55 ? 1 : 0); i++) bellNote(Score.midi(T, 14 + [0, 2, 4, 5][Math.floor(rnd() * 4)]), t + rnd() * bar * .8, 2.6, .05, 'air', rnd() * 1.4 - .7, .9, 3.5, 2);
+      // lead: the motif every four bars, a long held tone between
+      if (L.lead > .04) {
+        if (b % 4 === 0) Score.motifNotes(T, Math.floor(b / 4)).forEach(function (n) { playVoice(leadVoice(T), n.midi + (T.lead === 'piano' ? 0 : 0), t + n.beat * beat, n.len * beat * 1.1, vel, 'lead', n.beat % 2 ? .2 : -.2, .35); });
+        else if (b % 4 === 2) playVoice(leadVoice(T), ch[1] + 12, t, bar * .9, vel * .6, 'lead', 0, .45);
       }
-      if (I > 0.45 && kit !== 'handpan') {
-        for (var b = 0; b < 4; b++) { if (b % 2 === 0 || I > 0.75) kick(t + b * beat, 0.5 + 0.2 * I); }
-        if (I > 0.6) { noise(t + beat, 0.12, 0.2, musicBus, 'highpass', 1800, -0.15); noise(t + 3 * beat, 0.12, 0.2, musicBus, 'highpass', 1800, 0.15); }
-        if (I > 0.55) for (var h = 0; h < 8; h++) noise(t + h * beat / 2, 0.04, 0.06, musicBus, 'highpass', 7000, (h % 2) ? 0.4 : -0.4);
+      // bass: the root held, and from a higher level eighth-note pulses
+      if (L.bass > .04) {
+        var bm = Score.midi(T, r) - 24, bo = ctx.createOscillator(), bg = ctx.createGain();
+        bo.frequency.value = mtof(bm); shape(bg, t, .05, .5, bar * .8, bar * .2); bo.connect(bg); route(bg, B('bass'), 0, 0); bo.start(t); bo.stop(t + bar + .1); made.notes++;
+        if (L.bass > .55) for (i = 0; i < 8; i++) { var pa = [1, 0, .6, 0, .8, 0, .6, 0][i]; if (pa) { var po = ctx.createOscillator(), pg = ctx.createGain(); po.type = 'triangle'; po.frequency.value = mtof(bm + 12); shape(pg, t + i * beat / 2, .005, .22 * pa, 0, .16); po.connect(pg); route(pg, B('bass'), 0, 0); po.start(t + i * beat / 2); po.stop(t + i * beat / 2 + .3); } }
       }
-      barIdx++;
+      // pulse: a rolling arpeggio of the chord, the ostinato of the score
+      if (L.pulse > .04) {
+        var steps = L.pulse > .7 && I > .82 ? 16 : 8, pat = [0, 1, 2, 3, 2, 1, 2, 1];
+        for (i = 0; i < steps; i++) { var idx = pat[(steps === 16 ? i >> 1 : i) % 8], acc = i % (steps / 2) === 0 ? 1 : (i % 2 ? .45 : .7); playVoice(T.ost, ch[idx] + 12 + (i % 4 === 3 ? 12 : 0), t + i * bar / steps, bar / steps * 1.4, .3 * acc, 'pulse', i % 2 ? .3 : -.3, .3); }
+      }
+      // strings
+      if (L.strings > .04) stringsChord([ch[0] - 12, ch[1], ch[2], ch[3]], t, bar * 1.04, vel, 'strings', .5, Math.min(1.2, bar * .35));
+      // brass: a swell every fourth bar, a hit when a big chapter opens
+      if (L.brass > .04 && b % 4 === 0) brassChord([Score.midi(T, r - 7), Score.midi(T, r - 3)], t, bar * 1.1, vel, 'brass', .4, bar * .65);
+      if (b === 0 && (T.kit === 'epic') && L.brass > .02) braam(Score.midi(T, 0) - 12, t, vel, 'brass');
+      // choir
+      if (L.choir > .04) choirChord([ch[1] + 12, ch[2] + 12, ch[3] + 12], t, bar * 1.05, vel, 'choir', .7);
+      // percussion by kit
+      if (L.perc > .04) {
+        if (T.kit === 'epic') { taiko(t, 1, 'perc'); if (L.perc > .45) taiko(t + beat * 2, .6, 'perc'); if (L.perc > .7) taiko(t + beat * 3.5, .4, 'perc'); if (b % 8 === 7) swell(t, bar * .95, .6, 'perc'); }
+        else if (T.kit === 'electro') {
+          for (i = 0; i < 4; i += 2) kick(t + i * beat, .5, B('perc'));
+          for (i = 1; i < 4; i += 2) noise(t + i * beat, .12, .13, B('perc'), 'bandpass', 1600, 0);
+          if (L.perc > .35) for (i = 0; i < 8; i++) noise(t + i * beat / 2, .035, i % 2 ? .05 : .03, B('perc'), 'highpass', 8000, i % 2 ? .3 : -.3);
+        } else {
+          frameDrum(t, .8, 'perc'); if (L.perc > .5) frameDrum(t + beat * 2, .5, 'perc');
+          if (L.perc > .4) for (i = 0; i < 8; i++) noise(t + i * beat / 2, .04, .025, B('perc'), 'highpass', 6500, i % 2 ? .35 : -.35);
+        }
+      }
+      // heartbeat when one life is left
+      if (L.heart) for (i = 0; i < 4; i++) { kick(t + i * beat, .16, B('heart')); kick(t + i * beat + .2, .1, B('heart')); }
       return bar;
     }
+    function TENSIONSAFE(c) { return Score.TENSION[clamp(c, 0, Score.TENSION.length - 1)]; }
     function pump() {
       if (!ctx || !running || paused || !prefs.music || !prefs.sound) return;
       var now = ctx.currentTime;
@@ -297,6 +440,7 @@
       if (!audible() || !prefs.sfx) { if (name === 'bump' || name === 'crash') buzz(60); return; }
       var t = ctx.currentTime + 0.01, c = CH[chapter], pv = clamp((o.side || 0) * 0.5, -0.8, 0.8);
       made.events++;
+      if (name === 'near') duck(.72, .35); else if (name === 'bump') duck(.45, .7); else if (name === 'crash') duck(.3, 1.4); else if (name === 'rest') restUntil = t + 11; else if (name === 'heart') duck(.8, .6);
       switch (name) {
         case 'lane': noise(t, 0.12, 0.12, fxBus, 'bandpass', 1400 + 600 * speedN(), (o.dir || 0) * 0.3); break;
         case 'coin': { var d = (o.i || 0) % 7; tone('sine', mtof(degree(c, d) + 24), t, 0.35, 0.18, fxBus, 0, 0.4); tone('sine', mtof(degree(c, d) + 36), t + 0.05, 0.3, 0.1, fxBus, 0, 0.4); break; }
@@ -325,7 +469,7 @@
       },
       start: function () {
         if (!ensure()) return;
-        running = true; paused = false; barIdx = 0; nextBar = 0;
+        running = true; paused = false; chBar = 0; nextBar = 0; chStart = ctx.currentTime; restUntil = 0;
         startBed(CH[chapter].bed); startEngine(); applyVolumes();
         if (timer && env.clearInterval) env.clearInterval(timer);
         timer = env.setInterval ? env.setInterval(pump, 250) : null; pump();
@@ -337,7 +481,7 @@
       pause: function () { paused = true; if (ctx && ctx.suspend) { try { ctx.suspend(); } catch (e) { /* ignore */ } } },
       resume: function () { paused = false; nextBar = 0; if (ctx && ctx.resume) { try { ctx.resume(); } catch (e) { /* ignore */ } } },
       setChapter: function (i) {
-        chapter = clamp(i | 0, 0, CH.length - 1);
+        chapter = clamp(i | 0, 0, CH.length - 1); chBar = 0; chStart = ctx ? Math.max(ctx.currentTime, nextBar) : 0; chapFrac = 0;
         if (ctx && running && (!bed || bed.name !== CH[chapter].bed)) startBed(CH[chapter].bed);
       },
       setSpeed: function (v) {
@@ -346,10 +490,12 @@
       },
       setEngine: function (name) { engineOverride = ENGINES[name] ? name : null; requestLoops(engineName()); restartEngine(); },
       setIntensity: function (v) { intensity = clamp(v || 0, 0, 1); },
+      setChapterProgress: function (f) { chapFrac = clamp(f || 0, 0, 1); },
+      setLives: function (n, max) { lives = n; maxLives = max || maxLives; },
       setBrake: function (b) { braking = !!b; },
       setScene: function (s) { scene = s || {}; },
       event: event,
-      info: function () { return { ctx: !!ctx, state: ctx ? ctx.state : 'none', chapter: chapter, kit: kitFor(chapter), bed: bed ? bed.name : null, notes: made.notes, events: made.events, running: running, paused: paused, braking: braking, engine: eng ? eng.name : null, engineMode: eng ? eng.mode : null, loops: Object.keys(loopRaw), prefs: prefs, scene: scene }; }
+      info: function () { return { ctx: !!ctx, state: ctx ? ctx.state : 'none', chapter: chapter, kit: Score.THEMES[chapter].lead, bed: bed ? bed.name : null, notes: made.notes, events: made.events, running: running, paused: paused, braking: braking, engine: eng ? eng.name : null, engineMode: eng ? eng.mode : null, loops: Object.keys(loopRaw), prefs: prefs, scene: scene }; }
     };
   }
 

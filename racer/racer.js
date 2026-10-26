@@ -1089,7 +1089,8 @@
       }
     }
     traffic = traffic.filter(function (c) { return c.z > dist - 30; });
-    au('setSpeed', speed); au('setIntensity', clamp((speed - 30) / 60 + combo * .12 + (shieldT > 0 ? .1 : 0), 0, 1)); au('setBrake', braking);
+    au('setSpeed', speed); au('setIntensity', clamp((speed - RAMP.v0) / (RAMP.v1 - RAMP.v0) * .8 + combo * .06 + (shieldT > 0 ? .05 : 0), 0, 1)); au('setBrake', braking);
+    au('setChapterProgress', c0.frac); au('setLives', lives, maxLives);
     sceneTick = (sceneTick + 1) % 8;
     if (sceneTick === 0 && lastScene) au('setScene', { water: lastScene.water, rain: lastScene.rain, night: lastScene.night, snow: lastScene.snow, wind: lastScene.wind, heat: lastScene.heat, bed: lastScene.a.bed, nextBed: lastScene.b.bed, t: lastScene.t, life: lastScene.a.life, idx: c0.idx });
     hud();
