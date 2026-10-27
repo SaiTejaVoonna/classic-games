@@ -331,9 +331,14 @@
   var HIT_AHEAD = 5.5; var HIT_BEHIND = 2.5; // contact window around the player's depth: drawn cars touch about when this fires
   var K = 0.03;   // perspective strength
   var CURVE_A = 1.6e-4;
+  // Bends come one at a time, like a real road: each 900 m stretch is straight except for one bend in its middle
+  // that eases in and out (a raised cosine), with its own direction and strength. Two overlapping waves made the
+  // road snake left and right without a break, which read as a constant wobble.
+  function easeBump(u, a, b) { return u <= a || u >= b ? 0 : .5 - .5 * Math.cos((u - a) / (b - a) * TAU); }
   function curveAt(s) {
-    var gate = clamp(Math.sin(s / 1100) * 2.2, -1, 1);
-    return CURVE_A * (gate * Math.sin(s / 380 + 1) + .5 * Math.sin(s / 170) * Math.abs(gate));
+    var seg = Math.floor(s / 900), u = s / 900 - seg, r = rnd(seg, 141);
+    if (r < .2) return 0; // about one stretch in five stays straight all the way
+    return CURVE_A * 1.25 * (rnd(seg, 142) < .5 ? -1 : 1) * (.55 + .45 * rnd(seg, 143)) * easeBump(u, .25, .75);
   }
   var xo = new Float32Array(DRAW + 2); // curve offset by metre ahead (road-half units)
   function buildCurve() {
@@ -352,7 +357,11 @@
   // Hills: the road rises and falls. Rows are shifted up or down with distance, and a row can
   // never be lower than the one in front of it, so a crest hides what is behind it.
   var HILL = [10, 3.8]; var ES = 0; var e0 = 0; var hyR = 0;
-  function elev(s) { return HILL[0] * Math.sin(s / 330) + HILL[1] * Math.sin(s / 143 + 1.3); }
+  // Hills: gentle rises and dips with flat ground between them, plus a very slow swell of the land.
+  function elev(s) {
+    var seg = Math.floor(s / 700), u = s / 700 - seg, h = rnd(seg, 144) < .3 ? 0 : (rnd(seg, 145) < .55 ? 1 : -.6) * (.6 + .4 * rnd(seg, 146));
+    return HILL[0] * .45 * Math.sin(s / 1400) + (HILL[0] + HILL[1]) * .8 * h * easeBump(u, .15, .85);
+  }
   function rowAt(d) { var p = pOf(d); return { y: yOf(p) - (elev(dist + d) - e0) * p * ES, p: p, ct: cx + (xoAt(d) - camX) * p * RH, hw: RH * p }; }
   var rows = [], roadEnd = DRAW; // roadEnd: how far ahead the visible road goes (less than DRAW when a crest hides the rest)
   function buildRows() {
@@ -1079,6 +1088,14 @@
       }
     }
     for (var pn = Math.floor((dist + 6) / 30); pn <= Math.floor((dist + DRAW) / 30); pn++) for (var ps = -1; ps <= 1; ps += 2) { var pd = pn * 30 - dist; if (pd > 4 && pd < DRAW && !bridgeAt(pn * 30)) items.push({ d: pd, kind: 'post', side: ps, k: pn * 2 + (ps > 0 ? 1 : 0), lat: ps * 1.1, lit: 0 }); }
+    for (var fn = Math.floor((dist + 30) / 23); fn <= Math.floor((dist + DRAW) / 23); fn++) { // a second, scattered band further out, so the middle distance is never bare
+      for (var fs = -1; fs <= 1; fs += 2) {
+        var fk = fn * 2 + (fs > 0 ? 1 : 0) + 9000; if (rnd(fk, 91) < .3) continue;
+        var fpos = fn * 23 + rnd(fk, 92) * 12, fd = fpos - dist; if (fd < 30 || fd > Math.min(DRAW, roadEnd + 40) || bridgeAt(fpos) > 0) continue;
+        var fc = CHAPTERS[chapterAt(fpos).idx]; if (fc.water) continue; // the coast keeps its open sea
+        items.push({ d: fd, kind: objectKind(fc, fk), side: fs, k: fk, lat: fs * (2.3 + rnd(fk, 93) * 3.8), lit: Math.max(fc.night, S.night * .5), snow: fc.snow, S: fc });
+      }
+    }
     for (var tn = Math.floor((dist + 6) / 40); tn <= Math.floor((dist + DRAW) / 40); tn++) { // telegraph poles along the country roads
       var tpos = tn * 40, tci = chapterAt(tpos).idx, td = tpos - dist; if (tci > 3 || td < 3 || td > Math.min(DRAW, roadEnd + 6) || bridgeAt(tpos) > 0) continue;
       items.push({ d: td, tpole: true, lat: 1.42, k: tn });
@@ -1550,7 +1567,7 @@
     lane = clamp(lane, -1.06, 1.06);
     // Suspension: a lightly damped spring pushed by road bumps and by the curvature of the hills.
     var sn = clamp(speed / 42, 0, 1);
-    var bumpF = (rnd(Math.floor(dist / 2.2), 61) - .5) * 460 * sn, hillF = (elev(dist + 3) - 2 * elev(dist) + elev(dist - 3)) * 1500 * sn;
+    var bumpF = (rnd(Math.floor(dist / 2.2), 61) - .5) * 170 * sn, /* small road texture: a big random kick every 2 m read as constant shaking */ hillF = (elev(dist + 3) - 2 * elev(dist) + elev(dist - 3)) * 1500 * sn;
     susp.v += (bumpF + hillF - 190 * susp.y - 8 * susp.v) * dt; susp.y = clamp(susp.y + susp.v * dt, -5, 5);
     pitch += ((braking ? 1 : 0) - pitch) * Math.min(1, dt * 6);
     roll.v += ((clamp(laneV * .035, -.15, .15) - roll.y) * 150 - roll.v * 11 * (1 - .35 * wet)) * dt; roll.y += roll.v * dt;
