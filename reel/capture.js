@@ -12,15 +12,15 @@ const SCENES = [
   [2, 0.42, false, '', 'title'],
   [1, 1.36, false, '10 places', 'cap'],
   [1, 2.42, false, 'one road', 'cap'],
-  [2, 3.15, true, 'collect coins', 'cap'],
-  [1, 5.66, true, 'thread the traffic', 'cap'],
-  [1, 4.4, false, 'big moments', 'cap'],
+  [2, 3.15, true, 'grab the coins', 'cap'],
+  [1, 5.66, true, 'slip through traffic', 'cap'],
+  [1, 4.4, false, 'watch it come alive', 'cap'],
   [1, 6.42, false, '', 'cap'],
-  [1, 7.45, false, 'weather that changes', 'cap'],
-  [1, 8.4, false, '', 'cap'],
-  [2, 9.42, false, 'a 15-minute journey\nto the coast', 'cap2'],
-  [1, 0, false, 'an original soundtrack\nfor every place', 'music'],
-  [1, -1, false, 'and Snake', 'snake'],
+  [1, 7.45, false, 'rain · storms', 'cap'],
+  [1, 8.4, false, 'northern lights', 'cap'],
+  [2, 9.42, false, 'all the way\nto the coast', 'cap2'],
+  [1, 0, false, 'music made\nfor every mile', 'music'],
+  [1, -1, false, 'plus classic Snake', 'snake'],
   [2, 9.5, false, '', 'end']
 ];
 (async () => {
@@ -81,7 +81,7 @@ const SCENES = [
         F.style.opacity = i < 3 && si > 0 && kind !== 'end' ? (1 - i / 3) * .55 : 0;
         const inT = Math.min(1, t / .35), e = 1 - Math.pow(1 - inT, 3), out = Math.min(1, Math.max(0, (n - i) / 6));
         if (kind === 'title') {
-          K.textContent = u < .45 ? 'CLASSIC GAMES' : 'CLASSIC GAMES PRESENTS';
+          K.textContent = u < .5 ? 'GOT 15 MINUTES?' : 'CLASSIC GAMES PRESENTS';
           const tu = Math.max(0, (u - .18) / .3), te = 1 - Math.pow(1 - Math.min(1, tu), 3);
           C.textContent = 'Cruise'; C.style.fontSize = '84px'; C.style.letterSpacing = (20 - 21 * te) + 'px';
           C.style.opacity = te * out; C.style.transform = 'translateY(' + (30 * (1 - te)) + 'px) scale(' + (1.25 - .25 * te) + ')';
@@ -107,7 +107,7 @@ const SCENES = [
 async function snakeScene(b, n, frame, cap) {
   const ctx = await b.newContext({ viewport: { width: 540, height: 960 }, deviceScaleFactor: 2 }); const p = await ctx.newPage();
   await p.goto('file://' + ROOT + '/snake/index.html?seed=4'); await p.click('#ov-primary'); await p.keyboard.press('ArrowDown'); await p.waitForTimeout(900);
-  await p.addStyleTag({ content: `#rcap { position: fixed; left: 0; right: 0; top: 36%; text-align: center; font: 800 50px Inter, system-ui, sans-serif; color: #fff; text-shadow: 0 4px 28px #000a; z-index: 99; pointer-events: none; }` });
+  await p.addStyleTag({ content: `#rcap { position: fixed; left: 0; right: 0; top: 36%; text-align: center; font: 800 40px Inter, system-ui, sans-serif; color: #fff; text-shadow: 0 4px 28px #000a; z-index: 99; pointer-events: none; }` });
   await p.evaluate((c) => { const d = document.createElement('div'); d.id = 'rcap'; d.textContent = c; document.body.appendChild(d); }, cap);
   const keys = ['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowDown', 'ArrowRight', 'ArrowUp'];
   const t0 = Date.now(); let k = 0, last = null;
