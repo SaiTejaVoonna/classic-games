@@ -161,7 +161,7 @@ const st = (p) => p.evaluate(() => window.racerDebug.state());
   let overlap = 0;
   for (const kind of ['hatch', 'suv', 'van', 'truck']) for (const cl of [-1, 1]) {
     await p.evaluate(([k, l]) => { window.racerDebug.teleport(1500); window.racerDebug.setLane(0); window.racerDebug.addCar(l, 9, k); }, [kind, cl]);
-    const g = await p.evaluate(() => window.racerDebug.geo([9])); const c = g.cars[g.cars.length - 1], r = g.rows[0];
+    const g = await p.evaluate(() => window.racerDebug.geo([9])); const c = g.cars.filter((x) => x.d < 30).pop(), r = g.rows[0]; // the car placed beside you, not one spawned far ahead
     const f = { hatch: 1, suv: 1.04, van: 1.07, truck: 1.12 }[kind];
     if (Math.abs(c.x - g.player.x) - (r.hw * 2 / 3 * .78 * f + g.player.w * 1.05) / 2 <= 0) overlap++;
   }

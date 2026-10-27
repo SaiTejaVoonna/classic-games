@@ -1,6 +1,6 @@
 # Cruise v3: a living, anime-inspired world
 
-This plan combines the last two reviews: one hundred game frames (10 per chapter) checked as an animator would, and the empty-space and backdrop review. Nothing here is built yet. Every rule is a Classic Games prototype choice, and all art and sound stay our own, drawn and synthesised in code.
+This plan combines the last two reviews: one hundred game frames (10 per chapter) checked as an animator would, and the empty-space and backdrop review. Status: built (road rules, middle ground, skies, world objects, rising transitions, one hero at a time, matching sound); all test suites pass. Every rule is a Classic Games prototype choice, and all art and sound stay our own, drawn and synthesised in code.
 
 ## Where we are: 64 / 100
 
