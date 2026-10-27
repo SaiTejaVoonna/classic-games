@@ -30,9 +30,22 @@ One list of everything agreed or proposed so far, in the order we build it. Ever
 
 Something alive in every sky: birds, clouds, heat shimmer, city windows lighting up, drones and holo billboards, lightning on the mountains, a big aurora, fireworks.
 
-## Step 3. Big moments: tried and removed
+## Step 3. Big moments (sky and horizon)
 
-The 10 set pieces (trains, a cruise ship, a metro bridge, a tunnel and so on) were built and then taken out: on a portrait screen they showed up as boxes cut off at the screen edge, or as flat bars across the sky. The coast bridge, with a boat passing under it, stays. Any new moment needs an approved mock first.
+The first try (boxes beside the road) was removed: on a portrait screen it showed cut-off boxes and flat bars. The new moments play in the sky and along the horizon, centred and large. Each chapter has one, from 30% to 60% of the way through (about 30 s), with its own sound:
+
+| Chapter | Moment | Sound |
+|---|---|---|
+| Dawn Meadow | balloon festival rising from behind the hills | burners |
+| Cherry Hills | steam train on the horizon, smoke trailing | steam whistle, wheels |
+| Desert Road | freight train of coloured containers, dust trail | horn, wheels |
+| Amber Valley | a big V of geese flying over | honks |
+| Sunset Coast | cruise liner crossing the sea, lights in its windows | ship's horn, gulls |
+| Dusk City | airship over the skyline, searchlights sweeping | engine drone |
+| Neon Quarter | drone light show: ring, heart, star | bell shimmer |
+| Storm Pass | the storm breaks: strikes come thick and fast | close thunder |
+| Northern Lights | the aurora flares, shooting stars | shimmer, chimes |
+| Sunrise Coast | fireworks over the harbour | each burst |
 
 ## Step 4. Gameplay v2 (direction C, kept simple and calm)
 

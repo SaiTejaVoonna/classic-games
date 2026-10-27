@@ -261,7 +261,7 @@
   function reset(fromCheckpoint) {
     applyTrip();
     keepOn = false; runMul = mul(); applyTrip(); dist = 0; speed = RAMP.v0 * mul(); lane = 0; laneV = 0; susp = { y: 0, v: 0 }; pitch = 0; roll = { y: 0, v: 0 }; camRoll = 0; laneTarget = 0; traffic = []; nextSpawn = 300; combo = 0; comboTimer = 0;
-    score = 0; shake = 0; particles = []; lastChapter = -1; nearTimer = 0; shieldT = 0; flashT = 0; lives = maxLives; nextStop = 0; collected = {}; restCh = 0; saveT = 8; countT = 0;
+    score = 0; shake = 0; particles = []; lastChapter = -1; nearTimer = 0; shieldT = 0; flashT = 0; lives = maxLives; nextStop = 0; collected = {}; momentFx = {}; restCh = 0; saveT = 8; countT = 0;
     run = { near: 0, coins: 0, hits: 0 }; coinNote = 0; coinNoteT = 0; braking = false; paused = false; calmUntil = 0;
     if (fromCheckpoint) {
       dist = fromCheckpoint.frac != null ? Math.round(fromCheckpoint.frac * journeyLen()) : fromCheckpoint.chapter * chapterLen; restCh = fromCheckpoint.chapter; lives = clamp(fromCheckpoint.lives, 1, maxLives); score = fromCheckpoint.score || 0; run.hits = 1; speed = targetSpeed(dist);
@@ -554,6 +554,137 @@
   }
 
   // ---------- drawing ----------
+  // ---------- big moments ----------
+  // One moment per chapter, about half a minute long, played in the sky and along the horizon: centred and large,
+  // so a portrait screen shows all of it. They come from the distance driven, so they need no saved state.
+  var MOMENTS = ['balloons', 'steam', 'freight', 'geese', 'liner', 'airship', 'drones', 'storm', 'aurora', 'fireworks'];
+  var MOMENT_FROM = .3, MOMENT_LEN = .3, momentFx = {};
+  function momentAt(pos) {
+    var c = chapterAt(pos), u = (c.frac - MOMENT_FROM) / MOMENT_LEN;
+    if (u <= 0 || u >= 1 || (tripMode === 'journey' && c.i >= JOURNEY_CHAPTERS)) return null;
+    return { kind: MOMENTS[c.idx], u: u, a: clamp(Math.min(u, 1 - u) * 7, 0, 1), ch: c.i };
+  }
+  function trainOnHorizon(x, base, cars, steam, a, S) { // a train seen side on, far away, running along the horizon
+    var L = 36 * dpr, h = 13 * dpr, gap = 4 * dpr, dir = 1;
+    var col = function (c) { return mix(c, S.fog, .3); };
+    for (var i = 0; i < cars; i++) {
+      var cx0 = x - i * (L + gap) * dir;
+      if (cx0 < -L * 2 || cx0 > W + L * 2) continue;
+      if (i === 0) {
+        g.fillStyle = col(steam ? '#1f2a24' : '#e07b1f'); g.fillRect(cx0 - L, base - h * 1.15, L, h * 1.15);
+        if (steam) { g.fillRect(cx0 - L * .3, base - h * 1.7, L * .14, h * .6); g.fillStyle = col('#c0392b'); g.fillRect(cx0 - L, base - h * .25, L, h * .25); }
+        else { g.fillStyle = col('#ffe7a0'); g.fillRect(cx0 - L * .22, base - h * .95, L * .16, h * .3); }
+      } else {
+        var cc = steam ? '#7a1f2b' : ['#c0392b', '#2471a3', '#d68910', '#1e8449', '#7d3c98', '#5d6d7e'][i % 6];
+        g.fillStyle = col(cc); g.fillRect(cx0 - L, base - h, L, h);
+        if (steam) { g.fillStyle = col('#ffe6a8'); for (var w = 0; w < 5; w++) g.fillRect(cx0 - L + 4 * dpr + w * 6.4 * dpr, base - h * .72, 3.6 * dpr, h * .3); }
+        else { g.fillStyle = 'rgba(0,0,0,.18)'; g.fillRect(cx0 - L * .5, base - h, 1 * dpr, h); }
+      }
+    }
+    if (steam) for (var k = 0; k < 9; k++) { // steam trails back from the chimney and rises
+      var px = x - L * .23 - k * 12 * dpr, py = base - h * 1.8 - k * 4 * dpr, pr = (4 + k * 1.8) * dpr;
+      g.globalAlpha = a * .7 * (1 - k / 9); g.fillStyle = '#f4f4f2'; g.beginPath(); g.arc(px, py, pr, 0, TAU); g.fill();
+    }
+    else for (var q = 0; q < 6; q++) { g.globalAlpha = a * .25 * (1 - q / 6); g.fillStyle = mix('#d6b67e', S.fog, .3); g.beginPath(); g.ellipse(x - (q + 1) * cars * 3 * dpr, base - 2 * dpr, 30 * dpr, 4 * dpr, 0, 0, TAU); g.fill(); }
+    g.globalAlpha = a;
+  }
+  function balloonAt(x, y, u, c1, c2) { // a hot-air balloon, u = size unit
+    var env = g.createRadialGradient(x - 6 * u, y - 8 * u, 2 * u, x, y, 30 * u); env.addColorStop(0, c1); env.addColorStop(1, c2);
+    g.fillStyle = env; g.beginPath(); g.moveTo(x, y - 26 * u); g.bezierCurveTo(x + 26 * u, y - 24 * u, x + 28 * u, y + 10 * u, x + 6 * u, y + 24 * u); g.lineTo(x - 6 * u, y + 24 * u); g.bezierCurveTo(x - 28 * u, y + 10 * u, x - 26 * u, y - 24 * u, x, y - 26 * u); g.fill();
+    g.fillStyle = 'rgba(255,255,255,.35)'; g.beginPath(); g.ellipse(x, y - 2 * u, 6 * u, 24 * u, 0, 0, TAU); g.fill();
+    g.strokeStyle = 'rgba(60,40,30,.6)'; g.lineWidth = Math.max(1, u * .6); g.beginPath(); g.moveTo(x - 5 * u, y + 24 * u); g.lineTo(x - 3 * u, y + 31 * u); g.moveTo(x + 5 * u, y + 24 * u); g.lineTo(x + 3 * u, y + 31 * u); g.stroke();
+    g.fillStyle = '#7a5236'; g.fillRect(x - 4 * u, y + 31 * u, 8 * u, 6 * u);
+  }
+  var DRONE_SHAPES = [ // the drone show: each formation is a list of points on a unit square, morphing one into the next
+    function (i, n) { var t = i / n * TAU; return [Math.cos(t), Math.sin(t)]; },
+    function (i, n) { var t = i / n * TAU; return [Math.pow(Math.sin(t), 3) * 1.05, -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)) / 15]; },
+    function (i, n) { var t = i / n * TAU, r = i % 2 ? .45 : 1; return [Math.cos(t - Math.PI / 2) * r, Math.sin(t - Math.PI / 2) * r]; }
+  ];
+  function drawMoment(S, layer) {
+    var M = momentAt(dist); if (!M) return;
+    var a = M.a, u = M.u, shift = -xoAt(DRAW * .8) * .12 * 40 * dpr * .3; g.save(); g.globalAlpha = a;
+    if (layer === 'back' && M.kind === 'balloons') { // a balloon festival lifting off from behind the hills
+      [['#ff8a7a', '#a52a2a'], ['#7adbd0', '#14665f'], ['#ffe08a', '#c07a10'], ['#b9a2ff', '#4b3aa8'], ['#ff9fd0', '#a8326e'], ['#9fe08a', '#2f7a2a']].forEach(function (c, i) {
+        var rise = clamp(u * 1.6 - i * .1, 0, 1.2), x = W * (.12 + i * .155) + Math.sin(tAnim * .3 + i) * 8 * dpr + shift, y = hyR + 30 * dpr - rise * H * .42, uu = dpr * (.55 + (i % 3) * .2);
+        if (rise > 0) balloonAt(x, y, uu, c[0], c[1]);
+      });
+    }
+    if (layer === 'front') {
+      if (M.kind === 'steam' || M.kind === 'freight') trainOnHorizon(-W * .2 + u * W * 1.9 + shift, hyR - 3 * dpr, M.kind === 'steam' ? 6 : 9, M.kind === 'steam', a, S);
+      if (M.kind === 'liner') { // a cruise ship crossing the sea on the horizon, lights in every window
+        var sx = W * (.05 + u * .9) + shift, sb = hyR - 1 * dpr, sl = 150 * dpr, night = S.night > .4;
+        g.fillStyle = mix('#1d3557', S.fog, .25); g.beginPath(); g.moveTo(sx - sl / 2, sb - 11 * dpr); g.lineTo(sx + sl / 2 + 10 * dpr, sb - 11 * dpr); g.lineTo(sx + sl / 2, sb); g.lineTo(sx - sl / 2 + 6 * dpr, sb); g.closePath(); g.fill();
+        [[.44, 9], [.36, 17], [.26, 24]].forEach(function (dk, i) { g.fillStyle = mix(i % 2 ? '#e9e5dc' : '#f6f3ec', S.fog, .2); g.fillRect(sx - sl * dk[0] - 6 * dpr, sb - 11 * dpr - dk[1] * dpr + (i ? 0 : 1 * dpr), sl * dk[0] * 1.7, (dk[1] - (i ? [9, 17][i - 1] : 0)) * dpr + 1); });
+        g.fillStyle = mix('#c0392b', S.fog, .2); g.fillRect(sx + sl * .12, sb - 33 * dpr, 12 * dpr, 9 * dpr); g.fillStyle = '#1b1b1b'; g.fillRect(sx + sl * .12, sb - 35 * dpr, 12 * dpr, 2 * dpr);
+        g.fillStyle = night ? '#ffe39a' : 'rgba(60,90,120,.7)'; for (var wr = 0; wr < 3; wr++) for (var wc = 0; wc < 22 - wr * 5; wc++) g.fillRect(sx - sl * .42 + wc * 6.4 * dpr + wr * 9 * dpr, sb - 15 * dpr - wr * 7.5 * dpr, 2.6 * dpr, 2 * dpr);
+        g.globalAlpha = a * .5; g.fillStyle = '#ffffff'; g.beginPath(); g.ellipse(sx - sl * .55, sb - 1 * dpr, 26 * dpr, 2 * dpr, 0, 0, TAU); g.fill(); // wake
+      }
+      if (M.kind === 'geese') { // a big V of geese flying over, wings beating
+        var gx = W * (1.15 - u * 1.5), gy = H * .2 + Math.sin(u * 3) * 10 * dpr;
+        g.strokeStyle = 'rgba(40,30,30,.85)'; g.lineCap = 'round'; g.lineWidth = 2.2 * dpr;
+        for (var b = 0; b < 11; b++) { var row = Math.ceil(b / 2), sd = b % 2 ? 1 : -1, bx = gx + row * 22 * dpr, by = gy + sd * row * 13 * dpr, fl = Math.sin(tAnim * 7 + b) * 6 * dpr, ws = 11 * dpr;
+          g.beginPath(); g.moveTo(bx - ws, by - fl); g.quadraticCurveTo(bx - ws * .4, by - 2 * dpr, bx, by); g.quadraticCurveTo(bx + ws * .4, by - 2 * dpr, bx + ws, by - fl); g.stroke(); }
+      }
+      if (M.kind === 'airship') { // an airship drifts over the skyline, its screen glowing, searchlights sweeping
+        g.save(); g.globalCompositeOperation = 'lighter';
+        [-1, 1].forEach(function (sd) { var bx = W * (.5 + sd * .28), ang = Math.sin(tAnim * .6 + sd) * .45 + sd * .1, len = H * .5, bw = 34 * dpr;
+          var bg = g.createLinearGradient(bx, hyR, bx + Math.sin(ang) * len, hyR - Math.cos(ang) * len); bg.addColorStop(0, 'rgba(200,220,255,' + .22 * a + ')'); bg.addColorStop(1, 'rgba(200,220,255,0)');
+          g.fillStyle = bg; g.beginPath(); g.moveTo(bx - 3 * dpr, hyR); g.lineTo(bx + Math.sin(ang) * len - bw * Math.cos(ang), hyR - Math.cos(ang) * len - bw * Math.sin(ang)); g.lineTo(bx + Math.sin(ang) * len + bw * Math.cos(ang), hyR - Math.cos(ang) * len + bw * Math.sin(ang)); g.lineTo(bx + 3 * dpr, hyR); g.fill(); });
+        g.restore();
+        var ax = W * (-.2 + u * 1.4) + shift, ay = hyR - H * .2, al = 64 * dpr, ah = 18 * dpr;
+        var ag2 = g.createLinearGradient(0, ay - ah, 0, ay + ah); ag2.addColorStop(0, '#c8ccd6'); ag2.addColorStop(1, '#6b7080');
+        g.fillStyle = ag2; g.beginPath(); g.ellipse(ax, ay, al, ah, 0, 0, TAU); g.fill();
+        g.fillStyle = '#3b3f4a'; g.beginPath(); g.moveTo(ax - al * .95, ay); g.lineTo(ax - al * 1.15, ay - ah * .9); g.lineTo(ax - al * 1.15, ay + ah * .9); g.closePath(); g.fill();
+        g.fillStyle = '#2a2d36'; g.fillRect(ax - 10 * dpr, ay + ah - 2 * dpr, 20 * dpr, 5 * dpr);
+        var scr = ((tAnim * .5) % 1); g.fillStyle = ['#35e6ff', '#ff4fd8', '#ffe066'][Math.floor(tAnim * .5) % 3]; g.globalAlpha = a * .85; g.fillRect(ax - al * .45, ay - ah * .35, al * .9 * (.3 + .7 * scr), ah * .7); g.globalAlpha = a;
+        if (Math.sin(tAnim * 5) > .6) { glowDot(ax + al * .98, ay, 8 * dpr, '#ff3b3b'); glowDot(ax - al * 1.1, ay, 8 * dpr, '#7cff6b'); }
+      }
+      if (M.kind === 'drones') { // a drone light show: a ring, then a heart, then a star, over the towers
+        var n = 48, ph = u * 3, A = Math.floor(clamp(ph, 0, 2.999)), f = smoothT(clamp((ph - A) * 1.6 - .3, 0, 1)), B = Math.min(2, A + 1), ccx = W * .5 + shift * .5, ccy = hyR - H * .17, R = Math.min(W * .28, H * .11);
+        g.save(); g.globalCompositeOperation = 'lighter';
+        for (var di = 0; di < n; di++) { var p0 = DRONE_SHAPES[A](di, n), p1 = DRONE_SHAPES[B](di, n), dx = ccx + (p0[0] + (p1[0] - p0[0]) * f) * R, dy = ccy + (p0[1] + (p1[1] - p0[1]) * f) * R, dc = di % 3 ? '#35e6ff' : '#ff4fd8';
+          glowDot(dx, dy, 6 * dpr, dc); g.fillStyle = '#ffffff'; g.fillRect(dx - dpr, dy - dpr, 2 * dpr, 2 * dpr); }
+        g.restore();
+      }
+      if (M.kind === 'aurora') { // the aurora flares: bright curtains dance low over the mountains, and stars fall
+        g.save(); g.globalCompositeOperation = 'screen';
+        for (var cb = 0; cb < 3; cb++) { var acg = g.createLinearGradient(0, hyR - H * .32, 0, hyR); var cc2 = ['120,255,190', '90,220,255', '200,140,255'][cb];
+          acg.addColorStop(0, 'rgba(' + cc2 + ',0)'); acg.addColorStop(.5, 'rgba(' + cc2 + ',' + (.5 * a) + ')'); acg.addColorStop(1, 'rgba(' + cc2 + ',0)');
+          g.fillStyle = acg; g.beginPath(); g.moveTo(0, hyR); for (var ax2 = 0; ax2 <= W + 16 * dpr; ax2 += 16 * dpr) g.lineTo(ax2, hyR - H * (.16 + cb * .05) - Math.sin(ax2 / dpr * .012 + tAnim * 1.1 + cb * 2) * H * .06); g.lineTo(W + 16 * dpr, hyR); g.fill(); }
+        g.restore();
+        for (var st = 0; st < 3; st++) { var sp = (tAnim * .45 + st * .37) % 1; if (sp < .25) { var q2 = sp / .25, x1 = W * (.15 + st * .3) + q2 * 80 * dpr, y1 = H * (.1 + st * .04) + q2 * 40 * dpr, sgr = g.createLinearGradient(x1, y1, x1 - 50 * dpr, y1 - 25 * dpr); sgr.addColorStop(0, 'rgba(255,255,255,' + (a * (1 - q2)) + ')'); sgr.addColorStop(1, 'rgba(255,255,255,0)'); g.strokeStyle = sgr; g.lineWidth = 2 * dpr; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x1 - 50 * dpr, y1 - 25 * dpr); g.stroke(); } }
+      }
+      if (M.kind === 'fireworks') { // fireworks over the harbour: a burst every second, each one fading as it falls
+        g.save(); g.globalCompositeOperation = 'lighter';
+        for (var fk = 0; fk < 4; fk++) { var cyc = tAnim * .8 + fk * .27, gen = Math.floor(cyc), fp = cyc - gen, fx = W * (.15 + rnd(gen * 4 + fk, 3) * .7), fy = H * (.14 + rnd(gen * 4 + fk, 4) * .14), fc = ['#ffd166', '#ff6b8a', '#7cf0ff', '#b9ff7a'][(gen + fk) % 4];
+          if (fp < .18) { g.fillStyle = fc; g.globalAlpha = a; g.fillRect(fx - dpr, fy + (1 - fp / .18) * (hyR - fy), 2 * dpr, 6 * dpr); continue; } // the rocket going up
+          var e = (fp - .18) / .82; g.globalAlpha = a * (1 - e);
+          for (var sp2 = 0; sp2 < 22; sp2++) { var ang2 = sp2 / 22 * TAU, rr2 = e * 46 * dpr, px2 = fx + Math.cos(ang2) * rr2, py2 = fy + Math.sin(ang2) * rr2 + e * e * 22 * dpr; g.fillStyle = fc; g.beginPath(); g.arc(px2, py2, 1.8 * dpr, 0, TAU); g.fill(); }
+        }
+        g.restore();
+      }
+    }
+    g.restore();
+  }
+  function smoothT(x) { return x * x * (3 - 2 * x); }
+  // the sound of each moment: once when it starts, and again for what repeats (each firework, each lightning strike)
+  function stepMoment(dt) {
+    var M = momentAt(dist); if (!M || mode !== 'run') return;
+    var key = M.ch + ':' + M.kind;
+    if (!momentFx[key] && M.u > .05) {
+      momentFx[key] = 1;
+      var first = { balloons: ['balloon', -.3], steam: ['whistle', .2], freight: ['boathorn', 0], geese: ['geese', .5], liner: ['foghorn', 0], airship: ['plane', 0], drones: ['shimmer', 0], storm: null, aurora: ['shimmer', 0], fireworks: null }[M.kind];
+      if (first) au('life', first[0], first[1]);
+      if (M.kind === 'steam' || M.kind === 'freight') setTimeout(function () { au('life', 'train', 0); }, 1200);
+      if (M.kind === 'liner') setTimeout(function () { au('life', 'gulls', .4); }, 2600);
+      if (M.kind === 'geese') setTimeout(function () { au('life', 'geese', -.4); }, 3200);
+      if (M.kind === 'balloons') setTimeout(function () { au('life', 'balloon', .4); }, 2400);
+      if (M.kind === 'aurora') setTimeout(function () { au('life', 'windchimes', .3); }, 3000);
+    }
+    if (M.kind === 'fireworks') { var fg2 = Math.floor(tAnim * .8 * 4); if (fg2 !== momentFx.fw && Math.random() < .5) au('life', 'fireworks', (Math.random() - .5) * .8); momentFx.fw = fg2; }
+    if (M.kind === 'storm' && lightningT <= 0 && Math.random() < dt * .7) { lightningT = .4; au('event', 'thunder', { close: true, delay: .1 + Math.random() * .6 }); } // the storm breaks: strikes come thick and fast
+  }
+
   function drawSky(S) {
     var sk = g.createLinearGradient(0, 0, 0, hy);
     sk.addColorStop(0, S.sky[0]); sk.addColorStop(.55, S.sky[1]); sk.addColorStop(1, S.sky[2]);
@@ -588,7 +719,7 @@
       }
       }
     }
-    if (S.a.balloon && S.night < .5) for (var bl = 0; bl < 1; bl++) { // one balloon drifts across the sky
+    if (S.a.balloon && S.night < .5 && !(momentAt(dist) && momentAt(dist).kind === 'balloons')) for (var bl = 0; bl < 1; bl++) { // one balloon drifts across the sky
       var lx = ((tAnim * (bl ? 4.2 : 6) * dpr + bl * W * .7) % (W * 1.5)) - W * .25; var ly = Math.max(H * .24, hy * (bl ? .55 : .75)) + Math.sin(tAnim * .4 + bl * 2) * 7 * dpr; var u = dpr * (bl ? .62 : 1); var sway = Math.sin(tAnim * .7 + bl) * .05;
       g.save(); g.translate(lx, ly); g.rotate(sway);
       var env = g.createRadialGradient(-6 * u, -8 * u, 2 * u, 0, 0, 30 * u); env.addColorStop(0, bl ? '#7adbd0' : '#ff8a7a'); env.addColorStop(.6, bl ? '#2aa198' : '#e8483f'); env.addColorStop(1, bl ? '#14665f' : '#a52a2a');
@@ -614,6 +745,7 @@
       g.restore();
     }
     // ridges and the far skyline sit on the hill-shifted horizon
+    drawMoment(S, 'back');
     var far = xoAt(DRAW * .8) * .12; var hySaved = hy; hy = hyR;
     for (var L = -1; L < 3; L++) { // L = -1 is a faint, slow range far behind the others
       var rc = L < 0 ? mix(S.ridge[0], S.fog, .55) : S.ridge[L];
@@ -637,6 +769,7 @@
       }
       g.globalAlpha = 1;
     }
+    drawMoment(S, 'front');
     hy = hySaved;
   }
 
@@ -1278,6 +1411,7 @@
     camRoll += (clamp(-laneV * .0042 + curveAt(dist + 28) * 70, -.022, .022) - camRoll) * Math.min(1, dt * 4);
     if (mode === 'run' && lastPB && lastScene && speed > 14) emitRoadParticles(dt, lastScene);
     if (lastScene) stepFlurry(dt, lastScene);
+    stepMoment(dt);
     if (mode === 'run') { // on a bridge: the wheels thump over a joint every 12 m, and a boat sounds its horn as you reach one
       var onB = bridgeAt(dist + PD) > .5, jn = Math.floor((dist + PD) / 12);
       if (onB && jn !== lastJoint) au('event', 'joint'); lastJoint = jn;
