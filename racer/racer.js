@@ -463,6 +463,7 @@
     g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill(); g.restore();
   }
 
+  var houseStyle = '';
   var RIGID = { post: 1, tower: 1, neon: 1, house: 1, hut: 1, cabin: 1, lighthouse: 1, windmill: 1, lamp: 1, rock: 1, umbrella: 1 };
   // Roadside objects stand on the ground at (x, y) with scale s. sw = wind sway.
   function drawObj(kind, x, y, s, k, S, sw, lit) {
@@ -504,10 +505,14 @@
       [[-9, -7, 10, 0], [3, -10, 12, 1], [14, -6, 9, 0]].forEach(function (c) { g.fillStyle = c[3] ? '#6fb85a' : '#4f9a4a'; g.beginPath(); g.arc(c[0] * s, c[1] * s, c[2] * s, 0, TAU); g.fill(); });
       g.fillStyle = '#ffd1e8'; [[-6, -9], [8, -14], [12, -5]].forEach(function (c) { g.beginPath(); g.arc(c[0] * s, c[1] * s, 2 * s, 0, TAU); g.fill(); });
     } else if (kind === 'hut' || kind === 'house' || kind === 'cabin') {
-      var w = (kind === 'house' ? 44 : 34) * s; var h = (kind === 'house' ? 34 : 24) * s;
-      g.fillStyle = kind === 'cabin' ? '#7a5a3a' : ['#d9c3a0', '#f4e3c8', '#cfe3f5', '#f6c9c0'][k % 4]; g.fillRect(-w / 2, -h, w, h);
-      g.fillStyle = kind === 'cabin' ? '#e9f1fb' : ['#b5532f', '#7a3b2e', '#34495e'][k % 3];
-      g.beginPath(); g.moveTo(-w * .65, -h); g.lineTo(0, -h - 20 * s); g.lineTo(w * .65, -h); g.fill();
+      var w = (kind === 'house' ? 44 : 34) * s; var h = (kind === 'house' ? 34 : 24) * s, st = houseStyle;
+      // each place builds its own way: adobe in the desert, curved dark roofs in the cherry hills, red barns in the valley, white beach houses on the coast
+      var wallC = kind === 'cabin' ? '#7a5a3a' : st === 'Desert Road' ? ['#d9a877', '#c99467', '#e2b88a'][k % 3] : st === 'Cherry Hills' ? ['#f4ecdf', '#efe2cf'][k % 2] : st === 'Amber Valley' ? ['#b5402e', '#f0e2c8', '#c9773a'][k % 3] : /Coast/.test(st) ? ['#ffffff', '#f6f1e6', '#e8f4fb'][k % 3] : ['#d9c3a0', '#f4e3c8', '#cfe3f5', '#f6c9c0'][k % 4];
+      g.fillStyle = wallC; g.fillRect(-w / 2, -h, w, h);
+      if (st === 'Desert Road' && kind !== 'cabin') { g.fillStyle = mix(wallC, '#000000', .18); g.fillRect(-w / 2 - 2 * s, -h - 4 * s, w + 4 * s, 5 * s); g.fillStyle = '#6b4a32'; for (var bm = 0; bm < 4; bm++) g.fillRect(-w / 2 + (bm + .5) * w / 4 - s, -h + 2 * s, 2 * s, 3 * s); } // flat adobe roof with beam ends
+      else if (st === 'Cherry Hills' && kind !== 'cabin') { g.fillStyle = '#3a3f4a'; g.beginPath(); g.moveTo(-w * .75, -h + 2 * s); g.quadraticCurveTo(-w * .4, -h - 4 * s, 0, -h - 16 * s); g.quadraticCurveTo(w * .4, -h - 4 * s, w * .75, -h + 2 * s); g.fill(); } // a curved tiled roof
+      else { g.fillStyle = kind === 'cabin' ? '#e9f1fb' : /Coast/.test(st) ? ['#3d7fb0', '#2f9ea0'][k % 2] : st === 'Amber Valley' ? '#5a3a2a' : ['#b5532f', '#7a3b2e', '#34495e'][k % 3];
+        g.beginPath(); g.moveTo(-w * .65, -h); g.lineTo(0, -h - 20 * s); g.lineTo(w * .65, -h); g.fill(); }
       var on = lit > .3 || kind === 'cabin';
       g.fillStyle = on ? '#ffd27a' : '#2a3347';
       if (on) { g.save(); g.shadowColor = '#ffcf70'; g.shadowBlur = 12 * s; g.fillRect(-w * .4, -h * .75, 8 * s, 8 * s); g.fillRect(w * .22, -h * .75, 8 * s, 8 * s); g.restore(); } else { g.fillRect(-w * .4, -h * .75, 8 * s, 8 * s); g.fillRect(w * .22, -h * .75, 8 * s, 8 * s); }
@@ -569,7 +574,7 @@
   // ---------- big moments ----------
   // One moment per chapter, about half a minute long, played in the sky and along the horizon: centred and large,
   // so a portrait screen shows all of it. They come from the distance driven, so they need no saved state.
-  var MOMENTS = ['balloons', 'steam', 'freight', 'geese', 'liner', 'airship', 'drones', 'storm', 'aurora', 'fireworks'];
+  var MOMENTS = ['balloons', 'kites', 'dustdevil', 'geese', 'liner', 'airship', 'drones', 'storm', 'aurora', 'fireworks'];
   var MOMENT_FROM = .3, MOMENT_LEN = .3, momentFx = {};
   function momentAt(pos) {
     var c = chapterAt(pos), u = (c.frac - MOMENT_FROM) / MOMENT_LEN;
@@ -625,7 +630,12 @@
       });
     }
     if (layer === 'ground') {
-      if (M.kind === 'steam' || M.kind === 'freight') trainOnHorizon(-W * .2 + u * W * 1.9 + shift, hyR - 3 * dpr, M.kind === 'steam' ? 6 : 9, M.kind === 'steam', a, S);
+      if (M.kind === 'dustdevil') { // a dust devil wanders across the plain: a twisting funnel of sand, wide at the top
+        var dx0 = W * (.15 + u * .7) + Math.sin(u * 9) * 20 * dpr, db = hyR + 6 * dpr, dh = H * .2;
+        for (var dl = 0; dl < 14; dl++) { var f2 = dl / 14, wob = Math.sin(tAnim * 4 + dl * .8) * (4 + f2 * 14) * dpr; g.globalAlpha = a * (.6 - f2 * .25); g.fillStyle = mix('#c4935a', S.fog, .1); g.beginPath(); g.ellipse(dx0 + wob, db - f2 * dh, (5 + f2 * 26) * dpr, (3 + f2 * 5) * dpr, 0, 0, TAU); g.fill(); }
+        g.globalAlpha = a * .25; g.fillStyle = mix('#c99a62', S.fog, .2); g.beginPath(); g.ellipse(dx0, db + 2 * dpr, 34 * dpr, 4 * dpr, 0, 0, TAU); g.fill(); g.globalAlpha = a;
+      }
+      if (false) trainOnHorizon(-W * .2 + u * W * 1.9 + shift, hyR - 3 * dpr, M.kind === 'steam' ? 6 : 9, M.kind === 'steam', a, S);
 
       if (M.kind === 'liner') { // a cruise ship crossing the sea on the horizon, lights in every window
         var sx = W * (.5 + u * .55) + shift, // the liner keeps to the right half of the sea, clear of the giant wheel
@@ -638,6 +648,16 @@
       }
     }
     if (layer === 'front') {
+      if (M.kind === 'kites') { // children fly kites from the fields: diamond kites with ribbon tails, swaying on long strings
+        [['#e8483f', -.28], ['#35a7ff', .02], ['#ffd54f', .3]].forEach(function (kc, i) {
+          var rise = clamp(u * 2.2 - i * .25, 0, 1), kx = W * (.5 + kc[1]) + Math.sin(tAnim * .8 + i * 2) * 14 * dpr + shift * .5, ky = hyR - rise * H * (.18 + i * .04) + Math.sin(tAnim * 1.3 + i) * 6 * dpr, ks = (12 + i * 2) * dpr;
+          if (rise <= 0) return;
+          g.strokeStyle = 'rgba(60,50,50,.45)'; g.lineWidth = dpr; g.beginPath(); g.moveTo(kx, ky + ks); g.quadraticCurveTo(kx - 20 * dpr, (ky + hyR) / 2 + 20 * dpr, kx - 10 * dpr + kc[1] * 40 * dpr, hyR + 10 * dpr); g.stroke();
+          g.fillStyle = kc[0]; g.beginPath(); g.moveTo(kx, ky - ks); g.lineTo(kx + ks * .7, ky); g.lineTo(kx, ky + ks); g.lineTo(kx - ks * .7, ky); g.closePath(); g.fill();
+          g.strokeStyle = 'rgba(255,255,255,.6)'; g.beginPath(); g.moveTo(kx, ky - ks); g.lineTo(kx, ky + ks); g.moveTo(kx - ks * .7, ky); g.lineTo(kx + ks * .7, ky); g.stroke();
+          g.strokeStyle = kc[0]; g.lineWidth = 2 * dpr; g.beginPath(); g.moveTo(kx, ky + ks); for (var tq = 1; tq <= 6; tq++) g.lineTo(kx + Math.sin(tAnim * 5 + tq + i) * 5 * dpr, ky + ks + tq * 6 * dpr); g.stroke();
+        });
+      }
       if (M.kind === 'geese') { // a big V of geese flying over, wings beating
         var gx = W * (1.15 - u * 1.5), gy = H * .2 + Math.sin(u * 3) * 10 * dpr;
         g.strokeStyle = 'rgba(40,30,30,.85)'; g.lineCap = 'round'; g.lineWidth = 2.2 * dpr;
@@ -710,9 +730,8 @@
     var key = M.ch + ':' + M.kind;
     if (!momentFx[key] && M.u > .05) {
       momentFx[key] = 1;
-      var first = { balloons: ['balloon', -.3], steam: ['whistle', .2], freight: ['boathorn', 0], geese: ['geese', .5], liner: ['foghorn', 0], airship: ['plane', 0], drones: ['shimmer', 0], storm: null, aurora: ['shimmer', 0], fireworks: null }[M.kind];
+      var first = { balloons: ['balloon', -.3], kites: ['windchimes', .2], dustdevil: ['raingust', .3], geese: ['geese', .5], liner: ['foghorn', 0], airship: ['plane', 0], drones: ['shimmer', 0], storm: null, aurora: ['shimmer', 0], fireworks: null }[M.kind];
       if (first) au('life', first[0], first[1]);
-      if (M.kind === 'steam' || M.kind === 'freight') setTimeout(function () { au('life', 'train', 0); }, 1200);
       if (M.kind === 'liner') setTimeout(function () { au('life', 'gulls', .4); }, 2600);
       if (M.kind === 'geese') setTimeout(function () { au('life', 'geese', -.4); }, 3200);
       if (M.kind === 'balloons') setTimeout(function () { au('life', 'balloon', .4); }, 2400);
@@ -798,20 +817,27 @@
       drawCumulus(x, y, (.8 + rnd(c, 8) * .6) * dpr, c, S);
     }
     // life in the sky: a flock of birds, a slow balloon, a shooting star
-    if (S.night < .5 && S.stars < .4) {
-      for (var fl = 0; fl < 2; fl++) {
+    var skyLife = { 'Dawn Meadow': 'flock', 'Cherry Hills': 'flock', 'Desert Road': 'hawk', 'Amber Valley': 'flock', 'Sunset Coast': 'gulls', 'Sunrise Coast': 'gulls' }[S.a.name];
+    if (skyLife === 'hawk' && S.night < .5) { // the desert has no flocks: one hawk circles slowly on the heat
+      var ha = tAnim * .35, hx = W * .62 + Math.cos(ha) * W * .14, hy2 = H * .2 + Math.sin(ha) * H * .025, tilt = Math.sin(ha) * .25;
+      g.save(); g.translate(hx, hy2); g.rotate(tilt); g.strokeStyle = 'rgba(60,40,30,.8)'; g.lineWidth = 2.2 * dpr; g.lineCap = 'round';
+      g.beginPath(); g.moveTo(-15 * dpr, 2 * dpr); g.quadraticCurveTo(-7 * dpr, -4 * dpr, 0, 0); g.quadraticCurveTo(7 * dpr, -4 * dpr, 15 * dpr, 2 * dpr); g.stroke(); g.restore();
+    }
+    if (S.night < .5 && S.stars < .4 && (skyLife === 'flock' || skyLife === 'gulls')) {
+      var gull = skyLife === 'gulls';
+      for (var fl = 0; fl < (gull ? 1 : 2); fl++) {
       var bu = ((tAnim + 3 + fl * 17) % (fl ? 41 : 26)) / (fl ? 41 : 26);
       if (bu < .5) {
         var bx0 = fl ? W * 1.1 - bu * 2 * W * 1.2 : -W * .1 + bu * 2 * W * 1.2; var by0 = Math.max(H * .2, hy * (fl ? .42 : .55)) + Math.sin(bu * 6) * hy * .05;
-        g.strokeStyle = 'rgba(40,30,60,.7)'; g.lineWidth = 1.8 * dpr; g.lineCap = 'round';
-        for (var bi = 0; bi < 7; bi++) {
+        g.strokeStyle = gull ? 'rgba(255,255,255,.9)' : 'rgba(40,30,60,.7)'; g.lineWidth = 1.8 * dpr; g.lineCap = 'round';
+        for (var bi = 0; bi < (gull ? 3 : 7); bi++) { // gulls fly in a loose few, white against the sea sky
           var row = Math.ceil(bi / 2); var sd = bi % 2 ? 1 : -1; var bx = bx0 + (fl ? 1 : -1) * row * 20 * dpr; var by = by0 + sd * row * 9 * dpr; var wing = Math.sin(tAnim * 8 + bi) * 4 * dpr;
           g.beginPath(); g.moveTo(bx - 8 * dpr, by + wing * .3); g.quadraticCurveTo(bx - 4 * dpr, by - 5 * dpr - wing, bx, by); g.quadraticCurveTo(bx + 4 * dpr, by - 5 * dpr - wing, bx + 8 * dpr, by + wing * .3); g.stroke();
         }
       }
       }
     }
-    if (S.a.balloon && S.night < .5 && S.a.name !== 'Sunset Coast' && !(momentAt(dist) && momentAt(dist).kind === 'balloons')) for (var bl = 0; bl < 1; bl++) { // one balloon drifts across the sky
+    if (S.a.balloon && S.night < .5 && S.a.name === 'Amber Valley') for (var bl = 0; bl < 1; bl++) { // one balloon drifts across the sky
       var lx = ((tAnim * (bl ? 4.2 : 6) * dpr + bl * W * .7) % (W * 1.5)) - W * .25; var ly = Math.max(H * .24, hy * (bl ? .55 : .75)) + Math.sin(tAnim * .4 + bl * 2) * 7 * dpr; var u = dpr * (bl ? .62 : 1); var sway = Math.sin(tAnim * .7 + bl) * .05;
       g.save(); g.translate(lx, ly); g.rotate(sway);
       var env = g.createRadialGradient(-6 * u, -8 * u, 2 * u, 0, 0, 30 * u); env.addColorStop(0, bl ? '#7adbd0' : '#ff8a7a'); env.addColorStop(.6, bl ? '#2aa198' : '#e8483f'); env.addColorStop(1, bl ? '#14665f' : '#a52a2a');
@@ -1185,7 +1211,7 @@
       var s = p * (W / 230) * 1.35; var x2 = cx + (xoAt(it.d) + it.lat - camX) * p * RH;
       if (x2 < -W * .3 || x2 > W * 1.3) return;
       var sway = Math.sin(tAnim * 2.4 + it.k * 1.7) * S.wind * s * 3;
-      drawObj(it.kind, x2, y, s, it.k, S2, sway, it.lit);
+      houseStyle = it.S ? it.S.name : S.a.name; drawObj(it.kind, x2, y, s, it.k, S2, sway, it.lit);
     };
     drawNear = function () { nearItems.forEach(drawItem); };
     items.forEach(function (it) { if (it.d >= PD) drawItem(it); else nearItems.push(it); }); // what is closer than the player is drawn after the player
