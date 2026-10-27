@@ -1665,6 +1665,7 @@
   }
   function abandonRun() { if (mode === 'run' && (dist > 60 || run.coins || run.near)) endRun(false); } // leaving a run by Restart or Menu still counts it
   function start(fromCheckpoint, countdown) {
+    writeJson('classic-games.lastPlayed', { game: 'racer', at: Date.now() });
     ignoreCheckpoint = false; abandonRun(); reset(fromCheckpoint); mode = 'run'; if (countdown) { countT = 3; showChapter('Welcome back', '3'); } $('ov').hidden = true; $('ps').hidden = true; $('ss').hidden = true;
     buildTrip(); au('unlock'); audioPrefs(); au('setChapter', chapterAt(dist).idx); au('start'); hud(); showHint();
   }

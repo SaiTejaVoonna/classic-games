@@ -52,6 +52,7 @@
   var STATS_KEY = 'classic-games.racer.stats';
   var BESTS_KEY = 'classic-games.racer.bests';
   var CHECK_KEY = 'classic-games.racer.checkpoint';
+  var LAST_KEY = 'classic-games.lastPlayed'; // { game: 'snake' | 'racer', at }: written by each game when you play it
   var CHAPTERS = 10;
 
   function racerStats() {
@@ -140,16 +141,20 @@
   // The top card is the game you played last, if it has something to continue; otherwise Racer is featured.
   function renderHome() {
     var r = racerSave(); var sn = snakeSave(); var rs = racerStats(); var best = snakeBest();
-    var lastIsSnake = !!sn && (!r || sn.at > r.at);
-    var hero = { game: 'racer', cont: !!r };
-    if (lastIsSnake) hero = { game: 'snake', cont: true };
+    var last = readJson(LAST_KEY), lastAt = last && typeof last.at === 'number' ? last.at : 0;
+    var snAt = Math.max(sn ? sn.at : 0, last && last.game === 'snake' ? lastAt : 0), rAt = Math.max(r ? r.at : 0, last && last.game === 'racer' ? lastAt : 0);
+    var lastIsSnake = snAt > rAt; // the game you played most recently, whether or not it has a save
+    var hero = lastIsSnake ? { game: 'snake', cont: !!sn } : { game: 'racer', cont: !!r };
     $('hero').setAttribute('data-game', hero.game); $('hero').setAttribute('data-continue', String(hero.cont));
     $('hero-img').src = hero.game === 'snake' ? 'assets/hero-snake.jpg' : 'assets/hero-racer.jpg';
     $('hero-tag').textContent = hero.cont ? 'CONTINUE' : 'PLAY';
     $('hero-title').textContent = hero.game === 'snake' ? 'Snake' : 'Cruise';
     var pb = $('hero-pb'); pb.hidden = true;
     var main = $('hero-main'); var alt = $('hero-alt');
-    if (hero.game === 'snake') {
+    if (hero.game === 'snake' && !hero.cont) {
+      $('hero-sub').textContent = best > 0 ? 'Best ' + best + ' · Play again' : 'Eat, grow and keep clear of the walls.';
+      main.textContent = 'Play'; main.href = 'snake/'; alt.hidden = true;
+    } else if (hero.game === 'snake') {
       $('hero-sub').textContent = 'Score ' + sn.score + ' · Length ' + sn.length + ' · Paused';
       main.textContent = 'Resume'; main.href = 'snake/?resume=1'; alt.hidden = false; alt.textContent = 'New game'; alt.href = 'snake/?new=1';
     } else if (hero.cont) {

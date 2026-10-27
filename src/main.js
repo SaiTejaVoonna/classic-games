@@ -529,8 +529,10 @@
     return true;
   }
 
+  function markPlayed() { try { if (storage) storage.setItem('classic-games.lastPlayed', JSON.stringify({ game: 'snake', at: Date.now() })); } catch { /* fine */ } }
   function resume() {
     if (mode !== 'paused') return false;
+    markPlayed();
     welcome = false;
     mode = 'running';
     updateUI();
@@ -544,6 +546,7 @@
     var started = mode === 'ready' && next.status === 'running';
     game = next;
     if (started) {
+      markPlayed();
       prevGame = null;
       readyNote = '';
       mode = 'running';
@@ -853,7 +856,7 @@
   applyTheme(readTheme());
   syncSettingsControls();
   updateUI();
-  if (params.get('resume') === '1') resumeSaved();
+  if (params.get('resume') === '1' && resumeSaved()) window.setTimeout(function () { if (resume()) $('board').focus(); }, 700); // Resume on the Games screen: back in the game after a short moment to see the board
   else if (params.get('new') === '1') startNewGame(); // New game on the Games screen starts straight away, waiting for a swipe
   if (window.ResizeObserver) {
     new ResizeObserver(resizeCanvas).observe(canvas);
