@@ -773,18 +773,6 @@
       for (i = n - 1; i >= 0; i--) g.lineTo(rows[i].ct + rows[i].hw, rows[i].y);
       g.closePath(); g.fill();
     }
-    if (S.rain > .1) { // the lights of the city smear along the wet road: each streak follows the lane lines into the distance
-      g.save(); g.globalCompositeOperation = 'lighter'; g.globalAlpha = .13 * S.rain;
-      var cols = ['#ff4fd8', '#35e6ff', '#ffe066'];
-      for (var q = 0; q < 6; q++) {
-        var kk = (rnd(q, 9) * 2 - 1) * .8, wq = .03 + rnd(q, 3) * .07, rg2 = g.createLinearGradient(0, rows[n - 1].y, 0, H); rg2.addColorStop(0, 'rgba(0,0,0,0)'); rg2.addColorStop(.35, cols[q % 3]); rg2.addColorStop(1, cols[q % 3]);
-        g.fillStyle = rg2; g.beginPath(); g.moveTo(rows[0].ct + (kk - wq) * rows[0].hw, rows[0].y);
-        for (var a2 = 1; a2 < n; a2 += 3) g.lineTo(rows[a2].ct + (kk - wq) * rows[a2].hw, rows[a2].y);
-        for (var b2 = n - 1; b2 >= 0; b2 -= 3) g.lineTo(rows[b2].ct + (kk + wq) * rows[b2].hw, rows[b2].y);
-        g.closePath(); g.fill();
-      }
-      g.restore();
-    }
   }
 
   function objectKind(a, k) { return a.objs[Math.floor(rnd(k, 33) * a.objs.length)]; }
