@@ -566,7 +566,7 @@
   }
   function trainOnHorizon(x, base, cars, steam, a, S) { // a train seen side on, far away, running along the horizon
     var L = 36 * dpr, h = 13 * dpr, gap = 4 * dpr, dir = 1;
-    var col = function (c) { return mix(c, S.fog, .3); };
+    var col = function (c) { return mix(c, S.fog, steam ? .3 : .12); }; // the desert haze is thick, so the containers keep more colour
     for (var i = 0; i < cars; i++) {
       var cx0 = x - i * (L + gap) * dir;
       if (cx0 < -L * 2 || cx0 > W + L * 2) continue;
@@ -640,7 +640,7 @@
         if (Math.sin(tAnim * 5) > .6) { glowDot(ax + al * .98, ay, 8 * dpr, '#ff3b3b'); glowDot(ax - al * 1.1, ay, 8 * dpr, '#7cff6b'); }
       }
       if (M.kind === 'drones') { // a drone light show: a ring, then a heart, then a star, over the towers
-        var n = 48, ph = u * 3, A = Math.floor(clamp(ph, 0, 2.999)), f = smoothT(clamp((ph - A) * 1.6 - .3, 0, 1)), B = Math.min(2, A + 1), ccx = W * .5 + shift * .5, ccy = hyR - H * .17, R = Math.min(W * .28, H * .11);
+        var n = 48, ph = u * 3, A = Math.floor(clamp(ph, 0, 2.999)), f = smoothT(clamp((ph - A) * 1.6 - .3, 0, 1)), B = Math.min(2, A + 1), ccx = W * .5 + shift * .5, ccy = hyR - H * .13, R = Math.min(W * .26, H * .095);
         g.save(); g.globalCompositeOperation = 'lighter';
         for (var di = 0; di < n; di++) { var p0 = DRONE_SHAPES[A](di, n), p1 = DRONE_SHAPES[B](di, n), dx = ccx + (p0[0] + (p1[0] - p0[0]) * f) * R, dy = ccy + (p0[1] + (p1[1] - p0[1]) * f) * R, dc = di % 3 ? '#35e6ff' : '#ff4fd8';
           glowDot(dx, dy, 6 * dpr, dc); g.fillStyle = '#ffffff'; g.fillRect(dx - dpr, dy - dpr, 2 * dpr, 2 * dpr); }
@@ -667,6 +667,25 @@
     g.restore();
   }
   function smoothT(x) { return x * x * (3 - 2 * x); }
+  // Sunset Coast's seaside fair: a giant wheel on the horizon that turns slowly, its cabins always hanging level
+  // and its rim lit with bulbs. It fades in and out with the chapter.
+  function drawWheel(S) {
+    var a = (S.a.name === 'Sunset Coast' ? 1 - S.t : 0) + (S.b.name === 'Sunset Coast' ? S.t : 0); if (a < .02) return;
+    var R = Math.min(W * .17, H * .085), x = W * .76 - xoAt(DRAW * .8) * .12 * 40 * dpr * .3, base = hyR + 2 * dpr, cy = base - R - 10 * dpr, rot = tAnim * .1, n = 12;
+    var steel = mix('#f2efe8', S.fog, .3), dark = mix('#6b5a66', S.fog, .3);
+    g.save(); g.globalAlpha = a; g.lineCap = 'round';
+    g.strokeStyle = dark; g.lineWidth = 2.4 * dpr; g.beginPath(); g.moveTo(x - R * .55, base); g.lineTo(x, cy); g.lineTo(x + R * .55, base); g.stroke(); // the A-frame legs
+    g.strokeStyle = steel; g.lineWidth = 1 * dpr; g.beginPath();
+    for (var i = 0; i < n; i++) { var an = rot + i / n * TAU; g.moveTo(x, cy); g.lineTo(x + Math.cos(an) * R, cy + Math.sin(an) * R); } g.stroke(); // spokes
+    g.lineWidth = 2 * dpr; g.beginPath(); g.arc(x, cy, R, 0, TAU); g.stroke(); g.lineWidth = 1 * dpr; g.beginPath(); g.arc(x, cy, R * .86, 0, TAU); g.stroke();
+    var cols = ['#e8483f', '#35a7ff', '#ffd54f', '#7cc67a', '#ff8fb8', '#b9a2ff'];
+    for (var c = 0; c < n; c++) { var a2 = rot + c / n * TAU, px = x + Math.cos(a2) * R, py = cy + Math.sin(a2) * R; // each cabin hangs straight down from the rim
+      g.strokeStyle = dark; g.lineWidth = 1 * dpr; g.beginPath(); g.moveTo(px, py); g.lineTo(px, py + 4 * dpr); g.stroke();
+      g.fillStyle = mix(cols[c % cols.length], S.fog, .25); rr(px - 4 * dpr, py + 4 * dpr, 8 * dpr, 6 * dpr, 2 * dpr); g.fill(); }
+    for (var bI = 0; bI < 24; bI++) { var ab = rot * 1 + bI / 24 * TAU, on = (Math.floor(tAnim * 3) + bI) % 3 !== 0; if (on) { g.fillStyle = '#fff2b8'; g.beginPath(); g.arc(x + Math.cos(ab) * R, cy + Math.sin(ab) * R, 1.3 * dpr, 0, TAU); g.fill(); } } // chasing bulbs
+    g.fillStyle = dark; g.beginPath(); g.arc(x, cy, 3 * dpr, 0, TAU); g.fill();
+    g.restore();
+  }
   // the sound of each moment: once when it starts, and again for what repeats (each firework, each lightning strike)
   function stepMoment(dt) {
     var M = momentAt(dist); if (!M || mode !== 'run') return;
@@ -769,7 +788,7 @@
       }
       g.globalAlpha = 1;
     }
-    drawMoment(S, 'front');
+    drawWheel(S); drawMoment(S, 'front');
     hy = hySaved;
   }
 
