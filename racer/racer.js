@@ -339,7 +339,10 @@
   function buildCurve() {
     var x = 0; var dx = 0;
     xo[0] = 0;
-    for (var d = 1; d <= DRAW + 1; d++) { dx += curveAt(dist + d) * 1; x += dx * 1; xo[d] = x; }
+    // Road rule: the centre of the road stays on screen at every distance. Each depth gets a soft limit (62% of the
+    // half-screen there), so an S-bend never swings the middle of the road out of view and back, which read as a fork.
+    var half = (W && RH) ? W * .5 / RH : .55;
+    for (var d = 1; d <= DRAW + 1; d++) { dx += curveAt(dist + d) * 1; x += dx * 1; var L = .62 * half * (1 + d * K); xo[d] = L * Math.tanh(x / L); }
   }
   function xoAt(d) { var i = clamp(Math.floor(d), 0, DRAW); var f = d - i; return lerp(xo[i], xo[Math.min(DRAW + 1, i + 1)], f); }
 
@@ -357,7 +360,7 @@
     while (d <= DRAW) {
       var r = rowAt(d); r.d = d;
       if (r.y > prev - .3) { r.y = prev - .3; hid += d < 8 ? .35 : d < 30 ? .8 : d < 100 ? 1.6 : 3; } // this bit of road is behind a crest
-      else if (hid > 8) break; // the road comes back into view far beyond a crest: stop here, so the hill hides it instead of showing a second road beside the first
+      else if (hid > 2) break; // the road comes back into view beyond a crest or a dip: stop here, so the hill hides it instead of showing a second road beside the first
       prev = r.y; rows.push(r);
       d += d < 8 ? .35 : d < 30 ? .8 : d < 100 ? 1.6 : 3;
     }
@@ -564,8 +567,11 @@
     if (u <= 0 || u >= 1 || (tripMode === 'journey' && c.i >= JOURNEY_CHAPTERS)) return null;
     return { kind: MOMENTS[c.idx], u: u, a: clamp(Math.min(u, 1 - u) * 7, 0, 1), ch: c.i };
   }
-  function trainOnHorizon(x, base, cars, steam, a, S) { // a train seen side on, far away, running along the horizon
-    var L = 36 * dpr, h = 13 * dpr, gap = 4 * dpr, dir = 1;
+  function trainOnHorizon(x, base, cars, steam, a, S) { // a train seen side on, far away, on its track along the horizon
+    var L = 36 * dpr, h = 13 * dpr, gap = 4 * dpr, dir = 1, tail = x - cars * (L + gap);
+    var bed = g.createLinearGradient(tail - 80 * dpr, 0, x + 80 * dpr, 0); bed.addColorStop(0, 'rgba(90,74,58,0)'); bed.addColorStop(.15, mix('#6a5a48', S.fog, .3)); bed.addColorStop(.85, mix('#6a5a48', S.fog, .3)); bed.addColorStop(1, 'rgba(90,74,58,0)');
+    g.fillStyle = bed; g.fillRect(tail - 80 * dpr, base, x - tail + 160 * dpr, 2.5 * dpr); // the track bed, fading out at both ends
+    g.globalAlpha = a * .25; g.fillStyle = '#000'; g.fillRect(tail, base + 2.5 * dpr, x - tail, 2 * dpr); g.globalAlpha = a; // its shadow
     var col = function (c) { return mix(c, S.fog, steam ? .3 : .12); }; // the desert haze is thick, so the containers keep more colour
     for (var i = 0; i < cars; i++) {
       var cx0 = x - i * (L + gap) * dir;
@@ -609,8 +615,9 @@
         if (rise > 0) balloonAt(x, y, uu, c[0], c[1]);
       });
     }
-    if (layer === 'front') {
+    if (layer === 'ground') {
       if (M.kind === 'steam' || M.kind === 'freight') trainOnHorizon(-W * .2 + u * W * 1.9 + shift, hyR - 3 * dpr, M.kind === 'steam' ? 6 : 9, M.kind === 'steam', a, S);
+
       if (M.kind === 'liner') { // a cruise ship crossing the sea on the horizon, lights in every window
         var sx = W * (.5 + u * .55) + shift, // the liner keeps to the right half of the sea, clear of the giant wheel
            sb = hyR - 1 * dpr, sl = 150 * dpr, night = S.night > .4;
@@ -620,6 +627,8 @@
         g.fillStyle = night ? '#ffe39a' : 'rgba(60,90,120,.7)'; for (var wr = 0; wr < 3; wr++) for (var wc = 0; wc < 22 - wr * 5; wc++) g.fillRect(sx - sl * .42 + wc * 6.4 * dpr + wr * 9 * dpr, sb - 15 * dpr - wr * 7.5 * dpr, 2.6 * dpr, 2 * dpr);
         g.globalAlpha = a * .5; g.fillStyle = '#ffffff'; g.beginPath(); g.ellipse(sx - sl * .55, sb - 1 * dpr, 26 * dpr, 2 * dpr, 0, 0, TAU); g.fill(); // wake
       }
+    }
+    if (layer === 'front') {
       if (M.kind === 'geese') { // a big V of geese flying over, wings beating
         var gx = W * (1.15 - u * 1.5), gy = H * .2 + Math.sin(u * 3) * 10 * dpr;
         g.strokeStyle = 'rgba(40,30,30,.85)'; g.lineCap = 'round'; g.lineWidth = 2.2 * dpr;
@@ -668,27 +677,26 @@
     g.restore();
   }
   function smoothT(x) { return x * x * (3 - 2 * x); }
-  // Sunset Coast's seaside fair: a giant wheel on the horizon that turns slowly, its cabins always hanging level
-  // and its rim lit with bulbs. It fades in and out with the chapter.
-  function drawWheel(S) {
-    var a = (S.a.name === 'Sunset Coast' ? 1 - S.t : 0) + (S.b.name === 'Sunset Coast' ? S.t : 0); if (a < .02) return;
-    var R = Math.min(W * .15, H * .072), x = W * .2 - xoAt(DRAW * .8) * .12 * 40 * dpr * .3, base = hyR + 1 * dpr, cy = base - R - 8 * dpr, rot = tAnim * .1, n = 8;
-    var steel = mix('#ffffff', S.fog, .15), dark = mix('#4a3b46', S.fog, .15);
-    g.save(); g.globalAlpha = a; g.lineCap = 'round';
-    g.fillStyle = mix('#7a5236', S.fog, .15); g.fillRect(x - R * .9, base - 3 * dpr, R * 1.8, 4 * dpr); // the pier it stands on
-    g.strokeStyle = dark; g.lineWidth = 3.5 * dpr; g.beginPath(); g.moveTo(x - R * .55, base - 2 * dpr); g.lineTo(x, cy); g.lineTo(x + R * .55, base - 2 * dpr); g.stroke(); // the A-frame legs
-    g.strokeStyle = steel; g.lineWidth = 1.6 * dpr; g.beginPath();
-    for (var i = 0; i < n; i++) { var an = rot + i / n * TAU; g.moveTo(x, cy); g.lineTo(x + Math.cos(an) * R, cy + Math.sin(an) * R); } g.stroke(); // spokes
-    g.lineWidth = 3.5 * dpr; g.beginPath(); g.arc(x, cy, R, 0, TAU); g.stroke(); // the rim
-    var cols = ['#e8483f', '#35a7ff', '#ffd54f', '#7cc67a', '#ff8fb8', '#b9a2ff'];
-    for (var c = 0; c < n; c++) { var a2 = rot + c / n * TAU, px = x + Math.cos(a2) * R, py = cy + Math.sin(a2) * R; // each cabin hangs straight down from the rim
-      g.fillStyle = mix(cols[c % cols.length], S.fog, .12); rr(px - 5 * dpr, py + 1.5 * dpr, 10 * dpr, 8 * dpr, 2.5 * dpr); g.fill(); }
-    for (var bI = 0; bI < 16; bI++) { var ab = rot + bI / 16 * TAU; if ((Math.floor(tAnim * 3) + bI) % 3 !== 0) { g.fillStyle = '#fff2b8'; g.beginPath(); g.arc(x + Math.cos(ab) * R, cy + Math.sin(ab) * R, 1.6 * dpr, 0, TAU); g.fill(); } } // chasing bulbs
-    g.fillStyle = dark; g.beginPath(); g.arc(x, cy, 4 * dpr, 0, TAU); g.fill();
+  // Sunset Coast's seaside fair: a giant wheel on a pier out in the water, placed in the world, so it starts small far
+  // ahead, grows as you drive and passes on your left. Its cabins hang level and bulbs chase round the rim.
+  function drawWheelAt(x, base, R, S, fogT) {
+    var cy = base - R - R * .12, rot = tAnim * .1, n = 8, steel = mix('#ffffff', S.fog, fogT), dark = mix('#4a3b46', S.fog, fogT), lw = Math.max(1.5 * dpr, R * .035);
+    g.save(); g.lineCap = 'round';
+    g.fillStyle = mix('#7a5236', S.fog, fogT); g.fillRect(x - R * .95, base - R * .06, R * 1.9, R * .07); // the pier deck
+    for (var pp = -2; pp <= 2; pp++) g.fillRect(x + pp * R * .42 - R * .02, base, R * .04, R * .1); // its posts in the water
+    g.strokeStyle = dark; g.lineWidth = lw * 1.6; g.beginPath(); g.moveTo(x - R * .55, base - R * .06); g.lineTo(x, cy); g.lineTo(x + R * .55, base - R * .06); g.stroke(); // A-frame legs
+    g.strokeStyle = steel; g.lineWidth = lw * .7; g.beginPath(); for (var i = 0; i < n; i++) { var an = rot + i / n * TAU; g.moveTo(x, cy); g.lineTo(x + Math.cos(an) * R, cy + Math.sin(an) * R); } g.stroke();
+    g.lineWidth = lw * 1.5; g.beginPath(); g.arc(x, cy, R, 0, TAU); g.stroke();
+    var cols = ['#e8483f', '#35a7ff', '#ffd54f', '#7cc67a', '#ff8fb8', '#b9a2ff'], cw = R * .16;
+    for (var c = 0; c < n; c++) { var a2 = rot + c / n * TAU, px = x + Math.cos(a2) * R, py = cy + Math.sin(a2) * R; g.fillStyle = mix(cols[c % cols.length], S.fog, fogT); rr(px - cw / 2, py + cw * .15, cw, cw * .8, cw * .25); g.fill(); }
+    for (var bI = 0; bI < 16; bI++) { var ab = rot + bI / 16 * TAU; if ((Math.floor(tAnim * 3) + bI) % 3 !== 0) { g.fillStyle = '#fff2b8'; g.beginPath(); g.arc(x + Math.cos(ab) * R, cy + Math.sin(ab) * R, Math.max(1.2 * dpr, R * .022), 0, TAU); g.fill(); } }
+    g.fillStyle = dark; g.beginPath(); g.arc(x, cy, Math.max(3 * dpr, R * .05), 0, TAU); g.fill();
     g.restore();
   }
+  function wheelPos(ci) { return CHAPTERS[((ci % 10) + 10) % 10].name === 'Sunset Coast' ? ci * chapterLen + chapterLen * .72 : null; } // after the moment, so one hero at a time
   // the sound of each moment: once when it starts, and again for what repeats (each firework, each lightning strike)
   function stepMoment(dt) {
+    var wp = wheelPos(chapterAt(dist).i); if (mode === 'run' && wp != null && wp - dist < 230 && wp - dist > 0 && !momentFx['wheel' + chapterAt(dist).i]) { momentFx['wheel' + chapterAt(dist).i] = 1; au('life', 'musicbox', -.5); } // the fair plays as you near the giant wheel
     var M = momentAt(dist); if (!M || mode !== 'run') return;
     var key = M.ch + ':' + M.kind;
     if (!momentFx[key] && M.u > .05) {
@@ -705,6 +713,62 @@
     if (M.kind === 'storm' && lightningT <= 0 && Math.random() < dt * .7) { lightningT = .4; au('event', 'thunder', { close: true, delay: .1 + Math.random() * .6 }); } // the storm breaks: strikes come thick and fast
   }
 
+  // A cumulus cloud: a mound of round puffs with a flat base, lit on top and shaded underneath (painterly, no outline).
+  function drawCumulus(x, y, u, k, S) {
+    var lit = mix(S.sky[2], '#ffffff', .75), mid = mix(S.sky[1], '#ffffff', .5), base = mix(S.sky[0], S.sky[1], .55), dim = S.night * .6 + S.rain * .3;
+    lit = mix(lit, '#3a4258', dim); mid = mix(mid, '#2c3246', dim); base = mix(base, '#1c2232', dim);
+    var np = 5 + Math.floor(rnd(k, 3) * 3), puffs = []; for (var i = 0; i < np; i++) { var cI = (np - 1) / 2, px = (i - cI) * 20 * u + (rnd(k * 9 + i, 1) - .5) * 12 * u, pr = (14 + rnd(k * 9 + i, 2) * 14) * u * (1 - Math.abs(i - cI) * .14); puffs.push([px, -pr * .5 + rnd(k * 9 + i, 4) * 6 * u, pr]); } // the base is a soft shaded mound, never a straight cut
+    g.save(); g.globalAlpha = .92 - S.stars * .4;
+    g.fillStyle = base; puffs.forEach(function (p) { g.beginPath(); g.arc(x + p[0], y + p[1] + 6 * u, p[2], 0, TAU); g.fill(); });
+    g.fillStyle = mid; puffs.forEach(function (p) { g.beginPath(); g.arc(x + p[0], y + p[1], p[2], 0, TAU); g.fill(); });
+    g.fillStyle = lit; puffs.forEach(function (p) { g.beginPath(); g.arc(x + p[0] - p[2] * .18, y + p[1] - p[2] * .22, p[2] * .72, 0, TAU); g.fill(); });
+    g.restore();
+  }
+  // The painted middle layer of each chapter, on the horizon: it slides with the bends but never grows. A new chapter's
+  // layer rises up from the horizon while the old one sinks, instead of fading through it.
+  var HSETS = ['village', 'terraces', 'mesas', 'orchard', 'fishing', null, null, 'forest', 'cabins', 'fishing'];
+  function drawHorizonSet(kind, rise, S, shiftPx) {
+    if (!kind || rise <= .01) return;
+    var base = hyR + 2 * dpr, span = W * 1.8, fogT = .45, fc = function (c) { return mix(c, S.fog, fogT); };
+    var place = function (k, sp) { return (((k * sp + shiftPx) % span) + span) % span - W * .4; };
+    var hh = function (v) { return v * dpr * rise; };
+    g.save();
+    if (kind === 'village' || kind === 'terraces' || kind === 'fishing') {
+      var n = kind === 'fishing' ? 7 : 11;
+      for (var k = 0; k < n; k++) {
+        var x = place(k, span / n), r = rnd(k, 71);
+        if (kind === 'fishing' && (x > W * .45)) continue; // the fishing village sits on the far left headland
+        if (r < .35 && kind !== 'fishing') { g.fillStyle = fc(kind === 'terraces' ? (k % 2 ? '#f4a6c6' : '#7fb07a') : (k % 2 ? '#5f9a5a' : '#78ad62')); [-8, 0, 8].forEach(function (o, j) { g.beginPath(); g.arc(x + o * dpr, base - hh(9 + j % 2 * 4), hh(8 + j % 2 * 2), 0, TAU); g.fill(); }); continue; } // a clump of trees
+        var bw = (12 + r * 8) * dpr, bh = hh(8 + r * 5), roof = kind === 'fishing' ? '#3d7fb0' : ['#c0473a', '#3d7f8a', '#8a5a3a'][k % 3];
+        g.fillStyle = fc(kind === 'fishing' ? '#f4f1ea' : '#efe4cf'); g.fillRect(x - bw / 2, base - bh, bw, bh);
+        g.fillStyle = fc(roof); g.beginPath(); g.moveTo(x - bw / 2 - 2 * dpr, base - bh); g.lineTo(x, base - bh - hh(6)); g.lineTo(x + bw / 2 + 2 * dpr, base - bh); g.fill();
+        g.fillStyle = fc('#6a5a4a'); g.fillRect(x - 1.5 * dpr, base - hh(4), 3 * dpr, hh(4));
+        if (k === 2 && kind === 'village') for (var sm = 0; sm < 5; sm++) { g.globalAlpha = .5 * (1 - sm / 5); g.fillStyle = '#f2f2f0'; g.beginPath(); g.arc(x + bw * .3 + sm * 3 * dpr + Math.sin(tAnim + sm) * dpr, base - bh - hh(8) - sm * 5 * dpr, (2 + sm) * dpr, 0, TAU); g.fill(); g.globalAlpha = 1; } // chimney smoke
+      }
+      if (kind === 'terraces') { var px0 = place(3, span / 11) + 30 * dpr; g.fillStyle = fc('#8a3b2e'); for (var t2 = 0; t2 < 3; t2++) { var tw = (22 - t2 * 5) * dpr, ty = base - hh(10 + t2 * 9); g.fillRect(px0 - tw / 2 + 3 * dpr, ty, tw - 6 * dpr, hh(9)); g.beginPath(); g.moveTo(px0 - tw / 2 - 3 * dpr, ty); g.lineTo(px0 + tw / 2 + 3 * dpr, ty); g.lineTo(px0 + tw / 2 - 2 * dpr, ty - hh(3)); g.lineTo(px0 - tw / 2 + 2 * dpr, ty - hh(3)); g.fill(); } // a pagoda
+        var gx = place(8, span / 11); g.fillStyle = fc('#d23a2a'); g.fillRect(gx - 9 * dpr, base - hh(16), 2.5 * dpr, hh(16)); g.fillRect(gx + 6.5 * dpr, base - hh(16), 2.5 * dpr, hh(16)); g.fillRect(gx - 12 * dpr, base - hh(17), 24 * dpr, hh(2.5)); g.fillRect(gx - 10 * dpr, base - hh(13), 20 * dpr, hh(1.6)); } // a shrine gate
+      if (kind === 'fishing') { var lx = place(5, span / 7); if (lx < W * .45) { g.fillStyle = fc('#f4f1ea'); g.fillRect(lx - 3 * dpr, base - hh(30), 6 * dpr, hh(30)); g.fillStyle = fc('#c0392b'); g.fillRect(lx - 3 * dpr, base - hh(20), 6 * dpr, hh(5)); g.fillRect(lx - 4 * dpr, base - hh(34), 8 * dpr, hh(4)); } }
+    }
+    if (kind === 'mesas') for (var m = 0; m < 6; m++) { // flat-topped rock towers, lit on one side
+      var mx = place(m, span / 6), mw = (50 + rnd(m, 72) * 70) * dpr, mh = hh(18 + rnd(m, 73) * 34), sp2 = rnd(m, 74) < .3;
+      if (sp2) { mw *= .3; mh *= 1.4; }
+      g.fillStyle = fc('#c98a55'); g.beginPath(); g.moveTo(mx - mw / 2, base); g.lineTo(mx - mw * .38, base - mh); g.lineTo(mx + mw * .38, base - mh); g.lineTo(mx + mw / 2, base); g.fill();
+      g.fillStyle = fc('#a86a3f'); g.beginPath(); g.moveTo(mx + mw * .05, base); g.lineTo(mx + mw * .12, base - mh); g.lineTo(mx + mw * .38, base - mh); g.lineTo(mx + mw / 2, base); g.fill();
+    }
+    if (kind === 'orchard') for (var o = 0; o < 14; o++) {
+      var ox = place(o, span / 14), rr2 = rnd(o, 75);
+      if (o === 4) { g.fillStyle = fc('#b5402e'); g.fillRect(ox - 12 * dpr, base - hh(14), 24 * dpr, hh(14)); g.beginPath(); g.moveTo(ox - 14 * dpr, base - hh(14)); g.lineTo(ox, base - hh(23)); g.lineTo(ox + 14 * dpr, base - hh(14)); g.fill(); g.fillStyle = fc('#f4efe6'); g.fillRect(ox - 4 * dpr, base - hh(9), 8 * dpr, hh(9)); continue; } // a red barn
+      if (rr2 < .3) { g.fillStyle = fc('#e0b24a'); g.beginPath(); g.arc(ox, base - hh(4), hh(4.5), 0, TAU); g.fill(); continue; } // a hay bale
+      g.fillStyle = fc(['#d9822b', '#c9a03a', '#8a9a4a'][o % 3]); g.beginPath(); g.arc(ox, base - hh(10), hh(9), 0, TAU); g.fill(); g.fillStyle = fc('#6a4a2a'); g.fillRect(ox - dpr, base - hh(3), 2 * dpr, hh(3));
+    }
+    if (kind === 'forest' || kind === 'cabins') for (var f = 0; f < 26; f++) {
+      var fx = place(f, span / 26), fh = hh(16 + rnd(f, 76) * 18), fw = fh * .55;
+      g.fillStyle = fc(kind === 'cabins' ? '#1f3a3a' : '#22402c'); g.beginPath(); g.moveTo(fx - fw / 2, base); g.lineTo(fx, base - fh); g.lineTo(fx + fw / 2, base); g.fill();
+      if (kind === 'cabins') { g.fillStyle = 'rgba(240,248,255,.7)'; g.beginPath(); g.moveTo(fx - fw * .22, base - fh * .55); g.lineTo(fx, base - fh); g.lineTo(fx + fw * .22, base - fh * .55); g.fill();
+        if (f % 7 === 3) { g.fillStyle = fc('#5a3a2a'); g.fillRect(fx + fw, base - hh(9), 16 * dpr, hh(9)); g.fillStyle = '#ffd36e'; g.fillRect(fx + fw + 4 * dpr, base - hh(6), 4 * dpr, hh(3)); g.fillRect(fx + fw + 10 * dpr, base - hh(6), 4 * dpr, hh(3)); } } // a cabin with lit windows
+    }
+    g.restore();
+  }
   function drawSky(S) {
     var sk = g.createLinearGradient(0, 0, 0, hy);
     sk.addColorStop(0, S.sky[0]); sk.addColorStop(.55, S.sky[1]); sk.addColorStop(1, S.sky[2]);
@@ -721,9 +785,8 @@
     if (S.stars > .5) { g.fillStyle = 'rgba(8,10,24,.7)'; g.beginPath(); g.arc(sx0 + W * .02, sy0, W * .05, 0, TAU); g.fill(); }
     // clouds
     for (var c = 0; c < 4; c++) {
-      var x = ((rnd(c, 5) * W * 1.4 + tAnim * 14 * dpr * (.5 + rnd(c, 6))) % (W * 1.4)) - W * .2; var y = H * .19 + rnd(c, 7) * (hy * .62 - H * .19);
-      g.fillStyle = 'rgba(255,255,255,' + (.55 - S.stars * .35) + ')';
-      [0, 30, 60, 22, 46].forEach(function (dx, k2) { g.beginPath(); g.ellipse(x + dx * dpr, y + (k2 > 2 ? 6 * dpr : 0), 34 * dpr, 13 * dpr, 0, 0, TAU); g.fill(); });
+      var x = ((rnd(c, 5) * W * 1.6 + c * W * .4 + tAnim * 5 * dpr * (.5 + rnd(c, 6))) % (W * 1.6)) - W * .3; var y = H * (.17 + c * .06) + rnd(c, 7) * H * .05; // each cloud at its own height, so they never line up
+      drawCumulus(x, y, (.8 + rnd(c, 8) * .6) * dpr, c, S);
     }
     // life in the sky: a flock of birds, a slow balloon, a shooting star
     if (S.night < .5 && S.stars < .4) {
@@ -780,16 +843,18 @@
       var mg = g.createLinearGradient(0, base - amp * 1.4, 0, hy + 10); mg.addColorStop(0, 'rgba(255,255,255,0)'); mg.addColorStop(.55, mix(S.fog, '#ffffff', .1) + Math.round(S.mist * (.38 - Math.max(L, 0) * .08) * 255).toString(16).padStart(2, '0')); mg.addColorStop(1, 'rgba(255,255,255,0)');
       g.fillStyle = mg; g.fillRect(0, base - amp * 1.4, W, hy + 10 - (base - amp * 1.4));
     }
-    if (S.skyline > .02) {
-      g.globalAlpha = S.skyline;
+    var cA = chapterAt(dist + DRAW * .5), rise = 1 - clamp((cA.frac - .8) / .2, 0, 1), riseB = clamp((cA.frac - .8) / .2, 0, 1), shiftPx = -far * 30 * dpr;
+    if (tripMode === 'journey' && cA.i >= JOURNEY_CHAPTERS - 1) { rise = 1; riseB = 0; }
+    drawHorizonSet(HSETS[cA.idx], smoothT(rise), S, shiftPx); drawHorizonSet(HSETS[(cA.idx + 1) % 10], smoothT(riseB), S, shiftPx);
+    if (S.skyline > .02) { // the skyline grows up out of the horizon as the city comes near, rather than fading in over the hills
+      var skyH = smoothT(clamp(S.skyline, 0, 1));
       for (var i2 = 0; i2 < 20; i2++) {
-        var bw = W / 20; var bh = H * (.04 + rnd(i2, 3) * .11); var bx = i2 * bw - far * 30;
+        var bw = W / 20; var bh = H * (.04 + rnd(i2, 3) * .11) * skyH; var bx = i2 * bw - far * 30;
         g.fillStyle = mix(S.ridge[1], '#ff4f9a', .08); g.fillRect(bx, hy - bh, bw - 2, bh + 2);
-        if (S.night > .4) { g.fillStyle = 'rgba(255,224,130,.4)'; for (var k3 = 0; k3 < bh / (9 * dpr); k3++) if (rnd(i2 * 7 + k3, 4) > .5) g.fillRect(bx + 3 * dpr, hy - bh + 3 * dpr + k3 * 9 * dpr, bw - 8 * dpr, 3 * dpr); }
+        if (S.night > .4) { g.fillStyle = 'rgba(255,224,130,.4)'; for (var k3 = 0; k3 < bh / (9 * dpr) - 1; k3++) if (rnd(i2 * 7 + k3, 4) > .5) g.fillRect(bx + 3 * dpr, hy - bh + 3 * dpr + k3 * 9 * dpr, bw - 8 * dpr, 3 * dpr); }
       }
-      g.globalAlpha = 1;
     }
-    drawWheel(S); drawMoment(S, 'front');
+    drawMoment(S, 'front');
     hy = hySaved;
   }
 
@@ -867,6 +932,49 @@
     g.restore();
   }
 
+  // The middle ground: soft patches of field, sand, wheat or snow drawn flat on the land in perspective, so the land
+  // between the roadside and the horizon is never one bare colour. They move and grow with the road like everything on
+  // it, and fade out before they get thin near the horizon (thin flat shapes there read as stripes).
+  var LAND = [
+    { c: ['#86c25e', '#a6d36a', '#6fae52', '#c3d97a'], dots: ['#ffffff', '#ffe066'] },
+    { c: ['#8cc56a', '#a8d37a', '#f2b8cf', '#e9a3c0'], dots: ['#ffffff', '#ffd1e8'] },
+    { c: ['#d9b07a', '#c99a62', '#e6c48e', '#b98a55'], dots: ['#7a8a4a'] },
+    { c: ['#d9a845', '#c98d3d', '#a3a04a', '#e2bd5a'], dots: ['#f0d27a'] },
+    null, null, null,
+    { c: ['#3f5a44', '#4a6a4c', '#35503c'], dots: null },
+    { c: ['#dbe7f2', '#c7d6e6', '#eef4fa'], dots: null },
+    null
+  ];
+  function drawLand(S, top) {
+    var n0 = Math.floor((dist + 8) / 20), n1 = Math.floor((dist + 175) / 20);
+    for (var zc = n1; zc >= n0; zc--) for (var sd = -1; sd <= 1; sd += 2) for (var j = 0; j < 3; j++) {
+      var k = zc * 6 + (sd > 0 ? 3 : 0) + j; if (rnd(k, 81) < .22) continue;
+      var pos = zc * 20 + rnd(k, 83) * 14, d = pos - dist; if (d < 6 || d > Math.min(175, roadEnd + 10) || bridgeAt(pos) > 0) continue;
+      var L = LAND[chapterAt(pos).idx]; if (!L) continue;
+      var lat = sd * (2 + j * 2.1 + rnd(k, 82) * 1.5), rl = .9 + rnd(k, 84) * 1.4, rdep = 5 + rnd(k, 85) * 7;
+      var r = rowAt(d), y1 = rowAt(Math.max(1, d - rdep)).y, y2 = rowAt(d + rdep).y, px = cx + (xoAt(d) + lat - camX) * r.p * RH, rx = rl * r.hw, ry = (y1 - y2) / 2;
+      if (px + rx < 0 || px - rx > W || ry < 1) continue;
+      g.globalAlpha = clamp((175 - d) / 60, 0, 1) * .9; g.fillStyle = mix(L.c[Math.floor(rnd(k, 86) * L.c.length)], S.fog, clamp(d / 280, 0, .55));
+      g.beginPath(); g.ellipse(px, (y1 + y2) / 2, rx, ry, 0, 0, TAU); g.fill();
+      if (L.dots && d < 90 && k % 3 === 0) { g.fillStyle = L.dots[k % L.dots.length]; for (var q = 0; q < 7; q++) { var qa = rnd(k * 7 + q, 87) * TAU, qr = Math.sqrt(rnd(k * 7 + q, 88)) * .8; g.beginPath(); g.arc(px + Math.cos(qa) * qr * rx, (y1 + y2) / 2 + Math.sin(qa) * qr * ry, Math.max(1, r.hw * .02), 0, TAU); g.fill(); } } // flowers, scrub or ears of wheat
+    }
+    g.globalAlpha = 1;
+    if (S.night < .3 && S.rain < .2 && S.skyline < .2) { // shadows of the clouds slide slowly over the land
+      for (var cs = 0; cs < 3; cs++) {
+        var cd = ((cs * 130 + tAnim * 4 - dist) % 390 + 390) % 390 - 20; if (cd < 12 || cd > Math.min(170, roadEnd)) continue;
+        var cr = rowAt(cd), cy1 = rowAt(Math.max(1, cd - 22)).y, cy2 = rowAt(cd + 22).y, cxx = cx + (xoAt(cd) + (rnd(cs, 89) - .5) * 6 - camX) * cr.p * RH;
+        g.save(); g.translate(cxx, (cy1 + cy2) / 2); g.scale(1, Math.max(.05, (cy1 - cy2) / 2 / (cr.hw * 4)));
+        var sg = g.createRadialGradient(0, 0, 0, 0, 0, cr.hw * 4); sg.addColorStop(0, 'rgba(20,30,60,' + (.13 * clamp((170 - cd) / 50, 0, 1)) + ')'); sg.addColorStop(1, 'rgba(20,30,60,0)');
+        g.fillStyle = sg; g.beginPath(); g.arc(0, 0, cr.hw * 4, 0, TAU); g.fill(); g.restore();
+      }
+    }
+    if (S.water > .3) { // on the coast the sea runs all the way to the horizon, so ships float on water, not sand
+      var sea = g.createLinearGradient(0, top - 2 * dpr, 0, top + 30 * dpr); sea.addColorStop(0, mix('#7fc3e0', S.fog, .35)); sea.addColorStop(.55, mix('#7fc3e0', S.fog, .45) + '99'); sea.addColorStop(1, mix('#7fc3e0', S.fog, .45) + '00');
+      g.globalAlpha = clamp(S.water, 0, 1); g.fillStyle = sea; g.fillRect(0, top - 2 * dpr, W, 32 * dpr); g.globalAlpha = 1;
+    }
+    drawMoment(S, 'ground');
+  }
+
   function drawGround(S) {
     var top = Math.min(hyR, rows.length ? rows[rows.length - 1].y : hy);
     var c0 = mix(S.ground[0], S.fog, .55), feather = 38 * dpr, gy = top + feather * .25;
@@ -876,6 +984,7 @@
     [[0, 0], [.25, .06], [.5, .25], [.75, .62], [.9, .88], [1, 1]].forEach(function (st) { fe.addColorStop(st[0], c0 + Math.round(st[1] * 255).toString(16).padStart(2, '0')); });
     g.fillStyle = fe; g.fillRect(0, top - feather, W, gy - (top - feather) + 1);
     g.fillStyle = gg; g.fillRect(0, gy, W, H - gy);
+    drawLand(S, top);
     if (S.water > .03) drawWater(S);
     if (S.snow > .05 && rows.length > 2) { // snow along both edges of the road
       g.fillStyle = 'rgba(244,249,255,' + (.8 * clamp(S.snow, 0, 1)) + ')';
@@ -970,6 +1079,11 @@
       }
     }
     for (var pn = Math.floor((dist + 6) / 30); pn <= Math.floor((dist + DRAW) / 30); pn++) for (var ps = -1; ps <= 1; ps += 2) { var pd = pn * 30 - dist; if (pd > 4 && pd < DRAW && !bridgeAt(pn * 30)) items.push({ d: pd, kind: 'post', side: ps, k: pn * 2 + (ps > 0 ? 1 : 0), lat: ps * 1.1, lit: 0 }); }
+    for (var tn = Math.floor((dist + 6) / 40); tn <= Math.floor((dist + DRAW) / 40); tn++) { // telegraph poles along the country roads
+      var tpos = tn * 40, tci = chapterAt(tpos).idx, td = tpos - dist; if (tci > 3 || td < 3 || td > Math.min(DRAW, roadEnd + 6) || bridgeAt(tpos) > 0) continue;
+      items.push({ d: td, tpole: true, lat: 1.42, k: tn });
+    }
+    for (var wc = chapterAt(dist).i; wc <= chapterAt(dist + DRAW).i; wc++) { var wp = wheelPos(wc); if (wp != null && wp - dist > 4 && wp - dist < DRAW) items.push({ d: wp - dist, bigwheel: true }); }
     var MS = 55;
     for (var mn = Math.floor((dist + 10) / MS); mn <= Math.floor((dist + DRAW) / MS); mn++) {
       for (var ms = -1; ms <= 1; ms += 2) {
@@ -1005,6 +1119,18 @@
         if (S.night > .4) { glowDot(ax0, y - ah - 10 * as, 22 * as, '#ffd98a'); glowDot(ax1, y - ah - 10 * as, 22 * as, '#ffd98a'); }
         return;
       }
+      if (it.tpole) { // a wooden pole with a crossbar; two wires sag across to the next pole down the road
+        var ts = p * (W / 230) * 1.35, tx = cx + (xoAt(it.d) + it.lat - camX) * p * RH, ph = 70 * ts;
+        g.fillStyle = mix('#6b4a32', S.fog, clamp(it.d / 300, 0, .6)); g.fillRect(tx - 1.8 * ts, y - ph, 3.6 * ts, ph); g.fillRect(tx - 11 * ts, y - ph + 6 * ts, 22 * ts, 2.4 * ts);
+        g.fillStyle = '#e8e2d4'; [-9, 9].forEach(function (o) { g.fillRect(tx + o * ts - 1.2 * ts, y - ph + 3 * ts, 2.4 * ts, 3 * ts); });
+        var nd = it.d + 40; if (nd < Math.min(DRAW, roadEnd + 6)) {
+          var nr = rowAt(nd), ns = nr.p * (W / 230) * 1.35, nx = cx + (xoAt(nd) + it.lat - camX) * nr.p * RH, ny = nr.y - 70 * ns;
+          g.strokeStyle = 'rgba(40,36,40,' + (.75 * clamp((DRAW - it.d) / 120, 0, 1)) + ')'; g.lineWidth = Math.max(.8 * dpr, ts * .9);
+          [-9, 9].forEach(function (o) { var x0 = tx + o * ts, y0 = y - ph + 3 * ts, x1 = nx + o * ns, y1 = ny + 3 * ns; g.beginPath(); g.moveTo(x0, y0); g.quadraticCurveTo((x0 + x1) / 2, (y0 + y1) / 2 + Math.abs(y0 - y1) * .25 + 4 * ts, x1, y1); g.stroke(); });
+        }
+        return;
+      }
+      if (it.bigwheel) { var wR = 1.3 * rw.hw, wx = cx + (xoAt(it.d) - 2.5 - camX) * p * RH; /* smaller than life: true scale would not fit a portrait screen */ if (wx + wR > -W * .1 && wx - wR < W * 1.1) drawWheelAt(wx, y, wR, S, clamp((it.d - 30) / 300, 0, .55)); return; }
       if (it.heart) {
         var hx = cx + (xoAt(it.d) + it.lat - camX) * p * RH; var hs = p * (W / 230) * 1.35; var hy2 = y - (16 + Math.sin(tAnim * 3) * 2) * hs;
         glowDot(hx, hy2, 24 * hs, '#ff6b8a'); g.fillStyle = '#ff4d73'; g.beginPath(); g.moveTo(hx, hy2 + 9 * hs); g.bezierCurveTo(hx - 16 * hs, hy2 - 2 * hs, hx - 9 * hs, hy2 - 14 * hs, hx, hy2 - 6 * hs); g.bezierCurveTo(hx + 9 * hs, hy2 - 14 * hs, hx + 16 * hs, hy2 - 2 * hs, hx, hy2 + 9 * hs); g.fill();
