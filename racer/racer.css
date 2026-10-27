@@ -12,6 +12,9 @@ canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block
 .lv { position: absolute; right: 16px; top: calc(14px + env(safe-area-inset-top)); text-align: right; }
 .lv #hearts { display: block; font-size: 20px; letter-spacing: 3px; color: #ff5a7a; line-height: 1.1; text-shadow: 0 1px 6px #0008; }
 .lv #coinc { display: block; font-size: 13px; color: #ffd166; margin-top: 4px; text-shadow: 0 1px 6px #0008; }
+.lv #coinc.pop { animation: coinpop .22s ease-out; transform-origin: right center; }
+@keyframes coinpop { 0% { transform: scale(1); } 40% { transform: scale(1.28); } 100% { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .lv #coinc.pop { animation: none; } }
 .pausebtn { position: absolute; left: 50%; top: calc(12px + env(safe-area-inset-top)); transform: translateX(-50%); pointer-events: auto; width: 44px; height: 44px; border-radius: 50%; border: 1px solid #ffffff40; background: #0a0d1899; color: #fff; font: inherit; font-weight: 800; letter-spacing: 1px; backdrop-filter: blur(8px); }
 .trip { position: absolute; left: 16px; right: 16px; top: calc(74px + env(safe-area-inset-top)); }
 .trip[hidden] { display: none; }

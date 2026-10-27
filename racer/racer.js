@@ -17,10 +17,15 @@
   function lerp(a, b, t) { return a + (b - a) * t; }
   function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
   function hex(h) { return [1, 3, 5].map(function (i) { return parseInt(h.slice(i, i + 2), 16); }); }
+  // Colour blend. It runs hundreds of times a frame, so results are remembered (t rounded to 1/64, which no eye can
+  // tell apart); the cache is cleared when it grows large.
+  var mixCache = {}, mixN = 0;
   function mix(a, b, t) {
     if (t <= 0) return a; if (t >= 1) return b;
-    var A = hex(a); var B = hex(b);
-    return '#' + A.map(function (v, i) { return Math.round(lerp(v, B[i], t)).toString(16).padStart(2, '0'); }).join('');
+    var q = Math.round(t * 64), key = a + b + q, hit = mixCache[key]; if (hit) return hit;
+    if (++mixN > 4000) { mixCache = {}; mixN = 0; }
+    var A = hex(a); var B = hex(b), tt = q / 64;
+    return (mixCache[key] = '#' + A.map(function (v, i) { return Math.round(lerp(v, B[i], tt)).toString(16).padStart(2, '0'); }).join(''));
   }
   function rr(x, y, w, h, r) {
     g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r);
@@ -127,7 +132,7 @@
   var susp = { y: 0, v: 0 }; // suspension bob in CSS pixels
   var pitch = 0;   // nose dip when braking
   var roll = { y: 0, v: 0 }; // body roll: lags the lane change, overshoots a touch and settles
-  var camRoll = 0; // the camera banks a little into a lane change and into a bend (radians)
+  var camRoll = 0, camS = 0; // camS: the lane the camera is looking along, eased toward the car's lane // the camera banks a little into a lane change and into a bend (radians)
   var carId = 0;
   var lastPB = null; // where the player car was drawn last frame, for spray and dust
   var BOXES = params.get('boxes') === '1'; // debug overlay of collision boxes
@@ -260,7 +265,7 @@
 
   function reset(fromCheckpoint) {
     applyTrip();
-    keepOn = false; runMul = mul(); applyTrip(); dist = 0; speed = RAMP.v0 * mul(); lane = 0; laneV = 0; susp = { y: 0, v: 0 }; pitch = 0; roll = { y: 0, v: 0 }; camRoll = 0; laneTarget = 0; traffic = []; nextSpawn = 300; combo = 0; comboTimer = 0;
+    keepOn = false; runMul = mul(); applyTrip(); dist = 0; speed = RAMP.v0 * mul(); lane = 0; laneV = 0; susp = { y: 0, v: 0 }; pitch = 0; roll = { y: 0, v: 0 }; camRoll = 0; camS = 0; prevS = null; laneTarget = 0; traffic = []; nextSpawn = 300; combo = 0; comboTimer = 0;
     score = 0; shake = 0; particles = []; lastChapter = -1; nearTimer = 0; shieldT = 0; flashT = 0; lives = maxLives; nextStop = 0; collected = {}; momentFx = {}; restCh = 0; saveT = 8; countT = 0;
     run = { near: 0, coins: 0, hits: 0 }; coinNote = 0; coinNoteT = 0; braking = false; paused = false; calmUntil = 0;
     if (fromCheckpoint) {
@@ -1098,7 +1103,21 @@
     }
   }
 
-  function objectKind(a, k) { return a.objs[Math.floor(rnd(k, 33) * a.objs.length)]; }
+  // Scenery comes in places, like a real drive: every 260 m the land is a village, a wood or open fields, with the
+  // chapter's own buildings gathered in the villages, trees thick in the woods and only a few in the open. A mix of
+  // everything evenly everywhere made every stretch look the same.
+  var BUILT = { hut: 1, house: 1, cabin: 1, tower: 1, neon: 1, lighthouse: 1, windmill: 1, umbrella: 1 };
+  function zoneAt(pos) { var r = rnd(Math.floor(pos / 260), 151); return r < .3 ? 'village' : r < .65 ? 'wood' : 'open'; }
+  function objectKind(a, k, pos) {
+    if (pos == null || a.skyline) return a.objs[Math.floor(rnd(k, 33) * a.objs.length)];
+    var z = zoneAt(pos), built = a.objs.filter(function (o) { return BUILT[o]; }), wild = a.objs.filter(function (o) { return !BUILT[o]; });
+    var pool = z === 'village' && built.length && rnd(k, 34) < .6 ? built : wild.length ? wild : a.objs;
+    return pool[Math.floor(rnd(k, 33) * pool.length)];
+  }
+  // Rest inside each chapter: traffic thins while the chapter's big moment plays, so you can watch it. (A busier stretch
+  // after it was tried and dropped: it sometimes filled all three lanes ahead.) Bigger number = more road between cars.
+  function paceAt(pos) { var f = chapterAt(pos).frac; return f > .3 && f < .6 ? 1.35 : 1; }
+  function sceneryGap(a, k, pos) { if (a.skyline || a.water) return rnd(k, 41) < .12; var z = zoneAt(pos); return rnd(k, 41) < (z === 'open' ? .62 : z === 'wood' ? .05 : .15); }
 
   function drawWorld(S) {
     // collect roadside objects and traffic, draw far to near
@@ -1106,11 +1125,11 @@
     var n0 = Math.floor((dist + 6) / SP); var n1 = Math.floor((dist + DRAW) / SP);
     for (var n = n0; n <= n1; n++) {
       for (var sd = -1; sd <= 1; sd += 2) {
-        var k = n * 2 + (sd > 0 ? 1 : 0); if (rnd(k, 41) < .12) continue;
-        var pos = n * SP + rnd(k, 42) * 6; var d = pos - dist; if (d < 4 || d > DRAW || bridgeAt(pos) > 0) continue;
+        var k = n * 2 + (sd > 0 ? 1 : 0);
+        var pos = n * SP + rnd(k, 42) * 6; if (sceneryGap(CHAPTERS[chapterAt(pos).idx], k, pos)) continue; var d = pos - dist; if (d < 4 || d > DRAW || bridgeAt(pos) > 0) continue;
         var ch = chapterAt(pos); var A = CHAPTERS[ch.idx]; var B = CHAPTERS[(ch.idx + 1) % CHAPTERS.length];
         var use = ch.frac > .88 && rnd(k, 43) < (ch.frac - .88) / .12 ? B : A;
-        items.push({ d: d, kind: objectKind(use, k), side: sd, k: k, lat: sd * (1.12 + rnd(k, 44) * .75), lit: Math.max(use.night, S.night * .5), snow: use.snow, S: use });
+        items.push({ d: d, kind: objectKind(use, k, pos), side: sd, k: k, lat: sd * (1.12 + rnd(k, 44) * .75), lit: Math.max(use.night, S.night * .5), snow: use.snow, S: use });
       }
     }
     for (var pn = Math.floor((dist + 6) / 30); pn <= Math.floor((dist + DRAW) / 30); pn++) for (var ps = -1; ps <= 1; ps += 2) { var pd = pn * 30 - dist; if (pd > 4 && pd < DRAW && !bridgeAt(pn * 30)) items.push({ d: pd, kind: 'post', side: ps, k: pn * 2 + (ps > 0 ? 1 : 0), lat: ps * 1.1, lit: 0 }); }
@@ -1119,7 +1138,7 @@
         var fk = fn * 2 + (fs > 0 ? 1 : 0) + 9000; if (rnd(fk, 91) < .3) continue;
         var fpos = fn * 23 + rnd(fk, 92) * 12, fd = fpos - dist; if (fd < 30 || fd > Math.min(DRAW, roadEnd + 40) || bridgeAt(fpos) > 0) continue;
         var fc = CHAPTERS[chapterAt(fpos).idx]; if (fc.water) continue; // the coast keeps its open sea
-        items.push({ d: fd, kind: objectKind(fc, fk), side: fs, k: fk, lat: fs * (2.3 + rnd(fk, 93) * 3.8), lit: Math.max(fc.night, S.night * .5), snow: fc.snow, S: fc });
+        items.push({ d: fd, kind: objectKind(fc, fk, fpos), side: fs, k: fk, lat: fs * (2.3 + rnd(fk, 93) * 3.8), lit: Math.max(fc.night, S.night * .5), snow: fc.snow, S: fc });
       }
     }
     for (var tn = Math.floor((dist + 6) / 40); tn <= Math.floor((dist + DRAW) / 40); tn++) { // telegraph poles along the country roads
@@ -1204,7 +1223,7 @@
         if (!c.knock) {
           var tw = w * (TYPE_W[TYPE_OF[c.kind]] || 1);
           if (c.lc && c.lc.t < .8 && Math.sin(tAnim * 16) > 0) glowDot(x + Math.sign(c.lc.to - c.lc.from) * tw * .44, y - tw * .3, tw * .16, '#ffb000'); // indicator
-          if (Math.sin(tAnim * 1.3 + c.id * 5.1) > .93 || (c.lc && c.lc.t < 0)) { glowDot(x - tw * .3, y - tw * .32, tw * .17, '#ff2a3a'); glowDot(x + tw * .3, y - tw * .32, tw * .17, '#ff2a3a'); } // brake lights
+          if (c.brakeT > 0 || (c.lc && c.lc.t < 0)) { glowDot(x - tw * .3, y - tw * .32, tw * .17, '#ff2a3a'); glowDot(x + tw * .3, y - tw * .32, tw * .17, '#ff2a3a'); } // brake lights
         }
         return;
       }
@@ -1380,7 +1399,7 @@
 
   function render() {
     resize();
-    hy = H * .4; cx = W / 2; RH = W * (.9 + .035 * clamp((speed - 23) / 20, 0, 1)); camX = lane * LANE * .75; // the view widens a little with speed
+    hy = H * .4; cx = W / 2; RH = W * (.9 + .035 * clamp((speed - 23) / 20, 0, 1)); camX = camS * LANE * .75; // the view widens a little with speed
     ES = H * .02; e0 = elev(dist);
     buildCurve();
     hyR = hy - (elev(dist + DRAW * .8) - e0) * pOf(DRAW * .8) * ES * .7;
@@ -1597,6 +1616,7 @@
     susp.v += (bumpF + hillF - 190 * susp.y - 8 * susp.v) * dt; susp.y = clamp(susp.y + susp.v * dt, -5, 5);
     pitch += ((braking ? 1 : 0) - pitch) * Math.min(1, dt * 6);
     roll.v += ((clamp(laneV * .035, -.15, .15) - roll.y) * 150 - roll.v * 11 * (1 - .35 * wet)) * dt; roll.y += roll.v * dt;
+    camS += (lane - camS) * Math.min(1, dt * 7); // the camera follows the car with a little lag, so a twitch of the steering does not jolt the whole world
     camRoll += (clamp(-laneV * .0042 + curveAt(dist + 28) * 70, -.022, .022) - camRoll) * Math.min(1, dt * 4);
     if (mode === 'run' && lastPB && lastScene && speed > 14) emitRoadParticles(dt, lastScene);
     if (lastScene) stepFlurry(dt, lastScene);
@@ -1629,7 +1649,7 @@
     var diff = DIFFS[prefs.difficulty];
     while (nextSpawn < dist + DRAW) {
       if (!nearStop(nextSpawn)) spawnWave(nextSpawn);
-      var dens = (1 - .22 * clamp(dist / journeyLen(), 0, 1)) * (dist < calmUntil ? 1.35 : 1) * Math.pow(mul(), .6); // faster means more road between cars
+      var dens = (1 - .22 * clamp(dist / journeyLen(), 0, 1)) * (dist < calmUntil ? 1.35 : 1) * Math.pow(mul(), .6) * paceAt(nextSpawn); // faster means more road between cars
       nextSpawn += (diff.gapMin + rand() * diff.gapRand) * dens; if (chapterAt(nextSpawn).frac < .08) nextSpawn += 50;
     }
     // pickups
@@ -1642,6 +1662,8 @@
         if (Math.abs(cd - PD) < 2.6 && Math.abs(lane - ck.lane) < .75) {
           collected[id] = true; run.coins += 1; score += 2;
           coinNote = tAnim - coinNoteT < 1.6 ? coinNote + 1 : 0; coinNoteT = tAnim; au('event', 'coin', { i: coinNote });
+          if (lastPB) burst(lastPB.x + (ck.lane - lane) * lastPB.w / BODY, lastPB.y - lastPB.w * .5, 5, ['#ffe27a', '#fff6c4']); // a small sparkle where you took it
+          elCoins.classList.remove('pop'); void elCoins.offsetWidth; elCoins.classList.add('pop'); // the counter bounces
         }
       }
     }
@@ -1651,7 +1673,7 @@
       if (Math.abs(hd - PD) < 2.8 && Math.abs(lane - hk.lane) < .75) { collected['h' + hn] = true; if (lives < maxLives) { lives++; au('event', 'heart'); } else { score += 25; au('event', 'coin', { i: 6 }); } }
     }
     for (var i = 0; i < traffic.length; i++) {
-      var c = traffic[i]; if (c.vs == null) c.vs = c.v; c.vs += (steerSpeed(c) - c.vs) * Math.min(1, dt * 3); c.z += c.vs * dt; c.tread = (c.tread || 0) + Math.min(c.vs * dt * 2.6, TREAD_MAX); var d = c.z - dist; var gap = Math.abs(lane - c.laneF);
+      var c = traffic[i]; if (c.vs == null) c.vs = c.v; var want = steerSpeed(c); c.brakeT = want < c.vs - .4 ? .5 : Math.max(0, (c.brakeT || 0) - dt); c.vs += (want - c.vs) * Math.min(1, dt * 3); /* brake lights come on when the car really slows for the one ahead */ c.z += c.vs * dt; c.tread = (c.tread || 0) + Math.min(c.vs * dt * 2.6, TREAD_MAX); var d = c.z - dist; var gap = Math.abs(lane - c.laneF);
       if (c.hurt > 0) c.hurt -= dt; if (c.knock) { c.kx += dt * 2.4; c.rot = (c.rot || 0) + c.knock * dt * 2.6; }
       if (c.knock) continue;
       stepLaneChange(c, dt, d);
@@ -1685,11 +1707,21 @@
     else if (fastT > 14 && dprCap < 2) { dprCap = Math.min(2, dprCap + .25); sizeDirty = true; fastT = 0; }
   }
   var perf = { work: 0, gap: 0, worst: 0 }, FPS = params.get('fps') === '1'; // ?fps=1 shows how long a frame takes
+  var FIXED = 1 / 120, acc = 0, prevS = null;
+  function snapPrev() { prevS = { dist: dist, lane: lane, camRoll: camRoll, susp: susp.y, roll: roll.y, camS: camS }; }
   function frame(t) {
     if (last === null) last = t;
     var dt = Math.min(.05, (t - last) / 1000); last = t;
     var t0 = window.performance.now();
-    step(dt); lastScene = render();
+    // Physics runs on a fixed 120 Hz step, whatever the screen does (60, 90 or 120 Hz, or a hitch), so springs and
+    // speed feel the same on every phone. The picture is drawn between the last two steps (interpolated), so motion
+    // stays smooth when the screen and the simulation tick at different moments.
+    acc = Math.min(acc + dt, FIXED * 6);
+    while (acc >= FIXED) { snapPrev(); step(FIXED); acc -= FIXED; }
+    var al = acc / FIXED, keep = { dist: dist, lane: lane, camRoll: camRoll, susp: susp.y, roll: roll.y, camS: camS };
+    if (prevS) { dist = prevS.dist + (dist - prevS.dist) * al; lane = prevS.lane + (lane - prevS.lane) * al; camRoll = prevS.camRoll + (camRoll - prevS.camRoll) * al; susp.y = prevS.susp + (susp.y - prevS.susp) * al; roll.y = prevS.roll + (roll.y - prevS.roll) * al; camS = prevS.camS + (camS - prevS.camS) * al; }
+    lastScene = render();
+    dist = keep.dist; lane = keep.lane; camRoll = keep.camRoll; susp.y = keep.susp; roll.y = keep.roll; camS = keep.camS;
     var work = window.performance.now() - t0; // milliseconds spent on this frame (the budget is 16.7 at 60 fps)
     adaptQuality(dt);
     perf.work += (work - perf.work) * .05; perf.gap += (dt * 1000 - perf.gap) * .05; perf.worst = Math.max(perf.worst * .99, work);
@@ -1844,12 +1876,12 @@
         $('ov').hidden = true; lastScene = render(); return lastScene;
       },
       start: start, pause: pauseGame, resume: resumeGame, elev: elev, backToMenu: backToMenu,
-      teleport: function (d) { dist = d; nextSpawn = d + 300; nextStop = 0; while (nextStop < REST_STOPS.length && REST_STOPS[nextStop] * chapterLen <= d) nextStop++; lastChapter = chapterAt(d).i - 1; traffic = []; },
+      teleport: function (d) { dist = d; nextSpawn = d + 300; nextStop = 0; while (nextStop < REST_STOPS.length && REST_STOPS[nextStop] * chapterLen <= d) nextStop++; lastChapter = chapterAt(d).i - 1; traffic = []; prevS = null; },
       addCar: function (ln, ahead, kind, canLc, v) { traffic.push({ id: ++carId, laneF: ln, lc: null, canLc: !!canLc, z: dist + ahead, lane: ln, v: v || 0, kind: kind || 'sedan', col: '#2563eb', passed: false, minGap: 9 }); },
       bridgeAt: function (pos) { return bridgeAt(pos); },
       bridges: function (from, to) { var out = []; for (var b = Math.floor((from - 320) / BRIDGE_EVERY); b <= Math.floor((to - 320) / BRIDGE_EVERY); b++) { var st = bridgeStart(b); if (st != null && st >= from && st <= to) out.push(st); } return out; },
       setLives: function (n) { lives = n; },
-      setLane: function (l) { lane = laneTarget = l; },
+      setLane: function (l) { lane = laneTarget = camS = l; prevS = null; },
       stopSpawning: function () { nextSpawn = 1e9; },
       advance: function (sec) { var n = Math.round(sec / .02); for (var i = 0; i < n; i++) step(.02); },
       coinChunk: coinChunk, heartChunk: heartChunk

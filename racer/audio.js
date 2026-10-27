@@ -591,12 +591,14 @@
       if (name === 'rest') restUntil = now + 11; // the score eases back whether or not effects are on
       if (!audible() || !prefs.sfx) { if (name === 'bump' || name === 'crash') buzz(60); return; }
       var t = now + 0.01, c = Score.THEMES[chapter], pv = clamp((o.side || 0) * 0.5, -0.8, 0.8), F = trimBus(EVENT_TRIM[name] || 1), k;
+      var vr = .94 + rnd() * .12; // variation: frequent sounds never repeat exactly, a little higher or lower and louder or softer each time
+      if (name === 'lane' || name === 'pass' || name === 'joint' || name === 'coin') { var vg = ctx.createGain(); vg.gain.value = .85 + rnd() * .3; vg.connect(F); vg._wet = F._wet; F = vg; }
       curFx = F;
       made.events++;
       if (name === 'near') duck(.72, .35); else if (name === 'bump') duck(.45, .7); else if (name === 'crash') duck(.3, 1.4); else if (name === 'heart') duck(.8, .6);
       switch (name) {
-        case 'joint': sub(t, 95, 55, .07, .07, F); sub(t + .055, 95, 55, .07, .05, F); noise(t, .03, .02, F, 'lowpass', 400, 0); break; // the wheels thump over a bridge deck joint
-        case 'lane': sweep(t, .16, 900 + 500 * speedN(), 2400, .1, F, (o.dir || 0) * .35); sub(t, 90, 60, .08, .05, F); break;
+        case 'joint': sub(t, 95 * vr, 55 * vr, .07, .07, F); sub(t + .055, 95 * vr, 55 * vr, .07, .05, F); noise(t, .03, .02, F, 'lowpass', 400, 0); break; // the wheels thump over a bridge deck joint
+        case 'lane': sweep(t, .16, (900 + 500 * speedN()) * vr, 2400 * vr, .1, F, (o.dir || 0) * .35); sub(t, 90 * vr, 60 * vr, .08, .05, F); break;
         case 'coin': { // click, a bell in the chapter's key stepping up a scale, and a sparkle
           var d = (o.i || 0) % 7, m = degree(c, d) + 24;
           noise(t, .012, .08, F, 'highpass', 4500, 0); bellNote(m, t, .5, .26, 'fx', 0, .35, 2.76, 1.2); bellNote(m + 12, t + .045, .4, .13, 'fx', .15, .45, 3.5, 1);
@@ -607,7 +609,7 @@
         case 'near': { // a rising whoosh, a bell that climbs with the combo, a sparkle and a low push
           var cb = clamp(o.combo || 1, 1, 8);
           sweep(t, .3, 500, 3400, .15, F, pv * .6); bellNote(Score.midi(c, 7 + cb), t + .05, .45, .2, 'fx', 0, .35, 3.5, 1.4); noise(t + .08, .08, .05, F, 'highpass', 5200, 0); sub(t, 110, 70, .15, .08, F); buzz(10); break; }
-        case 'pass': passBy(t, o.side || 0, o.v || speed); sweep(t, .35, 400, 1500, .08 * (.4 + speedN()), F, pv); break;
+        case 'pass': passBy(t, o.side || 0, (o.v || speed) * vr); sweep(t, .35, 400 * vr, 1500 * vr, .08 * (.4 + speedN()), F, pv); break;
         case 'bump': // impact, body thump, a glass tinkle and a rattle
           sub(t, 150, 40, .5, .55, F); noise(t, .28, .3, F, 'lowpass', 1100, 0); metalHit(t + .01, 1400 + rnd() * 400, .2, F, rnd() - .5, .25); rattle(t + .05, 6, .4, .12, F); sweep(t, .35, 2400, 500, .1, F, 0, 'bandpass'); buzz(80); break;
         case 'crash': // a big boom, a roaring burst, scattered debris and a long tail
