@@ -29,7 +29,7 @@ const src = (f) => fs.readFileSync(path.resolve(__dirname, '../../racer', f), 'u
   const bad = [];
   for (const n of names) { const m = await measure('life', n); if (m.bad || m.db < -75 || m.pk > 1) bad.push(['life', n, m]); }
   for (const n of ['lane', 'coin', 'heart', 'near', 'pass', 'bump', 'crash', 'chapter', 'rest', 'thunder', 'finish']) { const m = await measure('event', n); if (m.bad || m.db < -75 || m.pk > 1.2) bad.push(['event', n, m]); }
-  ok('all 23 life sounds and 11 effects render cleanly and are audible', names.length === 23 && bad.length === 0, JSON.stringify(bad));
+  ok('all 25 life sounds and 11 effects render cleanly and are audible', names.length === 25 && bad.length === 0, JSON.stringify(bad));
 
   const scoreBad = [];
   for (let ch = 0; ch < 10; ch++) {

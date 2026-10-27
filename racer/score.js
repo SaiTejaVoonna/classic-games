@@ -25,25 +25,25 @@
   function theme(o) { o.progB = rot(o.prog, 4); if (o.arp == null) o.arp = themeN % ARPS.length; themeN++; return o; }
   // motif entries are [beat, scale degree, length in beats] across two bars (8 beats): question, then answer.
   var THEMES = [
-    theme({ name: 'Dawn Meadow', root: 57, mode: 'major', bpm: 84, lead: 'piano', ost: 'pluck', kit: 'soft', prog: [0, 4, 5, 3, 0, 4, 3, 4],
+    theme({ name: 'Dawn Meadow', root: 57, mode: 'major', bpm: 92, lead: 'flute', ost: 'marimba', kit: 'soft', prog: [0, 4, 5, 3, 0, 4, 3, 4],
       motif: [[0, 4, 1], [1, 5, 1], [2, 4, 1], [3, 2, 2], [4, 1, 1], [5, 2, 1], [6, 1, 1], [7, 0, 1]], levels: [3, 3, 2, 1, 0, 2, 0, 2] }),
-    theme({ name: 'Cherry Hills', root: 62, mode: 'major', bpm: 88, lead: 'pluck', ost: 'pluck', kit: 'soft', prog: [0, 4, 3, 0, 5, 3, 4, 0],
+    theme({ name: 'Cherry Hills', root: 62, mode: 'major', bpm: 96, lead: 'koto', ost: 'pluck', kit: 'soft', prog: [0, 4, 3, 0, 5, 3, 4, 0],
       motif: [[0, 2, .5], [.5, 4, .5], [1, 7, 1], [2.5, 6, .5], [3, 4, 1], [4, 5, 1], [5, 4, 1], [6, 2, 2]], levels: [3, 3, 2, 1, 0, 2, 0, 2] }),
-    theme({ name: 'Desert Road', root: 55, mode: 'dorian', bpm: 78, lead: 'guitar', ost: 'guitar', kit: 'soft', prog: [0, 6, 3, 0, 0, 6, 4, 0],
+    theme({ name: 'Desert Road', root: 55, mode: 'dorian', bpm: 96, lead: 'slide', ost: 'handpan', kit: 'soft', prog: [0, 6, 3, 0, 0, 6, 4, 0],
       motif: [[0, 0, 1.5], [1.5, 2, .5], [2, 4, 1], [3, 3, 1], [4, 2, 1.5], [5.5, 1, .5], [6, 0, 2]], levels: [2, 3, 2, 1, 0, 2, 0, 2] }),
-    theme({ name: 'Amber Valley', root: 59, mode: 'major', bpm: 76, lead: 'cello', ost: 'pluck', kit: 'soft', prog: [0, 5, 3, 4, 0, 5, 1, 4],
+    theme({ name: 'Amber Valley', root: 59, mode: 'major', bpm: 94, lead: 'cello', ost: 'guitar', kit: 'soft', prog: [0, 5, 3, 4, 0, 5, 1, 4],
       motif: [[0, 4, 2], [2, 3, 1], [3, 2, 1], [4, 0, 3], [7, 1, 1]], levels: [2, 3, 2, 2, 0, 2, 1, 2] }),
-    theme({ name: 'Sunset Coast', root: 60, mode: 'major', bpm: 92, lead: 'handpan', ost: 'handpan', kit: 'soft', prog: [0, 5, 3, 4, 0, 2, 3, 4],
+    theme({ name: 'Sunset Coast', root: 60, mode: 'major', bpm: 100, lead: 'guitar', ost: 'epiano', kit: 'electro', prog: [0, 5, 3, 4, 0, 2, 3, 4],
       motif: [[0, 2, 1], [1, 4, 1], [2, 7, 1], [3, 6, 1], [4, 4, 2], [6, 2, 1], [7, 4, 1]], levels: [3, 3, 2, 2, 1, 1, 1, 2] }),
-    theme({ name: 'Dusk City', root: 57, mode: 'minor', bpm: 100, lead: 'epiano', ost: 'synth', kit: 'electro', prog: [0, 5, 2, 6, 0, 5, 3, 4],
+    theme({ name: 'Dusk City', root: 57, mode: 'minor', bpm: 104, lead: 'glide', ost: 'synth', kit: 'electro', prog: [0, 5, 2, 6, 0, 5, 3, 4],
       motif: [[0, 0, .5], [.5, 2, .5], [1, 4, .5], [1.5, 7, .5], [2, 4, 1], [4, 6, .5], [4.5, 4, .5], [5, 2, 1.5]], levels: [2, 2, 3, 2, 1, 2, 1, 2] }),
-    theme({ name: 'Neon Quarter', root: 52, mode: 'minor', bpm: 108, lead: 'synth', ost: 'synth', kit: 'electro', prog: [0, 5, 6, 4, 0, 5, 3, 4],
+    theme({ name: 'Neon Quarter', root: 52, mode: 'minor', bpm: 110, lead: 'synth', ost: 'staccato', kit: 'electro', prog: [0, 5, 6, 4, 0, 5, 3, 4],
       motif: [[0, 0, .5], [.5, 0, .5], [1, 2, .5], [1.5, 4, .5], [2, 3, 1], [4, 0, .5], [4.5, 2, .5], [5, 4, 1], [6, 2, 2]], levels: [3, 2, 3, 2, 1, 2, 1, 3] }),
     theme({ name: 'Storm Pass', root: 47, mode: 'phrygian', bpm: 120, lead: 'brass', ost: 'staccato', kit: 'epic', prog: [0, 1, 0, 6, 0, 1, 5, 0],
       motif: [[0, 0, 2], [2, 1, 1], [3, 0, 1], [4, 0, 2], [6, 1, 1], [7, 6, 1]], levels: [3, 2, 3, 3, 3, 3, 2, 3] }),
-    theme({ name: 'Northern Lights', root: 59, mode: 'major', bpm: 70, lead: 'bell', ost: 'bell', kit: 'soft', prog: [0, 3, 4, 0, 5, 3, 4, 0],
-      motif: [[0, 4, 2], [2, 6, 2], [4, 5, 2], [6, 4, 2]], levels: [3, 3, 1, 2, 0, 1, 3, 1] }),
-    theme({ name: 'Sunrise Coast', root: 57, mode: 'major', bpm: 96, lead: 'strings', ost: 'pluck', kit: 'epic', prog: [0, 4, 5, 3, 0, 4, 3, 4],
+    theme({ name: 'Northern Lights', root: 59, mode: 'major', bpm: 90, lead: 'strings', ost: 'bell', kit: 'soft', prog: [0, 3, 4, 0, 5, 3, 4, 0],
+      motif: [[0, 4, 2], [2, 6, 2], [4, 5, 2], [6, 4, 2]], levels: [3, 3, 1, 2, 0, 1, 3, 1], gain: .36 }),
+    theme({ name: 'Sunrise Coast', root: 57, mode: 'major', bpm: 104, lead: 'strings', ost: 'marimba', kit: 'epic', prog: [0, 4, 5, 3, 0, 4, 3, 4],
       // the opening motif of Dawn Meadow comes back, an octave higher and played by everything
       motif: [[0, 4, 1], [1, 5, 1], [2, 4, 1], [3, 2, 2], [4, 1, 1], [5, 2, 1], [6, 1, 1], [7, 0, 1]], levels: [2, 3, 3, 3, 3, 3, 3, 3], gain: .42 })
   ];

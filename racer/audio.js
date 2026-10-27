@@ -171,6 +171,35 @@
     function epianoNote(m, t, dur, v, bus, pv, wet) { // electric piano: gentle FM with a short bright tine
       bellNote(m, t, Math.max(1.2, dur * 1.3), v * .9, bus, pv, wet, 1, 1.4); bellNote(m, t, .25, v * .35, bus, pv, wet, 14, 1.2);
     }
+    function fluteNote(m, t, dur, v, bus, pv, wet) { // breathy flute: a soft triangle with vibrato that grows, and air on the attack
+      var f = mtof(m), len = Math.max(.3, dur * .95), o = ctx.createOscillator(), o2 = ctx.createOscillator(), g2 = ctx.createGain(), lfo = ctx.createOscillator(), lg = ctx.createGain(), lp = ctx.createBiquadFilter(), g = ctx.createGain();
+      o.type = 'triangle'; o.frequency.value = f; o2.frequency.value = f * 2; g2.gain.value = .16;
+      lfo.frequency.value = 5; lg.gain.setValueAtTime(0, t); lg.gain.linearRampToValueAtTime(10, t + Math.min(.7, len)); lfo.connect(lg); lg.connect(o.detune); lg.connect(o2.detune);
+      lp.type = 'lowpass'; lp.frequency.value = 2400 + v * 1200; shape(g, t, .07, v * .3, Math.max(0, len - .25), .3);
+      o.connect(lp); o2.connect(g2); g2.connect(lp); lp.connect(g); route(g, B(bus), pv, wet);
+      noise(t, .14, .035 * v, B(bus), 'bandpass', Math.min(9000, f * 3), pv);
+      [o, o2, lfo].forEach(function (x) { x.start(t); x.stop(t + len + .5); }); made.notes++;
+    }
+    function marimbaNote(m, t, dur, v, bus, pv, wet) { // wooden bar: a round tone with a quick high knock
+      var f = mtof(m);
+      [[1, 1, .55], [3.93, .22, .09], [9.8, .06, .03]].forEach(function (pt) { var o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.value = f * pt[0]; shape(g, t, .002, v * .5 * pt[1], 0, pt[2]); o.connect(g); route(g, B(bus), pv, wet); o.start(t); o.stop(t + pt[2] + .1); });
+      made.notes++;
+    }
+    function bentPluck(m, t, dur, v, bus, pv, wet, bright, bend, bendT) { // a plucked string whose pitch slides into the note
+      var s = ctx.createBufferSource(), g = ctx.createGain(), lp = ctx.createBiquadFilter(), pk = ctx.createBiquadFilter();
+      s.buffer = ksBuffer(m, bright); s.playbackRate.setValueAtTime(Math.pow(2, bend / 12), t); s.playbackRate.exponentialRampToValueAtTime(1, t + bendT);
+      lp.type = 'lowpass'; lp.frequency.value = bright ? 6000 : 3000; pk.type = 'peaking'; pk.frequency.value = bright ? 1900 : 900; pk.gain.value = 5; pk.Q.value = 1.4;
+      g.gain.setValueAtTime(v * .9, t); g.gain.exponentialRampToValueAtTime(0.0001, t + Math.max(.6, Math.min(1.7, dur * 1.6)));
+      s.connect(lp); lp.connect(pk); pk.connect(g); route(g, B(bus), pv, wet); s.start(t); s.stop(t + 1.8); made.notes++;
+    }
+    var glideFrom = 0;
+    function glideNote(m, t, dur, v, bus, pv, wet) { // synthwave lead: two detuned saws that glide from the last note, with vibrato
+      var f = mtof(m), len = Math.max(.25, dur * .95), lp = ctx.createBiquadFilter(), g = ctx.createGain(), lfo = ctx.createOscillator(), lg = ctx.createGain(), from = glideFrom || f;
+      glideFrom = f; lfo.frequency.value = 5.5; lg.gain.setValueAtTime(0, t); lg.gain.linearRampToValueAtTime(8, t + Math.min(.5, len)); lfo.connect(lg);
+      lp.type = 'lowpass'; lp.Q.value = 2; lp.frequency.setValueAtTime(1400, t); lp.frequency.linearRampToValueAtTime(2600 + v * 1400, t + .08);
+      [-8, 8].forEach(function (dt) { var o = ctx.createOscillator(); o.type = 'sawtooth'; o.detune.value = dt; o.frequency.setValueAtTime(from, t); o.frequency.exponentialRampToValueAtTime(f, t + .07); lg.connect(o.detune); o.connect(lp); o.start(t); o.stop(t + len + .4); });
+      shape(g, t, .025, v * .2, Math.max(0, len - .2), .3); lp.connect(g); route(g, B(bus), pv, wet); lfo.start(t); lfo.stop(t + len + .4); made.notes++;
+    }
     function synthNote(m, t, dur, v, bus, pv, wet, short) {
       var f = mtof(m), len = short ? .22 : Math.max(.25, dur * .9), lp = ctx.createBiquadFilter(), g = ctx.createGain();
       lp.type = 'lowpass'; lp.frequency.setValueAtTime(short ? 3600 : 3200, t); lp.frequency.exponentialRampToValueAtTime(900, t + len); lp.Q.value = 3;
@@ -248,7 +277,7 @@
 
     // ---- the voice a theme uses for its lead and pulse. Style choices in the sound sheet override the lead.
     // Level trims from measuring each voice and layer alone, so every chapter sits at a similar loudness.
-    var VOICE_TRIM = { piano: 3.35, pluck: 6, guitar: 5.4, cello: 2.1, handpan: 3.9, epiano: 3.9, synth: 3, staccato: 3, brass: 1.07, bell: 3.5, strings: .08 };
+    var VOICE_TRIM = { flute: 3, marimba: 4, koto: 4.8, slide: 5.4, glide: 3, piano: 3.35, pluck: 6, guitar: 5.4, cello: 2.1, handpan: 3.9, epiano: 3.9, synth: 3, staccato: 3, brass: 1.07, bell: 3.5, strings: .08 };
     var KIT_TRIM = { soft: 7.1, electro: 3.5, epic: 1.6 };
     // A style changes the band: lead voice, the rolling pulse and the drum kit. Auto uses each chapter's own choice.
     var STYLE_ARR = { piano: { lead: 'piano', ost: 'pluck', kit: 'soft' }, electronic: { lead: 'synth', ost: 'synth', kit: 'electro' },
@@ -269,6 +298,11 @@
         case 'bell': bellNote(m, t, Math.max(1.6, len * 1.4), v, bus, pv, wet, 3.5, 2); break;
         case 'brass': brassChord([m - 12], t, len, v * 1.4, bus, wet, .12); break;
         case 'strings': stringsChord([m, m + 7], t, len * 1.05, v * 1.3, bus, wet, .15); break;
+        case 'flute': fluteNote(m, t, len, v, bus, pv, wet); break;
+        case 'marimba': marimbaNote(m, t, len, v, bus, pv, wet); break;
+        case 'koto': bentPluck(m, t, len, v, bus, pv, wet, true, .6, .05); break;
+        case 'slide': bentPluck(m, t, len, v, bus, pv, wet, false, -2, .16); break;
+        case 'glide': glideNote(m, t, len, v, bus, pv, wet); break;
         default: pianoNote(m, t, len, v, bus, pv, wet);
       }
     }
