@@ -31,7 +31,7 @@
   // Ten chapters: a day that runs into night and out to dawn. kit and life are used by the sound.
   var CHAPTERS = [
     { name: 'Dawn Meadow', kit: 'piano', bed: 'meadow', life: ['songbirds', 'balloon', 'windmill'], balloon: 1, sky: ['#5f9fe6', '#b7d8f7', '#ffe7c8'], sunX: .3, sunY: .55, sunC: '#fff4cf', ground: ['#9bd06f', '#6fb251'], road: '#50586a', edge: '#f0ece0', line: '#fbf7ea', fog: '#d8ecff',
-      ridge: ['#a9c9d8', '#86b69a', '#5e9a6e'], mist: .5, night: 0, stars: 0, rain: 0, snow: 0, leaves: 0, petals: 1, aurora: 0, heat: 0, skyline: 0, wind: 1, tintC: '#ffd9a0', tintA: .04,
+      ridge: ['#a9c9d8', '#86b69a', '#5e9a6e'], mist: .5, night: 0, stars: 0, rain: 0, snow: 0, leaves: 0, petals: 0, aurora: 0, heat: 0, skyline: 0, wind: 1, tintC: '#ffd9a0', tintA: .04,
       objs: ['round', 'round', 'pine', 'birch', 'bush', 'round', 'cherry', 'hut'] },
     { name: 'Cherry Hills', kit: 'pluck', bed: 'meadow', life: ['songbirds', 'windchimes', 'butterflies'], sky: ['#7fb2f0', '#f6c8e0', '#fff0e0'], sunX: .62, sunY: .5, sunC: '#fff6d8', ground: ['#a4d878', '#80c462'], road: '#58606f', edge: '#fff0f4', line: '#ffffff', fog: '#ffe4ee',
       ridge: ['#d9a6c6', '#9fc9a0', '#6fb07a'], mist: .6, night: 0, stars: 0, rain: 0, snow: 0, leaves: 0, petals: 1.6, aurora: 0, heat: 0, skyline: 0, wind: 1.2, tintC: '#ffb6d0', tintA: .05,
@@ -499,11 +499,15 @@
     } else if (kind === 'lighthouse') {
       g.fillStyle = '#f4f1ea'; g.beginPath(); g.moveTo(-10 * s, 0); g.lineTo(-6 * s, -80 * s); g.lineTo(6 * s, -80 * s); g.lineTo(10 * s, 0); g.fill();
       g.fillStyle = '#c0392b'; [18, 42, 66].forEach(function (yy) { g.fillRect(-9 * s + (yy / 80) * 3 * s, -yy * s, 18 * s - (yy / 80) * 6 * s, 9 * s); });
-      g.fillStyle = '#2d3440'; g.fillRect(-8 * s, -88 * s, 16 * s, 8 * s); glowDot(0, -92 * s, 30 * s, '#ffe9a0');
+      g.fillStyle = '#2d3440'; g.fillRect(-8 * s, -88 * s, 16 * s, 8 * s); glowDot(0, -92 * s, (S.night > .4 ? 30 : 11) * s, '#ffe9a0');
     } else if (kind === 'windmill') {
-      g.fillStyle = '#efe6d2'; g.beginPath(); g.moveTo(-12 * s, 0); g.lineTo(-7 * s, -44 * s); g.lineTo(7 * s, -44 * s); g.lineTo(12 * s, 0); g.fill();
-      g.fillStyle = '#8a5a3a'; g.beginPath(); g.moveTo(-9 * s, -44 * s); g.lineTo(0, -56 * s); g.lineTo(9 * s, -44 * s); g.fill();
-      g.save(); g.translate(0, -46 * s); g.rotate(tAnim * .9 + k); g.fillStyle = '#e8dcc0'; for (var b = 0; b < 4; b++) { g.rotate(Math.PI / 2); g.fillRect(-1.5 * s, 0, 3 * s, 30 * s); g.fillRect(-8 * s, 8 * s, 16 * s, 18 * s); } g.restore();
+      var wmg = g.createLinearGradient(-12 * s, 0, 12 * s, 0); wmg.addColorStop(0, '#c99b6d'); wmg.addColorStop(1, '#8a6040');
+      g.fillStyle = wmg; g.beginPath(); g.moveTo(-12 * s, 0); g.lineTo(-7 * s, -44 * s); g.lineTo(7 * s, -44 * s); g.lineTo(12 * s, 0); g.fill(); // timber tower
+      g.fillStyle = '#4a3020'; rr(-3 * s, -11 * s, 6 * s, 11 * s, 3 * s); g.fill(); g.fillRect(-2 * s, -30 * s, 4 * s, 5 * s); // door and window
+      g.fillStyle = '#6b3d26'; g.beginPath(); g.moveTo(-9 * s, -44 * s); g.lineTo(0, -56 * s); g.lineTo(9 * s, -44 * s); g.fill();
+      g.save(); g.translate(0, -47 * s); g.rotate(tAnim * .9 + k);
+      for (var b = 0; b < 4; b++) { g.rotate(Math.PI / 2); g.fillStyle = '#5a3a24'; g.fillRect(-1.2 * s, 0, 2.4 * s, 32 * s); g.fillStyle = 'rgba(245,236,214,.92)'; g.fillRect(1.6 * s, 7 * s, 8 * s, 23 * s); g.strokeStyle = '#5a3a24'; g.lineWidth = Math.max(.5, .8 * s); g.strokeRect(1.6 * s, 7 * s, 8 * s, 23 * s); }
+      g.fillStyle = '#3a2618'; g.beginPath(); g.arc(0, 0, 2.6 * s, 0, TAU); g.fill(); g.restore();
     } else if (kind === 'tower' || kind === 'neon') {
       var tw = (30 + rnd(k, 1) * 26) * s; var th = (100 + rnd(k, 2) * 150) * s;
       var gr = g.createLinearGradient(-tw / 2, 0, tw / 2, 0);
@@ -525,7 +529,10 @@
       if (kind === 'neon') {
         var nc = ['#ff4fd8', '#35e6ff', '#ffe066', '#7cff6b'][k % 4];
         var onn = ((tAnim * (1 + rnd(k, 2))) % 1) > .12;
-        g.save(); g.shadowColor = nc; g.shadowBlur = onn ? 18 : 2; g.fillStyle = onn ? nc : '#333'; rr(-tw * .5 - 14 * s, -th * .5, 28 * s, 18 * s, 4 * s); g.fill(); g.restore();
+        g.save(); g.shadowColor = nc; g.shadowBlur = onn ? 18 : 2; g.fillStyle = onn ? nc : '#333'; g.fillStyle = '#140a24'; g.fillRect(-tw * .5 - 11 * s, -th * .62, 10 * s, 40 * s); // blade sign on a bracket
+        g.strokeStyle = onn ? nc : '#444'; g.lineWidth = 1.6 * s; g.strokeRect(-tw * .5 - 11 * s, -th * .62, 10 * s, 40 * s);
+        g.fillStyle = onn ? nc : '#333'; for (var lt = 0; lt < 4; lt++) g.fillRect(-tw * .5 - 8.5 * s, -th * .62 + 5 * s + lt * 9 * s, 5 * s, 4.5 * s);
+        g.restore(); g.fillStyle = '#222'; g.fillRect(-tw * .5 - 1 * s, -th * .62 + 3 * s, 1.5 * s, 34 * s);
       }
     } else if (kind === 'post') {
       g.fillStyle = 'rgba(0,0,0,.18)'; g.beginPath(); g.ellipse(0, 0, 5 * s, 1.5 * s, 0, 0, TAU); g.fill();
@@ -572,7 +579,7 @@
       }
       }
     }
-    if (S.a.balloon && S.night < .5) for (var bl = 0; bl < 2; bl++) { // two balloons drift at different heights and speeds
+    if (S.a.balloon && S.night < .5) for (var bl = 0; bl < 1; bl++) { // one balloon drifts across the sky
       var lx = ((tAnim * (bl ? 4.2 : 6) * dpr + bl * W * .7) % (W * 1.5)) - W * .25; var ly = Math.max(H * .24, hy * (bl ? .55 : .75)) + Math.sin(tAnim * .4 + bl * 2) * 7 * dpr; var u = dpr * (bl ? .62 : 1); var sway = Math.sin(tAnim * .7 + bl) * .05;
       g.save(); g.translate(lx, ly); g.rotate(sway);
       var env = g.createRadialGradient(-6 * u, -8 * u, 2 * u, 0, 0, 30 * u); env.addColorStop(0, bl ? '#7adbd0' : '#ff8a7a'); env.addColorStop(.6, bl ? '#2aa198' : '#e8483f'); env.addColorStop(1, bl ? '#14665f' : '#a52a2a');
@@ -766,8 +773,18 @@
         g.fillStyle = 'rgba(0,0,0,.18)'; g.beginPath(); g.moveTo(xa, a.y - ha * .45); g.lineTo(xb, b.y - hb * .45); g.lineTo(xb, b.y - hb * .3); g.lineTo(xa, a.y - ha * .3); g.closePath(); g.fill();
       }
     });
+    if (S.rain > .1) { // raindrops land on the road: small rings that open and fade
+      g.strokeStyle = 'rgba(220,235,255,1)';
+      for (var sp = 0; sp < 34; sp++) {
+        var cyc = tAnim * 2.2 + rnd(sp, 81), gen = Math.floor(cyc), ph = cyc - gen, sdd = 2 + rnd(sp * 7 + gen, 82) * 60, srw = rowAt(sdd);
+        var sxx = srw.ct + (rnd(sp * 7 + gen, 83) * 2 - 1) * srw.hw * .95, srr = (1.5 + ph * 7) * srw.p * dpr * 2 + 1;
+        g.globalAlpha = (1 - ph) * .5 * S.rain; g.lineWidth = Math.max(.7, srw.p * 2 * dpr);
+        g.beginPath(); g.ellipse(sxx, srw.y, srr, srr * .32, 0, 0, TAU); g.stroke();
+      }
+      g.globalAlpha = 1;
+    }
     if (S.rain > .1) { // wet road: the sky shows in the surface, brighter in the distance
-      var ws = g.createLinearGradient(0, rows[n - 1].y, 0, H); ws.addColorStop(0, mix(S.sky[2], '#ffffff', .15) + Math.round(.34 * S.rain * 255).toString(16).padStart(2, '0')); ws.addColorStop(1, mix(S.sky[1], '#000000', .2) + Math.round(.08 * S.rain * 255).toString(16).padStart(2, '0'));
+      var ws = g.createLinearGradient(0, rows[n - 1].y, 0, H); ws.addColorStop(0, mix(S.sky[2], '#ffffff', .15) + Math.round(.12 * S.rain * 255).toString(16).padStart(2, '0')); ws.addColorStop(1, mix(S.sky[1], '#000000', .2) + Math.round(.08 * S.rain * 255).toString(16).padStart(2, '0'));
       g.fillStyle = ws; g.beginPath(); g.moveTo(rows[0].ct - rows[0].hw, rows[0].y);
       for (i = 1; i < n; i++) g.lineTo(rows[i].ct - rows[i].hw, rows[i].y);
       for (i = n - 1; i >= 0; i--) g.lineTo(rows[i].ct + rows[i].hw, rows[i].y);
@@ -849,6 +866,7 @@
       if (it.car) {
         var c = it.car; var x = cx + (xoAt(it.d) + (c.laneF + (c.knock || 0) * (c.kx || 0)) * LANE - camX) * p * RH; var w = p * RH * LANE * BODY;
         if (S.night > .5) { glowDot(x, y, w * .7, '#ff2a4a'); }
+        if (S.rain > .3) { var spg = g.createRadialGradient(x, y, 0, x, y, w * .75); spg.addColorStop(0, 'rgba(215,228,245,' + (.32 * S.rain) + ')'); spg.addColorStop(1, 'rgba(215,228,245,0)'); g.fillStyle = spg; g.beginPath(); g.ellipse(x, y - w * .05, w * .75, w * .22, 0, 0, TAU); g.fill(); } // spray off the tyres
         if (c.hurt > 0) { glowDot(x, y - w * .3, w * 1.1, Math.sin(tAnim * 40) > 0 ? '#ff3b3b' : '#ffb347'); g.globalAlpha = clamp(c.hurt * 1.6, .25, 1); }
         carRear(x, y, w, c.col, c.kind, { type: TYPE_OF[c.kind], brake: false, rot: c.rot, reflect: S.rain, spin: c.tread || 0, tail: '#ff3a3a', under: S.night > .85 ? c.col : null });
         g.globalAlpha = 1;
@@ -874,6 +892,7 @@
   function playerBox() { var r = rowAt(PD); return { x: r.ct + lane * LANE * r.hw, y: r.y, w: r.hw * LANE * BODY }; }
   function drawPlayer(S) {
     var pb = playerBox(); var py = pb.y + (susp.y - pitch * 2.5) * dpr; var pw = pb.w; var tilt = clamp(laneV * .035, -.15, .15);
+    if (S.rain > .3) { var psg = g.createRadialGradient(pb.x, py, 0, pb.x, py, pw * .8); psg.addColorStop(0, 'rgba(215,228,245,' + (.3 * S.rain * clamp(speed / 30, .3, 1)) + ')'); psg.addColorStop(1, 'rgba(215,228,245,0)'); g.fillStyle = psg; g.beginPath(); g.ellipse(pb.x, py - pw * .02, pw * .85, pw * .2, 0, 0, TAU); g.fill(); } // spray off your own tyres
     if (S.night > .5 || S.rain > .3) {
       var px = pb.x;
       g.save(); g.globalCompositeOperation = 'lighter'; g.translate(px, py - pw * .5); g.scale(1, 3.4);
@@ -897,34 +916,41 @@
   // position and a height. The car drives through them, the wind carries them across, they fall
   // and flutter (a petal shows its face, then its edge). Far ones are drawn behind the car, near
   // ones in front, and they fade with the scene instead of popping in and out.
-  var FLURRY_N = 56, flurry = [];
+  var FLURRY_N = 30, flurry = [];
+  // Petals and leaves drift down beside the road, carried by the wind. They move with the air, not with the ground,
+  // so they slide past gently instead of rushing at the screen, and they never fall across the road or the car.
   function seedFlake(f, far) {
-    f.d = far ? 70 + Math.random() * 60 : 1 + Math.random() * 129; f.lat = (Math.random() * 2 - 1) * 3.2; f.h = .05 + Math.random() * 1.6;
-    f.fall = .12 + Math.random() * .22; f.ph = Math.random() * TAU; f.flip = 3 + Math.random() * 5; f.size = .7 + Math.random() * .6; f.c = Math.random(); f.spin = (Math.random() - .5) * 4; return f;
+    var sd = Math.random() < .5 ? -1 : 1;
+    f.d = far ? 25 + Math.random() * 50 : 8 + Math.random() * 67; f.lat = sd * (1.12 + Math.random() * 1.1); f.h = .2 + Math.random() * .9;
+    f.fall = .06 + Math.random() * .1; f.ph = Math.random() * TAU; f.flip = 1.6 + Math.random() * 2.4; f.size = .8 + Math.random() * .5; f.c = Math.random(); f.spin = (Math.random() - .5) * 2; return f;
   }
   function stepFlurry(dt, S) {
     var amt = Math.max(S.petals, S.leaves); if (amt < .02) { flurry.length = 0; return; }
     while (flurry.length < FLURRY_N) flurry.push(seedFlake({}, false));
-    var v = mode === 'run' ? speed : mode === 'menu' ? 20 : 0, wind = S.wind;
+    var v = (mode === 'run' ? speed : mode === 'menu' ? 20 : 0) * .3, wind = S.wind; // the air moves with you, so they pass at a third of your speed
     flurry.forEach(function (f) {
-      f.ph += f.flip * dt; f.d -= v * dt - Math.sin(f.ph * .5) * .3 * dt; // carried towards the camera by the car's own motion
-      f.lat += (wind * .35 + Math.sin(f.ph * .7) * .25) * dt; f.h -= f.fall * (1 + .5 * Math.sin(f.ph)) * dt;
-      if (f.d < .6 || f.h < 0 || Math.abs(f.lat) > 3.6) seedFlake(f, true);
+      f.ph += f.flip * dt; f.d -= v * dt;
+      f.lat += Math.sign(f.lat) * (wind * .12 + Math.sin(f.ph * .7) * .18) * dt; f.h -= f.fall * (1 + .5 * Math.sin(f.ph)) * dt;
+      if (f.d < 2 || f.h < 0 || Math.abs(f.lat) > 2.6 || Math.abs(f.lat) < 1.05) seedFlake(f, true);
     });
   }
   function drawFlurry(S, far) {
     var amt = Math.max(S.petals, S.leaves); if (amt < .02 || !flurry.length) return;
-    var petal = S.petals >= S.leaves, cols = petal ? ['#ffd1e8', '#ffb7d0', '#fff3c4', '#ff9fc0'] : ['#e8b040', '#c2410c', '#e08a2e', '#b5532f'];
-    var amtN = FLURRY_N * clamp(amt / (petal ? 1.6 : 1), 0, 1); // how many show; the last one fades rather than pops
+    var petal = S.petals >= S.leaves, cols = petal ? [['#ff8fb8', '#ffd3e4'], ['#f772a6', '#ffc2da'], ['#ffa8c8', '#fff0f6']] : [['#d9822b', '#f2b45a'], ['#b5462a', '#e07a4a'], ['#c99a2e', '#f0cf6a']];
+    var amtN = FLURRY_N * clamp(amt / (petal ? 1.6 : 1), 0, 1);
     for (var i = 0; i < FLURRY_N && i < amtN; i++) {
       var f = flurry[i]; if ((f.d >= PD) !== far || f.d > DRAW) continue;
       var r = rowAt(f.d), x = cx + (xoAt(f.d) + f.lat - camX) * r.p * RH, y = r.y - f.h * r.hw;
-      var rad = Math.min(16 * dpr, (petal ? .024 : .03) * f.size * r.hw), face = Math.abs(Math.cos(f.ph)); // flutter: face, edge, face
-      g.globalAlpha = clamp(amtN - i, 0, 1) * clamp((130 - f.d) / 30, 0, 1) * (.55 + .45 * face); // fade in far away
-      g.fillStyle = cols[Math.floor(f.c * cols.length)];
-      g.save(); g.translate(x, y); g.rotate(f.ph * .4 * f.spin);
-      g.beginPath(); g.ellipse(0, 0, rad, Math.max(.5, rad * (petal ? .55 : .5) * (.15 + .85 * face)), 0, 0, TAU); g.fill();
-      if (!petal && face > .4) { g.strokeStyle = 'rgba(90,50,20,.5)'; g.lineWidth = Math.max(.5, rad * .12); g.beginPath(); g.moveTo(-rad, 0); g.lineTo(rad, 0); g.stroke(); } // leaf vein
+      var rad = clamp((petal ? .05 : .055) * f.size * r.hw, 3 * dpr, 11 * dpr), face = .25 + .75 * Math.abs(Math.cos(f.ph)), cc = cols[Math.floor(f.c * cols.length)];
+      g.globalAlpha = clamp(amtN - i, 0, 1) * clamp((120 - f.d) / 30, 0, 1);
+      g.save(); g.translate(x, y); g.rotate(f.ph * .35 * f.spin + (petal ? 0 : .6)); g.scale(1, face);
+      g.fillStyle = cc[0]; g.beginPath();
+      if (petal) { // a cherry petal: rounded, with a small notch at the tip
+        g.moveTo(0, rad); g.bezierCurveTo(-rad * 1.1, rad * .4, -rad * .9, -rad * .9, -rad * .2, -rad); g.lineTo(0, -rad * .7); g.lineTo(rad * .2, -rad); g.bezierCurveTo(rad * .9, -rad * .9, rad * 1.1, rad * .4, 0, rad);
+      } else { g.moveTo(0, -rad * 1.2); g.quadraticCurveTo(rad * .9, 0, 0, rad * 1.2); g.quadraticCurveTo(-rad * .9, 0, 0, -rad * 1.2); } // a leaf: pointed at both ends
+      g.fill(); g.strokeStyle = petal ? 'rgba(170,40,90,.35)' : 'rgba(80,40,20,.3)'; g.lineWidth = Math.max(.6, rad * .08); g.stroke();
+      g.fillStyle = cc[1]; g.beginPath(); g.ellipse(-rad * .15, -rad * .2, rad * .35, rad * .5, 0, 0, TAU); g.fill(); // light side
+      if (!petal) { g.strokeStyle = 'rgba(80,40,20,.45)'; g.lineWidth = Math.max(.6, rad * .1); g.beginPath(); g.moveTo(0, -rad * 1.1); g.lineTo(0, rad * 1.5); g.stroke(); }
       g.restore();
     }
     g.globalAlpha = 1;
@@ -942,13 +968,14 @@
     // with speed and lean with the wind and with the lane change.
     var sp = mode === 'run' ? clamp(speed / 40, 0, 1.6) : .4, lean = clamp(-laneV * .05, -.25, .25) - .22 - S.wind * .03;
     if (S.rain > .05) {
-      [[34, 15, 800, .2, 1], [24, 28, 1250, .3, 1.5], [9, 52, 1900, .42, 2.4]].forEach(function (Ly, li) {
+      [[26, 9, 800, .2, 1], [16, 15, 1250, .3, 1.4], [6, 24, 1900, .42, 2]].forEach(function (Ly, li) {
         var n = Math.round(Ly[0] * S.rain), len = Ly[1] * (1 + .5 * sp) * dpr;
-        g.strokeStyle = 'rgba(205,228,255,' + (Ly[3] * S.rain) + ')'; g.lineWidth = Ly[4] * dpr; g.beginPath();
+        var rgd = g.createLinearGradient(0, 0, 0, H); rgd.addColorStop(0, 'rgba(205,228,255,0)'); rgd.addColorStop(.3, 'rgba(205,228,255,' + (Ly[3] * .45 * S.rain) + ')'); rgd.addColorStop(1, 'rgba(205,228,255,' + (Ly[3] * .8 * S.rain) + ')');
+        g.strokeStyle = rgd; g.lineWidth = Ly[4] * .8 * dpr; g.lineCap = 'round'; g.beginPath();
         for (var i = 0; i < n; i++) { var x = rnd(i + li * 77, 1) * W; var y = ((rnd(i + li * 77, 2) * H + tAnim * Ly[2] * dpr) % H); g.moveTo(x, y); g.lineTo(x + lean * len, y + len); }
         g.stroke();
       });
-      g.fillStyle = 'rgba(15,22,40,' + (.12 * S.rain) + ')'; g.fillRect(0, 0, W, H);
+      g.fillStyle = 'rgba(15,22,40,' + (.05 * S.rain) + ')'; g.fillRect(0, 0, W, H);
     }
     if (S.snow > .05) {
       g.fillStyle = '#fff';

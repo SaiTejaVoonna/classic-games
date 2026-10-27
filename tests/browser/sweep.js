@@ -4,7 +4,7 @@
 const { chromium } = require('playwright');
 const INDEX = require('url').pathToFileURL(require('path').resolve(__dirname, '../../snake/index.html')).href;
 const CHROMIUM = process.env.CHROMIUM_PATH || '/opt/pw-browsers/chromium';
-const out = process.argv[2];
+const out = process.argv[2] || require('path').join(require('os').tmpdir(), 'classic-games-sweep'); // never write screenshots into the repo
 const sizes = [[320,568],[390,844],[768,1024],[1366,768],[1440,900]];
 (async () => {
   const b = await chromium.launch({ executablePath: CHROMIUM });

@@ -27,7 +27,7 @@ canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block
 .hint.show { opacity: 1; }
 .hint span { color: var(--accent); font-size: 18px; }
 .spd { position: absolute; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); text-align: right; }
-.spdctl { display: flex; gap: 8px; justify-content: flex-end; margin-bottom: 8px; pointer-events: auto; }
+.spdctl { display: flex; flex-direction: column-reverse; align-items: flex-end; gap: 8px; margin-bottom: 10px; pointer-events: auto; } /* a column at the screen edge, beside the car rather than over it */
 .spdctl button { width: 44px; height: 44px; border-radius: 50%; border: 1px solid #ffffff40; background: #0a0d18b0; color: #fff; font: inherit; font-size: 22px; line-height: 1; cursor: pointer; backdrop-filter: blur(8px); touch-action: manipulation; }
 .spdctl button:disabled { opacity: .35; }
 .spd .pace { display: block; margin-top: 2px; letter-spacing: 1px; text-transform: none; }
