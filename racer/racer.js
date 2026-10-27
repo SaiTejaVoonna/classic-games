@@ -907,10 +907,10 @@
   }
   function drawOverpass(it) { // an elevated metro line crossing above the road, with a train running across it
     var d0 = it.d0, d1 = d0 + 4, night = curS.night > .4;
-    [-6.5, -1.35, 1.2, 6.3].forEach(function (pl) { wbox(d0 + 1.2, d0 + 2.8, pl, pl + .28, 0, .95, '#4b515c', '#59606c', null); });
-    wbox(d0, d1, -14, 14, .95, 1.22, '#5d6472', '#6b7280', '#3f4550'); var ul = wpt(d0, -14, 1.2), ur = wpt(d0, 14, 1.2); g.fillStyle = 'rgba(255,214,120,.7)'; g.fillRect(ul[0], ul[1] - 2 * dpr, ur[0] - ul[0], 2 * dpr); // a lit strip along the deck
+    [-6.5, -1.35, 1.2, 6.3].forEach(function (pl) { wbox(d0 + 1.2, d0 + 2.8, pl, pl + .28, 0, 1.02, '#3d424c', '#474c57', null); });
+    wbox(d0, d1, -14, 14, 1.02, 1.2, '#454b57', '#4d5360', '#2f343d'); var ul = wpt(d0, -14, 1.18), ur = wpt(d0, 14, 1.18); g.fillStyle = 'rgba(255,214,120,.7)'; g.fillRect(ul[0], ul[1] - 2 * dpr, ur[0] - ul[0], 2 * dpr); // a lit strip along the deck
     var x = ((tAnim * 2.6) % 22) - 11; // the train crosses the screen in a few seconds
-    for (var c = 0; c < 3; c++) { var a = x - c * 3.9; wbox(d0 + .6, d1 - .6, a, a + 3.6, 1.22, 1.56, '#d9dde3', '#c8ced6', '#b8bec7', null); var w0 = wpt(d0 + .6, a + .25, 1.33), w1 = wpt(d0 + .6, a + 3.35, 1.46); g.fillStyle = night ? '#ffe39a' : '#3e5466'; g.fillRect(Math.min(w0[0], w1[0]), Math.min(w0[1], w1[1]), Math.abs(w1[0] - w0[0]), Math.abs(w1[1] - w0[1])); }
+    for (var c = 0; c < 3; c++) { var a = x - c * 3.9; wbox(d0 + .6, d1 - .6, a, a + 3.4, 1.22, 1.5, '#2b3550', '#26304a', '#1c2336', null); var w0 = wpt(d0 + .6, a + .2, 1.33), w1 = wpt(d0 + .6, a + 3.2, 1.42); g.fillStyle = night ? '#ffe39a' : '#9fc4e0'; g.fillRect(Math.min(w0[0], w1[0]), Math.min(w0[1], w1[1]), Math.abs(w1[0] - w0[0]), Math.abs(w1[1] - w0[1])); }
   }
   function drawLightArch(it) { // the Neon Quarter light tunnel: glowing arches over the road
     var r = rowAt(it.d), pts = [wpt(it.d, -1.15, 0), wpt(it.d, -1.15, 1), wpt(it.d, 1.15, 1), wpt(it.d, 1.15, 0)], col = it.k % 2 ? '#ff4fd8' : '#35e6ff', fade = clamp((DRAW - it.d) / 120, 0, 1);
