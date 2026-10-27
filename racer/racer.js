@@ -221,8 +221,10 @@
   function getCheckpoint() {
     if (ignoreCheckpoint) return null;
     var c = readJson(CHECK_KEY);
-    if (!c || c.mode !== 'journey' || typeof c.chapter !== 'number' || c.chapter < 1 || c.chapter >= JOURNEY_CHAPTERS || !has(DIFFS, c.difficulty)) return null;
-    c.chapter = Math.floor(c.chapter); // a damaged save must never break the start screen: lives and score fall back to safe values
+    var hasPos = c && typeof c.frac === 'number' && isFinite(c.frac) && c.frac > .005 && c.frac < .97; // a mid-chapter save: where you were when you left
+    if (!c || c.mode !== 'journey' || typeof c.chapter !== 'number' || (c.chapter < 1 && !hasPos) || c.chapter >= JOURNEY_CHAPTERS || !has(DIFFS, c.difficulty)) return null;
+    if (!hasPos) delete c.frac;
+    c.chapter = Math.max(0, Math.floor(c.chapter)); // a damaged save must never break the start screen: lives and score fall back to safe values
     c.lives = typeof c.lives === 'number' && isFinite(c.lives) && c.lives >= 1 ? Math.min(9, Math.floor(c.lives)) : 1;
     c.score = typeof c.score === 'number' && isFinite(c.score) && c.score >= 0 ? c.score : 0;
     return c;
@@ -259,10 +261,10 @@
   function reset(fromCheckpoint) {
     applyTrip();
     keepOn = false; runMul = mul(); applyTrip(); dist = 0; speed = RAMP.v0 * mul(); lane = 0; laneV = 0; susp = { y: 0, v: 0 }; pitch = 0; roll = { y: 0, v: 0 }; camRoll = 0; laneTarget = 0; traffic = []; nextSpawn = 300; combo = 0; comboTimer = 0;
-    score = 0; shake = 0; particles = []; pieces = {}; pieceFx = {}; lastChapter = -1; nearTimer = 0; shieldT = 0; flashT = 0; lives = maxLives; nextStop = 0; collected = {};
+    score = 0; shake = 0; particles = []; lastChapter = -1; nearTimer = 0; shieldT = 0; flashT = 0; lives = maxLives; nextStop = 0; collected = {}; restCh = 0; saveT = 8; countT = 0;
     run = { near: 0, coins: 0, hits: 0 }; coinNote = 0; coinNoteT = 0; braking = false; paused = false; calmUntil = 0;
     if (fromCheckpoint) {
-      dist = fromCheckpoint.chapter * chapterLen; lives = clamp(fromCheckpoint.lives, 1, maxLives); score = fromCheckpoint.score || 0; run.hits = 1; speed = targetSpeed(dist);
+      dist = fromCheckpoint.frac != null ? Math.round(fromCheckpoint.frac * journeyLen()) : fromCheckpoint.chapter * chapterLen; restCh = fromCheckpoint.chapter; lives = clamp(fromCheckpoint.lives, 1, maxLives); score = fromCheckpoint.score || 0; run.hits = 1; speed = targetSpeed(dist);
       nextSpawn = dist + 260; while (nextStop < REST_STOPS.length && REST_STOPS[nextStop] * chapterLen <= dist) nextStop++;
     }
     seedN = (Date.now() % 100000) + 7;
@@ -303,7 +305,7 @@
   }
   // Bridges: on the coast chapters the road crosses open water on a long bridge about every 1.4 km, and a small boat
   // sails under it. bridgeAt(pos) is 0 on land and 1 on the deck, easing in over the first and last 6 m.
-  var BRIDGE_EVERY = 1400, BRIDGE_LEN = 170, bridgeCache = {};
+  var BRIDGE_EVERY = 1400, BRIDGE_LEN = 170, bridgeCache = {}, lastJoint = 0, hornBridge = -1;
   function bridgeStart(b) {
     var key = b + ':' + chapterLen + ':' + tripMode;
     if (!(key in bridgeCache)) { var st = b * BRIDGE_EVERY + 320; bridgeCache[key] = st > 200 && sceneAt(st).water > .95 && sceneAt(st + BRIDGE_LEN).water > .95 && !nearStop(st) && !nearStop(st + BRIDGE_LEN) ? st : null; }
@@ -349,13 +351,17 @@
   var HILL = [10, 3.8]; var ES = 0; var e0 = 0; var hyR = 0;
   function elev(s) { return HILL[0] * Math.sin(s / 330) + HILL[1] * Math.sin(s / 143 + 1.3); }
   function rowAt(d) { var p = pOf(d); return { y: yOf(p) - (elev(dist + d) - e0) * p * ES, p: p, ct: cx + (xoAt(d) - camX) * p * RH, hw: RH * p }; }
-  var rows = [];
+  var rows = [], roadEnd = DRAW; // roadEnd: how far ahead the visible road goes (less than DRAW when a crest hides the rest)
   function buildRows() {
-    rows = []; var prev = 1e9; var d = -.5;
+    rows = []; var prev = 1e9; var d = -.5, hid = 0;
     while (d <= DRAW) {
-      var r = rowAt(d); r.d = d; if (r.y > prev - .3) r.y = prev - .3; prev = r.y; rows.push(r);
+      var r = rowAt(d); r.d = d;
+      if (r.y > prev - .3) { r.y = prev - .3; hid += d < 8 ? .35 : d < 30 ? .8 : d < 100 ? 1.6 : 3; } // this bit of road is behind a crest
+      else if (hid > 8) break; // the road comes back into view far beyond a crest: stop here, so the hill hides it instead of showing a second road beside the first
+      prev = r.y; rows.push(r);
       d += d < 8 ? .35 : d < 30 ? .8 : d < 100 ? 1.6 : 3;
     }
+    roadEnd = rows.length ? rows[rows.length - 1].d : DRAW;
   }
 
   // ---------- sprites ----------
@@ -509,7 +515,7 @@
       g.fillStyle = '#4a3020'; rr(-3 * s, -11 * s, 6 * s, 11 * s, 3 * s); g.fill(); g.fillRect(-2 * s, -30 * s, 4 * s, 5 * s); // door and window
       g.fillStyle = '#6b3d26'; g.beginPath(); g.moveTo(-9 * s, -44 * s); g.lineTo(0, -56 * s); g.lineTo(9 * s, -44 * s); g.fill();
       g.save(); g.translate(0, -47 * s); g.rotate(tAnim * .9 + k);
-      for (var b = 0; b < 4; b++) { g.rotate(Math.PI / 2); g.fillStyle = '#5a3a24'; g.fillRect(-1.2 * s, 0, 2.4 * s, 32 * s); g.fillStyle = 'rgba(245,236,214,.92)'; g.fillRect(1.6 * s, 7 * s, 8 * s, 23 * s); g.strokeStyle = '#5a3a24'; g.lineWidth = Math.max(.5, .8 * s); g.strokeRect(1.6 * s, 7 * s, 8 * s, 23 * s); }
+      for (var b = 0; b < 4; b++) { g.rotate(Math.PI / 2); g.fillStyle = '#5a3a24'; g.fillRect(-1.2 * s, 0, 2.4 * s, 25 * s); g.fillStyle = 'rgba(245,236,214,.92)'; g.fillRect(1.6 * s, 6 * s, 6 * s, 17 * s); g.strokeStyle = '#5a3a24'; g.lineWidth = Math.max(.5, .8 * s); g.strokeRect(1.6 * s, 6 * s, 6 * s, 17 * s); }
       g.fillStyle = '#3a2618'; g.beginPath(); g.arc(0, 0, 2.6 * s, 0, TAU); g.fill(); g.restore();
     } else if (kind === 'tower' || kind === 'neon') {
       var tw = (30 + rnd(k, 1) * 26) * s; var th = (100 + rnd(k, 2) * 150) * s;
@@ -542,7 +548,7 @@
       g.fillStyle = '#f3efe6'; g.fillRect(-1.6 * s, -26 * s, 3.2 * s, 26 * s); g.fillStyle = '#e8661a'; g.fillRect(-1.6 * s, -23 * s, 3.2 * s, 6 * s); g.fillStyle = '#222'; g.fillRect(-1.6 * s, -9 * s, 3.2 * s, 3 * s);
     } else if (kind === 'lamp') {
       g.fillStyle = '#2f3644'; g.fillRect(-2 * s, -64 * s, 4 * s, 64 * s); g.fillRect(0, -66 * s, 16 * s, 3 * s);
-      if (lit > .2) { glowDot(14 * s, -62 * s, 28 * s, '#ffd98a'); g.fillStyle = '#ffe9a8'; g.beginPath(); g.arc(14 * s, -62 * s, 4 * s, 0, TAU); g.fill(); }
+      if (lit > .2) { glowDot(14 * s, -62 * s, 13 * s, '#ffd98a'); g.fillStyle = '#ffe9a8'; g.beginPath(); g.arc(14 * s, -62 * s, 4 * s, 0, TAU); g.fill(); }
     }
     g.restore();
   }
@@ -760,7 +766,7 @@
     for (var side = -1; side <= 1; side += 2) {
       g.beginPath();
       for (var m = Math.floor(dist / PER); m * PER < dist + DRAW; m++) {
-        var s0 = m * PER - dist; var s1 = s0 + LEN; if (s1 < 0) continue; s0 = Math.max(s0, -.4); if (s0 > DRAW) break; s1 = Math.min(s1, DRAW);
+        var s0 = m * PER - dist; var s1 = s0 + LEN; if (s1 < 0) continue; s0 = Math.max(s0, -.4); if (s0 > roadEnd) break; s1 = Math.min(s1, roadEnd);
         var L = []; var R = [];
         for (var j = 0; j <= 6; j++) { var dd = s0 + (s1 - s0) * j / 6; var rw = rowAt(dd); var lw = rw.hw * .02; var c = rw.ct + side * rw.hw / 3; L.push([c - lw, rw.y]); R.push([c + lw, rw.y]); }
         g.moveTo(L[0][0], L[0][1]); for (var k = 1; k <= 6; k++) g.lineTo(L[k][0], L[k][1]); for (var k2 = 6; k2 >= 0; k2--) g.lineTo(R[k2][0], R[k2][1]); g.closePath();
@@ -795,155 +801,6 @@
     }
   }
 
-  // ---------- big moments ----------
-  // Each chapter has one set piece a little before its middle, built from simple boxes in the world so it has real
-  // depth: a balloon lifting off, trains, a wind farm, a cruise ship, a metro overhead, a light tunnel, a rock tunnel,
-  // a harbour. Trains and the ship travel your way, a little slower, so you overtake them over about half a minute.
-  var PIECES = ['balloon', 'steam', 'freight', 'turbines', 'ship', 'metro', 'lights', 'tunnel', 'nighttrain', 'harbour'];
-  var MOVERS = { steam: { lat: 1.4, f: .62, cars: 6, len: 13, h: .62 }, freight: { lat: -1.45, f: .6, cars: 12, len: 12, h: .55 }, nighttrain: { lat: -1.5, f: .6, cars: 8, len: 13, h: .6 }, ship: { lat: -2.1, f: .75, cars: 1, len: 80, h: .55 } }; // the track runs right beside the road; the ship stays out on the water
-  var TUNNEL_LEN = 170, pieces = {}, pieceFx = {}, curS = null, camH = 1;
-  function pieceStart(ci) { return ci * chapterLen + chapterLen * .4; }
-  function pieceKind(ci) { return PIECES[((ci % PIECES.length) + PIECES.length) % PIECES.length]; }
-  function tunnelAt(pos) { var c = chapterAt(pos); if (pieceKind(c.i) !== 'tunnel') return false; var st = pieceStart(c.i); return pos > st && pos < st + TUNNEL_LEN; }
-  function moverLen(M) { return M.cars * (M.len + 1.5); }
-  function moverSide(pos) { // which side a train is passing on at this point of road, so the trees there step aside
-    for (var k in pieces) { var P = pieces[k], M = MOVERS[P.kind]; if (P.kind !== 'ship' && pos > P.z - moverLen(M) - 12 && pos < P.z + 12) return M.lat > 0 ? 1 : -1; }
-    return 0;
-  }
-  function stepPieces(dt) {
-    for (var ci = chapterAt(dist).i; ci <= chapterAt(dist + DRAW).i; ci++) {
-      var kind = pieceKind(ci), st = pieceStart(ci), M = MOVERS[kind];
-      if (M && !pieces[ci] && dist + DRAW > st && dist < st + 40) pieces[ci] = { kind: kind, z: dist + DRAW + 5 + moverLen(M), puffs: [], pt: 0 };
-      var near = M ? (pieces[ci] ? pieces[ci].z - moverLen(M) - dist : 1e9) : st - dist; // how far ahead the closest part is
-      if (!pieceFx[ci] && near < (kind === 'tunnel' ? 30 : 140) && near > -40) { pieceFx[ci] = true; pieceSound(kind); }
-    }
-    Object.keys(pieces).forEach(function (k) {
-      var P = pieces[k], Mv = MOVERS[P.kind]; P.z += speed * Mv.f * dt;
-      if (P.kind === 'steam' || P.kind === 'freight') { // smoke from the engine at the front, left behind as it goes
-        P.pt -= dt; if (P.pt <= 0) { P.pt = P.kind === 'steam' ? .16 : .35; P.puffs.push({ z: P.z - 3, h: Mv.h + .35, r: .12, a: P.kind === 'steam' ? .75 : .35 }); }
-        P.puffs.forEach(function (f) { f.h += .22 * dt; f.r += .2 * dt; f.a -= .22 * dt; }); P.puffs = P.puffs.filter(function (f) { return f.a > 0; });
-      }
-      if (P.z < dist - 20) delete pieces[k];
-    });
-  }
-  function pieceSound(kind) {
-    var L = { balloon: ['balloon', -.5], steam: ['whistle', .5], freight: ['boathorn', -.5], turbines: ['windmill', .3], ship: ['foghorn', -.6], metro: ['metro', 0], lights: ['tunnel', 0], tunnel: ['tunnel', 0], nighttrain: ['train', -.6], harbour: ['foghorn', .6] }[kind];
-    if (L) au('life', L[0], L[1]);
-    if (kind === 'freight' || kind === 'steam') setTimeout(function () { au('life', 'train', kind === 'steam' ? .5 : -.5); }, 900);
-    if (kind === 'harbour') setTimeout(function () { au('life', 'gulls', .4); }, 1400);
-  }
-  function fogC(col, d) { return curS ? mix(col, curS.fog, clamp((d - 30) / (DRAW - 30), 0, .85)) : col; }
-  function wpt(d, l, h) { var r = rowAt(d); return [cx + (xoAt(d) + l - camX) * r.p * RH, r.y - h * r.hw]; }
-  function quad(a, b, c, e, col) { g.fillStyle = col; g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.lineTo(c[0], c[1]); g.lineTo(e[0], e[1]); g.closePath(); g.fill(); }
-  // A box in the world: d0..d1 metres ahead, l0..l1 road half-widths across, h0..h1 high (same units).
-  // Draws the faces you can see from the car: the side facing the road, the top or underside, and the near end.
-  function wbox(d0, d1, l0, l1, h0, h1, side, end, top, win) {
-    if (d1 < 1 || d0 > DRAW) return; d0 = Math.max(d0, 1); d1 = Math.min(d1, DRAW);
-    var lf = l0 > 0 ? l0 : l1 < 0 ? l1 : null, dm = (d0 + d1) / 2;
-    if (lf !== null) {
-      quad(wpt(d0, lf, h0), wpt(d1, lf, h0), wpt(d1, lf, h1), wpt(d0, lf, h1), fogC(side, dm));
-      if (win) { var n = Math.max(1, Math.round((d1 - d0) / win.every)); for (var k = 0; k < n; k++) { var a0 = d0 + (k + .25) * (d1 - d0) / n, a1 = a0 + (d1 - d0) / n * .5; if (a0 > DRAW * .8) break; quad(wpt(a0, lf, h0 + (h1 - h0) * win.lo), wpt(a1, lf, h0 + (h1 - h0) * win.lo), wpt(a1, lf, h0 + (h1 - h0) * win.hi), wpt(a0, lf, h0 + (h1 - h0) * win.hi), fogC(win.col, a0)); } }
-    }
-    if (top && h1 < camH) quad(wpt(d0, l0, h1), wpt(d0, l1, h1), wpt(d1, l1, h1), wpt(d1, l0, h1), fogC(top, dm));
-    if (top && h0 > camH) quad(wpt(d0, l0, h0), wpt(d0, l1, h0), wpt(d1, l1, h0), wpt(d1, l0, h0), fogC(top, dm));
-    quad(wpt(d0, l0, h0), wpt(d0, l1, h0), wpt(d0, l1, h1), wpt(d0, l0, h1), fogC(end, d0));
-  }
-  function pieceItems(items) {
-    camH = (rowAt(60).y - hy) / Math.max(1, rowAt(60).hw);
-    for (var ci = chapterAt(dist).i; ci <= chapterAt(dist + DRAW).i; ci++) {
-      var kind = pieceKind(ci), st = pieceStart(ci), d = st - dist, j;
-      if (kind === 'balloon' && d > 2 && d < DRAW) items.push({ d: d, fn: drawLiftBalloon });
-      if (kind === 'turbines') for (j = 0; j < 7; j++) { var td = st + j * 70 - dist; if (td > 4 && td < DRAW) items.push({ d: td, fn: drawTurbine, lat: (j % 2 ? 1 : -1) * (2.3 + rnd(j, 5) * 1.1), k: j }); }
-      if (kind === 'metro' && d > -6 && d < DRAW) items.push({ d: Math.max(d, 1.2), fn: drawOverpass, d0: d });
-      if (kind === 'lights') for (j = 13; j >= 0; j--) { var ld = st + j * 14 - dist; if (ld > 1 && ld < DRAW) items.push({ d: ld, fn: drawLightArch, k: j }); }
-      if (kind === 'tunnel') {
-        var td0 = st - dist, td1 = st + TUNNEL_LEN - dist;
-        if (td1 > 1 && td1 < DRAW) items.push({ d: td1 + .01, fn: drawPortal, inside: true });
-        for (j = 0; j * 5 < TUNNEL_LEN; j++) { var sa = td0 + j * 5, sb = sa + 5; if (sb > 1 && sa < DRAW) items.push({ d: Math.max(sa, 1), fn: drawTunnelSeg, a: sa, b: sb, k: j }); }
-        if (td0 > 1 && td0 < DRAW) items.push({ d: td0 - .01, fn: drawPortal, inside: false });
-      }
-      if (kind === 'harbour') {
-        for (j = 0; j < 5; j++) { var hd = st + j * 60 - dist; if (hd > 2 && hd < DRAW) items.push({ d: hd, fn: drawCrane }); }
-        [[40, 0], [190, 1]].forEach(function (sh) { var sd0 = st + sh[0] - dist; if (sd0 + 60 > 1 && sd0 < DRAW) items.push({ d: Math.max(sd0, 1), fn: drawFreighter, d0: sd0, k: sh[1] }); });
-      }
-    }
-    Object.keys(pieces).forEach(function (k) {
-      var P = pieces[k], M = MOVERS[P.kind];
-      for (var c = 0; c < M.cars; c++) { var z1 = P.z - c * (M.len + 1.5), z0 = z1 - M.len; if (z1 - dist > 1 && z0 - dist < DRAW) items.push({ d: Math.max(z0 - dist, 1), fn: P.kind === 'ship' ? drawShip : drawCar2, P: P, M: M, c: c, d0: z0 - dist, d1: z1 - dist }); }
-      P.puffs.forEach(function (f) { var fd = f.z - dist; if (fd > 2 && fd < DRAW) items.push({ d: fd, fn: drawPuff, f: f, lat: M.lat }); });
-    });
-  }
-  function drawCar2(it) { // one carriage of a train beside the road
-    var P = it.P, M = it.M, l0 = M.lat > 0 ? M.lat : M.lat - .7, l1 = l0 + .7, lead = it.c === 0, night = curS.night > .5;
-    var sty = { steam: ['#7a1f2b', '#5c1620', '#2b2b2b', '#ffe6a8'], freight: [['#c0392b', '#2471a3', '#d68910', '#1e8449', '#7d3c98'][it.c % 5], '#3a3a3a', '#555', null], nighttrain: ['#2c3e66', '#1d2944', '#20242c', '#ffd36e'] }[P.kind];
-    if (lead) { sty = P.kind === 'steam' ? ['#1f3a2a', '#152a1e', '#111', null] : P.kind === 'freight' ? ['#e67e22', '#b85f10', '#333', '#fff2b0'] : ['#3c5a99', '#2a4275', '#222', '#fff2b0']; }
-    var h1 = M.h * (P.kind === 'freight' && !lead ? .95 : 1);
-    wbox(it.d0, it.d1, l0, l1, .06, h1, sty[0], sty[1], sty[2], sty[3] && !lead ? { every: 3.2, lo: .45, hi: .78, col: night || P.kind === 'nighttrain' ? sty[3] : '#9fb3c8' } : null);
-    if (lead && P.kind === 'steam') wbox(it.d1 - 3, it.d1 - 2, l0 + .2, l1 - .2, h1, h1 + .3, '#111', '#1a1a1a', '#222'); // chimney
-    if (night || P.kind === 'nighttrain') { var tp = wpt(it.d0, (l0 + l1) / 2, h1 * .3); var rw = rowAt(Math.max(it.d0, 1)); glowDot(tp[0], tp[1], rw.hw * .12, '#ff4a3a'); }
-  }
-  function drawPuff(it) { var f = it.f, c = wpt(it.d, it.lat > 0 ? it.lat + .35 : it.lat - .35, f.h), r = rowAt(it.d); g.globalAlpha = clamp(f.a, 0, 1) * .8; g.fillStyle = fogC('#f2f2f0', it.d); g.beginPath(); g.arc(c[0], c[1], Math.max(1, f.r * r.hw), 0, TAU); g.fill(); g.globalAlpha = 1; }
-  function drawShip(it) { // a white cruise ship out on the water: hull, three decks, a funnel
-    var l1 = it.M.lat, l0 = l1 - 1.6, d0 = it.d0, d1 = it.d1, night = curS.night > .5;
-    wbox(d0, d1, l0, l1, 0, .5, '#1d3557', '#162a45', '#e8e4dc', { every: 6, lo: .55, hi: .75, col: '#cfd8e3' });
-    [[.5, .85, .15, 4], [.85, 1.15, .3, 10], [1.15, 1.4, .45, 18]].forEach(function (dk) { wbox(d0 + dk[3], d1 - dk[3] * .6, l0 + dk[2], l1 - dk[2] * .3, dk[0], dk[1], '#f4f1ea', '#e6e1d6', '#fbfaf6', { every: 2.4, lo: .3, hi: .7, col: night ? '#ffe39a' : '#5d7891' }); });
-    wbox(d0 + 34, d0 + 42, l0 + .6, l1 - .5, 1.4, 1.9, '#c0392b', '#a93226', '#7b241c'); // funnel
-  }
-  function drawLiftBalloon(it) { // a hot-air balloon on a field that lifts off as you come by
-    var lift = clamp((150 - it.d) / 150, 0, 1), h = 1 + lift * lift * 2.2, c = wpt(it.d, -1.45, h), r = rowAt(it.d), u = r.hw * .95;
-    var bc = wpt(it.d, -1.45, h - 1.06); g.strokeStyle = fogC('#5a4636', it.d); g.lineWidth = Math.max(1, u * .02); g.beginPath(); g.moveTo(c[0] - u * .3, c[1] + u * .4); g.lineTo(bc[0] - u * .1, bc[1]); g.moveTo(c[0] + u * .3, c[1] + u * .4); g.lineTo(bc[0] + u * .1, bc[1]); g.stroke();
-    g.fillStyle = fogC('#8a5a3a', it.d); g.fillRect(bc[0] - u * .12, bc[1], u * .24, u * .16);
-    var env = g.createRadialGradient(c[0] - u * .2, c[1] - u * .3, u * .05, c[0], c[1], u * .75); env.addColorStop(0, fogC('#ffb36b', it.d)); env.addColorStop(.6, fogC('#f0643a', it.d)); env.addColorStop(1, fogC('#a8321e', it.d));
-    g.fillStyle = env; g.beginPath(); g.moveTo(c[0], c[1] - u * .7); g.bezierCurveTo(c[0] + u * .72, c[1] - u * .66, c[0] + u * .7, c[1] + u * .2, c[0] + u * .16, c[1] + u * .55); g.lineTo(c[0] - u * .16, c[1] + u * .55); g.bezierCurveTo(c[0] - u * .7, c[1] + u * .2, c[0] - u * .72, c[1] - u * .66, c[0], c[1] - u * .7); g.fill();
-    g.fillStyle = fogC('#ffe08a', it.d); g.beginPath(); g.ellipse(c[0], c[1] - u * .05, u * .18, u * .62, 0, 0, TAU); g.fill();
-    if (lift > 0 && lift < 1 && Math.sin(tAnim * 30) > 0) glowDot(bc[0], bc[1] - u * .08, u * .16, '#ffb020'); // the burner
-  }
-  function drawTurbine(it) { // a tall wind turbine on the hills, three slow blades
-    var b = wpt(it.d, it.lat, 0), t = wpt(it.d, it.lat, 2.6), r = rowAt(it.d), col = fogC('#f4f4f0', it.d);
-    g.strokeStyle = col; g.lineCap = 'round'; g.lineWidth = Math.max(1, r.hw * .05); g.beginPath(); g.moveTo(b[0], b[1]); g.lineTo(t[0], t[1]); g.stroke();
-    g.lineWidth = Math.max(1, r.hw * .035); var a = tAnim * .9 + it.k * 1.3, L = r.hw * 1;
-    for (var bl = 0; bl < 3; bl++) { var aa = a + bl * TAU / 3; g.beginPath(); g.moveTo(t[0], t[1]); g.lineTo(t[0] + Math.cos(aa) * L, t[1] + Math.sin(aa) * L); g.stroke(); }
-    g.fillStyle = col; g.beginPath(); g.arc(t[0], t[1], Math.max(1, r.hw * .05), 0, TAU); g.fill();
-  }
-  function drawOverpass(it) { // an elevated metro line crossing above the road, with a train running across it
-    var d0 = it.d0, d1 = d0 + 4, night = curS.night > .4;
-    [-6.5, -1.35, 1.2, 6.3].forEach(function (pl) { wbox(d0 + 1.2, d0 + 2.8, pl, pl + .28, 0, 1.02, '#3d424c', '#474c57', null); });
-    wbox(d0, d1, -14, 14, 1.02, 1.2, '#454b57', '#4d5360', '#2f343d'); var ul = wpt(d0, -14, 1.18), ur = wpt(d0, 14, 1.18); g.fillStyle = 'rgba(255,214,120,.7)'; g.fillRect(ul[0], ul[1] - 2 * dpr, ur[0] - ul[0], 2 * dpr); // a lit strip along the deck
-    var x = ((tAnim * 2.6) % 22) - 11; // the train crosses the screen in a few seconds
-    for (var c = 0; c < 3; c++) { var a = x - c * 3.9; wbox(d0 + .6, d1 - .6, a, a + 3.4, 1.22, 1.5, '#2b3550', '#26304a', '#1c2336', null); var w0 = wpt(d0 + .6, a + .2, 1.33), w1 = wpt(d0 + .6, a + 3.2, 1.42); g.fillStyle = night ? '#ffe39a' : '#9fc4e0'; g.fillRect(Math.min(w0[0], w1[0]), Math.min(w0[1], w1[1]), Math.abs(w1[0] - w0[0]), Math.abs(w1[1] - w0[1])); }
-  }
-  function drawLightArch(it) { // the Neon Quarter light tunnel: glowing arches over the road
-    var r = rowAt(it.d), pts = [wpt(it.d, -1.15, 0), wpt(it.d, -1.15, 1), wpt(it.d, 1.15, 1), wpt(it.d, 1.15, 0)], col = it.k % 2 ? '#ff4fd8' : '#35e6ff', fade = clamp((DRAW - it.d) / 120, 0, 1);
-    g.save(); g.globalCompositeOperation = 'lighter'; g.lineJoin = 'round';
-    [[3.2, .18], [1, .9]].forEach(function (ln) { g.globalAlpha = ln[1] * fade; g.strokeStyle = col; g.lineWidth = Math.max(1, r.hw * .03 * ln[0]); g.beginPath(); g.moveTo(pts[0][0], pts[0][1]); for (var q = 1; q < 4; q++) g.lineTo(pts[q][0], pts[q][1]); g.stroke(); });
-    g.restore();
-  }
-  function drawTunnelSeg(it) { // one 5 m piece of the Storm Pass tunnel: two walls, a ceiling and a lamp on each wall
-    var a = Math.max(it.a, 1), b = it.b; if (b <= a) return;
-    var wall = fogC(it.k % 2 ? '#6a6f78' : '#62676f', a), ceil = fogC('#24272d', a);
-    quad(wpt(a, -1.25, 0), wpt(b, -1.25, 0), wpt(b, -1.25, 1.1), wpt(a, -1.25, 1.1), wall);
-    quad(wpt(a, 1.25, 0), wpt(b, 1.25, 0), wpt(b, 1.25, 1.1), wpt(a, 1.25, 1.1), wall);
-    quad(wpt(a, -1.25, 1.1), wpt(a, 1.25, 1.1), wpt(b, 1.25, 1.1), wpt(b, -1.25, 1.1), ceil);
-    if (it.k % 2 === 0 && it.a > 1) [-1.23, 1.23].forEach(function (sd) { var lp = wpt(it.a, sd, .85), r = rowAt(it.a); glowDot(lp[0], lp[1], r.hw * .22, '#ffb347'); g.fillStyle = '#ffe2a8'; g.fillRect(lp[0] - r.hw * .03, lp[1] - r.hw * .015, r.hw * .06, r.hw * .03); });
-  }
-  function drawPortal(it) { // the rock face around a tunnel mouth, with the arch cut out of it
-    var d = it.d, r = rowAt(d), rock = fogC(it.inside ? '#2c3038' : '#4a4f47', d), L = wpt(d, -16, 0), R = wpt(d, 16, 0), A = wpt(d, -1.25, 0), B = wpt(d, 1.25, 0), top = wpt(d, 0, 2.8)[1];
-    g.fillStyle = rock; g.beginPath(); g.moveTo(L[0], L[1]); g.lineTo(L[0], top + r.hw * .6); g.quadraticCurveTo(cx, top - r.hw * .5, R[0], top + r.hw * .6); g.lineTo(R[0], R[1]); g.closePath();
-    var ah = wpt(d, 0, 1.1)[1]; g.moveTo(A[0], A[1]); g.lineTo(A[0], ah); g.lineTo(B[0], ah); g.lineTo(B[0], B[1]); g.closePath(); g.fill('evenodd');
-    if (!it.inside) { g.strokeStyle = fogC('#9aa09a', d); g.lineWidth = Math.max(1, r.hw * .05); g.beginPath(); g.moveTo(A[0], A[1]); g.lineTo(A[0], ah); g.lineTo(B[0], ah); g.lineTo(B[0], B[1]); g.stroke(); }
-  }
-  function drawCrane(it) { // a red harbour crane on the quay
-    var r = rowAt(it.d), col = fogC('#d9472b', it.d), p0 = wpt(it.d, 2.1, 0), p1 = wpt(it.d, 2.1, 2.1), p2 = wpt(it.d, 2.8, 0), p3 = wpt(it.d, 2.8, 2.1), bm = wpt(it.d, 5.2, 2.25), bk = wpt(it.d, 1.5, 2.25);
-    g.strokeStyle = col; g.lineWidth = Math.max(1, r.hw * .04); g.beginPath(); g.moveTo(p0[0], p0[1]); g.lineTo(p1[0], p1[1]); g.moveTo(p2[0], p2[1]); g.lineTo(p3[0], p3[1]); g.moveTo(p0[0], p0[1]); g.lineTo(p3[0], p3[1]); g.moveTo(bk[0], bk[1]); g.lineTo(bm[0], bm[1]); g.stroke();
-    g.lineWidth = Math.max(.6, r.hw * .01); var hk = wpt(it.d, 4.2, 2.25), hb = wpt(it.d, 4.2, 1.2); g.beginPath(); g.moveTo(hk[0], hk[1]); g.lineTo(hb[0], hb[1]); g.stroke();
-  }
-  function drawFreighter(it) { // a container ship moored at the quay
-    var d0 = it.d0, d1 = d0 + 60, l0 = 2.5, l1 = 4;
-    wbox(d0, d1, l0, l1, 0, .45, '#22313f', '#1b2733', '#2e3d4c');
-    for (var c = 0; c < 6; c++) wbox(d0 + 6 + c * 7.5, d0 + 12.5 + c * 7.5, l0 + .15, l1 - .15, .45, .45 + .18 + (c % 3) * .07, ['#c0392b', '#2471a3', '#d68910', '#1e8449', '#7d3c98', '#e67e22'][(c + it.k * 2) % 6], '#444', '#666');
-    wbox(d1 - 10, d1 - 4, l0 + .2, l1 - .2, .45, 1.05, '#f4f1ea', '#e6e1d6', '#fbfaf6', { every: 2, lo: .5, hi: .75, col: '#5d7891' });
-  }
-
   function objectKind(a, k) { return a.objs[Math.floor(rnd(k, 33) * a.objs.length)]; }
 
   function drawWorld(S) {
@@ -953,7 +810,7 @@
     for (var n = n0; n <= n1; n++) {
       for (var sd = -1; sd <= 1; sd += 2) {
         var k = n * 2 + (sd > 0 ? 1 : 0); if (rnd(k, 41) < .12) continue;
-        var pos = n * SP + rnd(k, 42) * 6; var d = pos - dist; if (d < 4 || d > DRAW || bridgeAt(pos) > 0 || tunnelAt(pos) || moverSide(pos) === sd) continue;
+        var pos = n * SP + rnd(k, 42) * 6; var d = pos - dist; if (d < 4 || d > DRAW || bridgeAt(pos) > 0) continue;
         var ch = chapterAt(pos); var A = CHAPTERS[ch.idx]; var B = CHAPTERS[(ch.idx + 1) % CHAPTERS.length];
         var use = ch.frac > .88 && rnd(k, 43) < (ch.frac - .88) / .12 ? B : A;
         items.push({ d: d, kind: objectKind(use, k), side: sd, k: k, lat: sd * (1.12 + rnd(k, 44) * .75), lit: Math.max(use.night, S.night * .5), snow: use.snow, S: use });
@@ -971,22 +828,20 @@
     var cn; var ci;
     for (cn = Math.floor(dist / 90); cn <= Math.floor((dist + DRAW) / 90); cn++) {
       var ck = coinChunk(cn); if (!ck || nearStop(ck.start)) continue;
-      for (ci = 0; ci < ck.count; ci++) { var cd = ck.start + ci * 7 - dist; var cid = cn * 10 + ci; if (cd > 1.5 && cd < DRAW && !collected[cid]) items.push({ d: cd, coin: true, lat: ck.lane * LANE, k: cid }); }
+      for (ci = 0; ci < ck.count; ci++) { var cd = ck.start + ci * 7 - dist; var cid = cn * 10 + ci; if (cd > 1.5 && cd < roadEnd && !collected[cid]) items.push({ d: cd, coin: true, lat: ck.lane * LANE, k: cid }); }
     }
     for (var hn = Math.floor(dist / 600); hn <= Math.floor((dist + DRAW) / 600); hn++) {
       var hk = heartChunk(hn); if (!hk || nearStop(hk.at) || collected['h' + hn]) continue;
-      var hd = hk.at - dist; if (hd > 1.5 && hd < DRAW) items.push({ d: hd, heart: true, lat: hk.lane * LANE, k: hn });
+      var hd = hk.at - dist; if (hd > 1.5 && hd < roadEnd) items.push({ d: hd, heart: true, lat: hk.lane * LANE, k: hn });
     }
     if (tripMode === 'journey') {
       REST_STOPS.concat([JOURNEY_CHAPTERS]).forEach(function (cl, i) { var ad = cl * chapterLen - dist; if (ad > 2 && ad < DRAW) items.push({ d: ad, arch: true, finish: i === REST_STOPS.length }); });
     }
-    curS = S; pieceItems(items);
-    traffic.forEach(function (c) { var d = c.z - dist; if (d > 1 && d < DRAW) items.push({ d: d, car: c }); });
+    traffic.forEach(function (c) { var d = c.z - dist; if (d > 1 && d < Math.min(DRAW, roadEnd + 4)) items.push({ d: d, car: c }); });
     items.sort(function (a, b) { return b.d - a.d; });
     var rockC = mix(S.ground[1], '#7a6a5a', .5);
     var S2 = { night: S.night, rockC: rockC };
     nearItems = []; var drawItem = function (it) {
-      if (it.fn) { it.fn(it); return; }
       var rw = rowAt(it.d); var p = rw.p; var y = rw.y;
       if (it.arch) {
         var as = p * (W / 230) * 1.35; var ac = xoAt(it.d); var ax0 = cx + (ac - 1.12 - camX) * p * RH; var ax1 = cx + (ac + 1.12 - camX) * p * RH; var ah = 96 * as;
@@ -1111,7 +966,7 @@
   }
   function drawWeather(S) {
     if (skyT > 0) { var sa = skyT / .7; g.fillStyle = 'rgba(210,220,255,' + (.11 * sa * (Math.sin(skyT * 40) > 0 ? 1 : .45)) + ')'; g.fillRect(0, 0, W, hyR); }
-    if (lightningT > 0 && !tunnelAt(dist + 2)) {
+    if (lightningT > 0) {
       var la = lightningT / .4;
       g.fillStyle = 'rgba(235,242,255,' + (.45 * la * (Math.sin(lightningT * 60) > -.3 ? 1 : .4)) + ')'; g.fillRect(0, 0, W, H);
       g.strokeStyle = 'rgba(245,248,255,' + la + ')'; g.lineWidth = 3 * dpr; g.beginPath(); var bx0 = W * (.3 + rnd(Math.floor(tAnim), 91) * .4); g.moveTo(bx0, 0);
@@ -1121,8 +976,7 @@
     // Rain and snow come in three depths: many small slow drops far away, a few big fast ones close by. Streaks grow
     // with speed and lean with the wind and with the lane change.
     var sp = mode === 'run' ? clamp(speed / 40, 0, 1.6) : .4, lean = clamp(-laneV * .05, -.25, .25) - .22 - S.wind * .03;
-    var under = tunnelAt(dist + 2);
-    if (S.rain > .05 && !under) {
+    if (S.rain > .05) {
       [[26, 9, 800, .2, 1], [16, 15, 1250, .3, 1.4], [6, 24, 1900, .42, 2]].forEach(function (Ly, li) {
         var n = Math.round(Ly[0] * S.rain), len = Ly[1] * (1 + .5 * sp) * dpr;
         var rgd = g.createLinearGradient(0, 0, 0, H); rgd.addColorStop(0, 'rgba(205,228,255,0)'); rgd.addColorStop(.3, 'rgba(205,228,255,' + (Ly[3] * .45 * S.rain) + ')'); rgd.addColorStop(1, 'rgba(205,228,255,' + (Ly[3] * .8 * S.rain) + ')');
@@ -1157,7 +1011,7 @@
     // fog band at the horizon
     var fg = g.createLinearGradient(0, hyR - H * .06, 0, hyR + H * .28);
     fg.addColorStop(0, S.fog + '00'); fg.addColorStop(.3, S.fog + 'ff'); fg.addColorStop(1, S.fog + '00');
-    g.globalAlpha = .5 + S.mist * .2; g.fillStyle = fg; g.fillRect(0, hyR - H * .06, W, H * .34); g.globalAlpha = 1;
+    g.globalAlpha = .3 + S.mist * .15; g.fillStyle = fg; // thinner: a heavy band read as a milky stripe across the screen g.fillRect(0, hyR - H * .06, W, H * .34); g.globalAlpha = 1;
     // tint, light vignette
     g.fillStyle = S.tintC; g.globalAlpha = S.tintA; g.fillRect(0, 0, W, H); g.globalAlpha = 1;
     var vg = g.createRadialGradient(cx, H * .55, W * .35, cx, H * .55, W * .95);
@@ -1275,7 +1129,11 @@
     saveStats();
   }
   function clearCheckpoint() { try { window.localStorage.removeItem(CHECK_KEY); } catch (e) { /* fine */ } }
-  function saveCheckpoint(chapter) { writeJson(CHECK_KEY, { v: 1, mode: 'journey', difficulty: prefs.difficulty, length: prefs.length, chapter: chapter, lives: lives, score: Math.floor(score), at: Date.now() }); }
+  // A checkpoint keeps the last rest stop (chapter) and, while you drive, the exact place you left (frac of the Journey).
+  // Closing the app brings you back to that place; losing your last heart sends you back to the last rest stop.
+  var restCh = 0, saveT = 8, countT = 0;
+  function saveCheckpoint(chapter, frac) { var o = { v: 1, mode: 'journey', difficulty: prefs.difficulty, length: prefs.length, chapter: chapter, lives: lives, score: Math.floor(score), at: Date.now() }; if (frac != null) o.frac = frac; writeJson(CHECK_KEY, o); }
+  function savePlace() { if (mode === 'run' && tripMode === 'journey' && !keepOn && dist > 300 && dist < journeyLen() - 200) saveCheckpoint(restCh, dist / journeyLen()); }
 
   var ovTitle = $('ov-title'); var ovSub = $('ov-sub'); var ovStats = $('ov-stats'); var optsBox = $('opts'); var playBtn = $('play'); var contBtn = $('cont');
   function showOverlay(kind, o) {
@@ -1296,6 +1154,7 @@
     mode = 'over'; speed = 0; shake = 18; flashT = .5; braking = false;
     burst(cx, H * .8, 40, ['#ffb347', '#ff6b4a', '#ffd166', '#888']);
     au('event', 'crash'); au('stop');
+    if (tripMode === 'journey' && !keepOn) { if (restCh >= 1) saveCheckpoint(restCh); else clearCheckpoint(); } // a lost run restarts from the last rest stop
     endRun(false);
     var s = Math.floor(score); var isBest = submitBest(s);
     window.setTimeout(function () {
@@ -1343,7 +1202,7 @@
     if (S.rain > .2) { rate = 46 * S.rain; col = 'rgba(225,238,255,.42)'; kind = 'spray'; }
     else if (S.snow > .3) { rate = 26 * S.snow; col = 'rgba(255,255,255,.55)'; kind = 'snow'; }
     else if (S.heat > .5) { rate = 24 * S.heat; col = 'rgba(214,182,126,.36)'; kind = 'dust'; r = 3; grow = 14; }
-    else if (S.leaves > .3) { rate = 16 * S.leaves; kind = 'leaf'; }
+    // no leaves kicked up off the road: from behind they read as dirt specks
     if (Math.abs(laneV) > 1.6 && speed > 24 && Math.random() < dt * 34) { // tyres squeal through a quick lane change: a thin puff off the loaded side
       var side = laneV > 0 ? -1 : 1;
       particles.push({ behind: true, x: B.x + side * B.w * .36, y: B.y + 5 * dpr, vx: side * (10 + Math.random() * 30), vy: -(10 + Math.random() * 30), life: 1, r: 2.2, c: 'rgba(232,232,238,.32)', gv: -5, grow: 10, decay: 1.8 });
@@ -1388,6 +1247,12 @@
   }
   function step(dt) {
     if (paused) return;
+    if (countT > 0) { // 3, 2, 1 before a resumed drive moves
+      var before = Math.ceil(countT); countT -= dt; var now2 = Math.ceil(countT);
+      if (now2 !== before || !elChapter.classList.contains('show')) { if (now2 > 0) showChapter('Welcome back', String(now2)); else { elChapter.classList.remove('show'); chTimer = 0; } }
+      tAnim += dt; return;
+    }
+    if (mode === 'run') { saveT -= dt; if (saveT <= 0) { saveT = 8; savePlace(); } }
     tAnim += dt;
     var TREAD_MAX = 1.7; // sprite units per frame; a groove is about 7, so it always reads as rolling and never strobes backwards
     if (mode === 'run' || mode === 'menu') tread += Math.min((mode === 'run' ? speed : 20) * dt * 2.6, TREAD_MAX);
@@ -1413,7 +1278,12 @@
     camRoll += (clamp(-laneV * .0042 + curveAt(dist + 28) * 70, -.022, .022) - camRoll) * Math.min(1, dt * 4);
     if (mode === 'run' && lastPB && lastScene && speed > 14) emitRoadParticles(dt, lastScene);
     if (lastScene) stepFlurry(dt, lastScene);
-    stepPieces(dt);
+    if (mode === 'run') { // on a bridge: the wheels thump over a joint every 12 m, and a boat sounds its horn as you reach one
+      var onB = bridgeAt(dist + PD) > .5, jn = Math.floor((dist + PD) / 12);
+      if (onB && jn !== lastJoint) au('event', 'joint'); lastJoint = jn;
+      var bk = Math.floor((dist + 120 - 320) / BRIDGE_EVERY);
+      if (bk !== hornBridge && bridgeAt(bk * BRIDGE_EVERY + 320 + BRIDGE_LEN / 2) > 0 && bk * BRIDGE_EVERY + 320 - dist < 140) { hornBridge = bk; au('life', 'boathorn', -.3); }
+    }
     // Thunder follows the light: a strike you see is heard a moment later (closer strikes sooner); between strikes the sky
     // flickers faintly far away and a distant rumble follows. No thunder ever plays without a flash in Storm Pass.
     if (skyT > 0) skyT = Math.max(0, skyT - dt);
@@ -1431,7 +1301,7 @@
     if (tripMode === 'journey' && nextStop < REST_STOPS.length && dist >= REST_STOPS[nextStop] * chapterLen) {
       var cpCh = REST_STOPS[nextStop]; nextStop++;
       if (lives < maxLives) lives++;
-      saveCheckpoint(cpCh); showChapter('Rest stop', 'Heart restored'); au('event', 'rest');
+      restCh = cpCh; saveCheckpoint(cpCh); showChapter('Rest stop', 'Heart restored'); au('event', 'rest');
     }
     var diff = DIFFS[prefs.difficulty];
     while (nextSpawn < dist + DRAW) {
@@ -1514,8 +1384,8 @@
     window.setTimeout(function () { h.classList.remove('show'); window.setTimeout(function () { h.hidden = true; }, 500); }, 4200);
   }
   function abandonRun() { if (mode === 'run' && (dist > 60 || run.coins || run.near)) endRun(false); } // leaving a run by Restart or Menu still counts it
-  function start(fromCheckpoint) {
-    ignoreCheckpoint = false; abandonRun(); reset(fromCheckpoint); mode = 'run'; $('ov').hidden = true; $('ps').hidden = true; $('ss').hidden = true;
+  function start(fromCheckpoint, countdown) {
+    ignoreCheckpoint = false; abandonRun(); reset(fromCheckpoint); mode = 'run'; if (countdown) { countT = 3; showChapter('Welcome back', '3'); } $('ov').hidden = true; $('ps').hidden = true; $('ss').hidden = true;
     buildTrip(); au('unlock'); audioPrefs(); au('setChapter', chapterAt(dist).idx); au('start'); hud(); showHint();
   }
   function backToMenu() {
@@ -1523,7 +1393,7 @@
     au('stop'); $('ps').hidden = true; $('ss').hidden = true; elChapter.classList.remove('show'); elNear.classList.remove('show');
     showOverlay('menu', { title: 'Cruise', sub: 'Swipe left or right to change lane. Pass close to traffic for combos.' }); renderOpts(); hud();
   }
-  function pauseGame() { if (mode !== 'run' || paused) return; paused = true; brakeOff(); au('pause'); $('ps').hidden = false; $('ps-resume').focus(); }
+  function pauseGame() { if (mode !== 'run' || paused) return; savePlace(); paused = true; brakeOff(); au('pause'); $('ps').hidden = false; $('ps-resume').focus(); }
   function resumeGame() { if (!paused) return; paused = false; $('ps').hidden = true; $('ss').hidden = true; au('resume'); last = null; }
   function openSound(from) { $('ss').hidden = false; $('ss').setAttribute('data-from', from); $('ss-close').focus(); }
   function closeSound() { $('ss').hidden = true; if (paused) $('ps-resume').focus(); }
@@ -1573,7 +1443,7 @@
     b.addEventListener('click', function () { prefs.speedIdx = parseInt(b.getAttribute('data-speedidx'), 10); savePrefs(); renderSpeedUi(); au('unlock'); });
   });
   playBtn.addEventListener('click', function () { start(null); });
-  contBtn.addEventListener('click', function () { var cp = getCheckpoint(); if (cp) start(cp); });
+  contBtn.addEventListener('click', function () { var cp = getCheckpoint(); if (cp) start(cp, true); });
   $('keep').addEventListener('click', keepDriving);
   $('menu-btn').addEventListener('click', backToMenu);
   $('pause').addEventListener('click', function () { if (paused) resumeGame(); else pauseGame(); });
@@ -1610,7 +1480,8 @@
     sw0 = null;
   });
   stage.addEventListener('pointercancel', function () { sw0 = null; });
-  document.addEventListener('visibilitychange', function () { last = null; if (document.hidden) pauseGame(); });
+  document.addEventListener('visibilitychange', function () { last = null; if (document.hidden) { savePlace(); pauseGame(); } });
+  window.addEventListener('pagehide', savePlace);
   window.addEventListener('resize', function () { sizeDirty = true; render(); });
   window.addEventListener('storage', function () { audioPrefs(); });
 
@@ -1631,7 +1502,7 @@
   runMul = mul(); renderSpeedUi(); applyTrip(); reset(null); showOverlay('menu', { title: 'Cruise', sub: 'Swipe left or right to change lane. Pass close to traffic for combos.' }); renderOpts(); hud();
   if (params.get('resume') === '1') { // Resume on the Games screen: say where you are and put Continue under your thumb
     var rcp = getCheckpoint();
-    if (rcp) { ovTitle.textContent = 'Welcome back'; ovSub.textContent = 'From chapter ' + (rcp.chapter + 1) + ' of ' + JOURNEY_CHAPTERS + '. Tap Continue when you are ready.'; contBtn.focus(); }
+    if (rcp) start(rcp, true); // straight back to where you were, after a 3-2-1
   }
   if (DEBUG) {
     // test and gallery hook: draw a still frame at a distance with demo traffic, and drive the game
@@ -1649,11 +1520,9 @@
         $('ov').hidden = true; lastScene = render(); return lastScene;
       },
       start: start, pause: pauseGame, resume: resumeGame, elev: elev, backToMenu: backToMenu,
-      teleport: function (d) { dist = d; nextSpawn = d + 300; nextStop = 0; while (nextStop < REST_STOPS.length && REST_STOPS[nextStop] * chapterLen <= d) nextStop++; lastChapter = chapterAt(d).i - 1; traffic = []; pieces = {}; pieceFx = {}; },
+      teleport: function (d) { dist = d; nextSpawn = d + 300; nextStop = 0; while (nextStop < REST_STOPS.length && REST_STOPS[nextStop] * chapterLen <= d) nextStop++; lastChapter = chapterAt(d).i - 1; traffic = []; },
       addCar: function (ln, ahead, kind, canLc, v) { traffic.push({ id: ++carId, laneF: ln, lc: null, canLc: !!canLc, z: dist + ahead, lane: ln, v: v || 0, kind: kind || 'sedan', col: '#2563eb', passed: false, minGap: 9 }); },
       bridgeAt: function (pos) { return bridgeAt(pos); },
-      wpt: function (d, l, h) { render(); return wpt(d, l, h || 0); },
-      pieces: function () { return { movers: Object.keys(pieces).map(function (k) { return { kind: pieces[k].kind, ahead: Math.round(pieces[k].z - dist) }; }), start: pieceStart(chapterAt(dist).i) - dist, kind: pieceKind(chapterAt(dist).i) }; },
       bridges: function (from, to) { var out = []; for (var b = Math.floor((from - 320) / BRIDGE_EVERY); b <= Math.floor((to - 320) / BRIDGE_EVERY); b++) { var st = bridgeStart(b); if (st != null && st >= from && st <= to) out.push(st); } return out; },
       setLives: function (n) { lives = n; },
       setLane: function (l) { lane = laneTarget = l; },

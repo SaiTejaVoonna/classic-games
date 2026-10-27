@@ -503,12 +503,13 @@
       var ns2 = ctx.createBufferSource(); ns2.buffer = noiseBuf; ns2.loop = true; ns2.loopStart = .37;
       var wlp = ctx.createBiquadFilter(); wlp.type = 'lowpass'; wlp.frequency.value = 400; var wind = ctx.createGain(); wind.gain.value = 0;
       ns2.connect(wlp); wlp.connect(wind);
+      var whp = ctx.createBiquadFilter(); whp.type = 'bandpass'; whp.frequency.value = 3200; whp.Q.value = .5; var wetG = ctx.createGain(); wetG.gain.value = 0; ns2.connect(whp); whp.connect(wetG); // tyres on a wet road: a hiss that follows your speed
       var wh = ctx.createOscillator(), whG = ctx.createGain(); wh.type = P.turbo ? 'sine' : 'triangle'; whG.gain.value = 0; wh.connect(whG);
       var out = ctx.createGain(); out.gain.value = 0;
-      body.connect(out); intake.connect(out); wind.connect(out); whG.connect(out);
+      body.connect(out); intake.connect(out); wind.connect(out); whG.connect(out); wetG.connect(out);
       route(out, engBus, 0, .04);
       [o1, o2, sub, lfo, ns, ns2, wh].forEach(function (n) { n.start(t0); });
-      eng = { name: name, mode: loops ? 'loops' : 'osc', loops: loops, P: P, o1: o1, o2: o2, sub: sub, lfo: lfo, ns: ns, ns2: ns2, wh: wh, lp: lp, pk1: pk1, body: body, intake: intake, ibp: ibp, wind: wind, wlp: wlp, whG: whG, out: out, gear: 1, rpm: 900, v: 0, vt: t0, acc: 0, cut: 0, popT: 0 };
+      eng = { name: name, mode: loops ? 'loops' : 'osc', loops: loops, P: P, o1: o1, o2: o2, sub: sub, lfo: lfo, ns: ns, ns2: ns2, wh: wh, lp: lp, pk1: pk1, body: body, intake: intake, ibp: ibp, wind: wind, wlp: wlp, wetG: wetG, whG: whG, out: out, gear: 1, rpm: 900, v: 0, vt: t0, acc: 0, cut: 0, popT: 0 };
       applyVolumes();
     }
     function stopEngine() { if (eng) { if (eng.loops) eng.loops.forEach(function (l) { try { l.src.stop(); } catch (e) { /* already stopped */ } });
@@ -558,6 +559,7 @@
       E.intake.gain.setTargetAtTime(E.loops ? 0 : P.intake * load * rpmN * calm, t, .06); // the loops already contain the intake
       E.wlp.frequency.setTargetAtTime(260 + kmh * 7, t, .2);
       E.wind.gain.setTargetAtTime(.012 + .09 * Math.pow(clamp(kmh / 200, 0, 1), 1.6), t, .2);
+      E.wetG.gain.setTargetAtTime(sfx ? .05 * clamp(scene.rain || 0, 0, 1) * clamp(kmh / 140, .15, 1.2) : 0, t, .3);
       if (P.turbo) { E.wh.frequency.setTargetAtTime(1300 + rpmN * 2600, t, .1); E.whG.gain.setTargetAtTime(prefs.calm ? 0 : .007 * rpmN * rpmN * load, t, .1); }
       else { E.wh.frequency.setTargetAtTime(f1 * 11, t, .1); E.whG.gain.setTargetAtTime(prefs.calm ? 0 : P.whine * rpmN * rpmN * load, t, .1); }
     }
@@ -593,6 +595,7 @@
       made.events++;
       if (name === 'near') duck(.72, .35); else if (name === 'bump') duck(.45, .7); else if (name === 'crash') duck(.3, 1.4); else if (name === 'heart') duck(.8, .6);
       switch (name) {
+        case 'joint': sub(t, 95, 55, .07, .07, F); sub(t + .055, 95, 55, .07, .05, F); noise(t, .03, .02, F, 'lowpass', 400, 0); break; // the wheels thump over a bridge deck joint
         case 'lane': sweep(t, .16, 900 + 500 * speedN(), 2400, .1, F, (o.dir || 0) * .35); sub(t, 90, 60, .08, .05, F); break;
         case 'coin': { // click, a bell in the chapter's key stepping up a scale, and a sparkle
           var d = (o.i || 0) % 7, m = degree(c, d) + 24;
@@ -623,7 +626,7 @@
     }
 
     // Level trims from measuring each sound alone: life sounds sit quietly under everything, effects stand out.
-    var LIFE_TRIM = { whistle: 1, metro: 1, songbirds: 3.5, balloon: 5, windmill: .4, windchimes: 1.4, butterflies: 1.8, flag: 4, crickets: 3.2, crow: 2.8, churchbell: 1, gulls: 1, bellbuoy: 1.4, boathorn: .4, siren: 1, cityhorns: 1, plane: 1.4, train: 4, thunderfar: .7, raingust: 1, thunderclose: .7, tunnel: 1.25, owl: 1, foghorn: .3, fireworks: 1 };
+    var LIFE_TRIM = { songbirds: 3.5, balloon: 5, windmill: .4, windchimes: 1.4, butterflies: 1.8, flag: 4, crickets: 3.2, crow: 2.8, churchbell: 1, gulls: 1, bellbuoy: 1.4, boathorn: .4, siren: 1, cityhorns: 1, plane: 1.4, train: 4, thunderfar: .7, raingust: 1, thunderclose: .7, tunnel: 1.25, owl: 1, foghorn: .3, fireworks: 1 };
     var EVENT_TRIM = { lane: 3.5, coin: 5.6, heart: 1.6, near: 4, pass: 1.8, bump: 4, crash: 2.8, chapter: 2.2, rest: 2, thunder: 1, finish: 1 };
     var trimBuses = {};
     function trimBus(trim) { // one bus per level, reused by every sound with that level (making a new one each time would leave a node behind per sound)
@@ -656,10 +659,6 @@
         case 'thunderclose': noise(t, .07, .26 * v, F, 'highpass', 900, pv); noise(t + .03, .35, .14 * v, F, 'bandpass', 500, pv); sweep(t + .03, 3, 400, 70, .4 * v, F, pv, 'lowpass', .5); sub(t + .02, 60, 30, 2.4, .3 * v, F); duckAt(t, .78, 1.1); break; // a crack with a short attack, then the roll; the music only dips
         case 'raingust': sweep(t, 1.6, 2400, 5200, .07 * v, F, pv, 'highpass', .6); break;
         case 'tunnel': sweep(t, 2.2, 200, 700, .09 * v, F, pv, 'lowpass', .6); sub(t, 65, 60, 2.2, .05 * v, F); break;
-        case 'whistle': { // a steam whistle: two reedy tones a third apart, with a breathy start
-          [523, 659].forEach(function (wf) { var wo = ctx.createOscillator(), wb = ctx.createBiquadFilter(), wg = ctx.createGain(), wv = ctx.createOscillator(), wd = ctx.createGain(); wo.type = 'sawtooth'; wo.frequency.setValueAtTime(wf * .96, t); wo.frequency.linearRampToValueAtTime(wf, t + .15); wv.frequency.value = 6; wd.gain.value = wf * .006; wv.connect(wd); wd.connect(wo.frequency); wb.type = 'bandpass'; wb.frequency.value = wf * 2; wb.Q.value = 4; shape(wg, t, .08, .05 * v, 1.1, .5); wo.connect(wb); wb.connect(wg); route(wg, F, pv, .45); wo.start(t); wv.start(t); wo.stop(t + 2); wv.stop(t + 2); });
-          noise(t, .35, .03 * v, F, 'highpass', 3000, pv); break; }
-        case 'metro': sweep(t, 2.6, 300, 1400, .1 * v, F, pv, 'bandpass', .8); for (i = 0; i < 14; i++) noise(t + .5 + i * .11, .03, .045 * v, F, 'bandpass', 1800, pv); sub(t + .3, 70, 55, 2, .05 * v, F); break;
         case 'owl': for (i = 0; i < 2; i++) { var oo = ctx.createOscillator(), og = ctx.createGain(), ot = t + i * .55; oo.frequency.setValueAtTime(i ? 330 : 390, ot); oo.frequency.linearRampToValueAtTime(i ? 300 : 360, ot + .4); shape(og, ot, .08, .06 * v, .2, .2); oo.connect(og); route(og, F, pv, .5); oo.start(ot); oo.stop(ot + .6); } break;
         case 'fireworks': { var fo = ctx.createOscillator(), fg = ctx.createGain(); fo.frequency.setValueAtTime(700, t); fo.frequency.exponentialRampToValueAtTime(3200, t + .9); shape(fg, t, .05, .035 * v, .7, .1); fo.connect(fg); route(fg, F, pv, .3); fo.start(t); fo.stop(t + 1.1); noise(t + .9, .2, .12 * v, F, 'bandpass', 900, pv); sub(t + .9, 110, 50, .35, .1 * v, F); for (i = 0; i < 12; i++) noise(t + 1 + rnd() * .9, .02, .05 * v, F, 'highpass', 4000 + rnd() * 3000, pv + (rnd() - .5) * .3); break; }
         default: break;

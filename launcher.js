@@ -65,11 +65,13 @@
     if (v3 && v3.v === 3 && v3.best && typeof v3.best === 'object') Object.keys(v3.best).forEach(function (k) { if (typeof v3.best[k] === 'number') best = Math.max(best, v3.best[k]); });
     return best;
   }
-  // Racer saves a checkpoint at each rest stop (after chapters 2, 4, 6 and 8).
+  // Cruise saves at each rest stop (after chapters 2, 4, 6 and 8) and, while you drive, the exact place you left
+  // (frac of the Journey). chapter here is the chapter you will resume in.
   function racerSave() {
     var c = readJson(CHECK_KEY);
-    if (!c || c.mode !== 'journey' || typeof c.chapter !== 'number' || c.chapter < 1 || c.chapter >= CHAPTERS) return null;
-    return { chapter: c.chapter, at: typeof c.at === 'number' ? c.at : 0 };
+    var hasPos = c && typeof c.frac === 'number' && isFinite(c.frac) && c.frac > .005 && c.frac < .97;
+    if (!c || c.mode !== 'journey' || typeof c.chapter !== 'number' || (c.chapter < 1 && !hasPos) || c.chapter >= CHAPTERS) return null;
+    return { chapter: hasPos ? Math.min(CHAPTERS - 1, Math.floor(c.frac * CHAPTERS)) : c.chapter, place: hasPos, at: typeof c.at === 'number' ? c.at : 0 };
   }
   // Snake saves the paused game; it is only offered when the game itself would accept it.
   function snakeSave() {
@@ -151,7 +153,7 @@
       $('hero-sub').textContent = 'Score ' + sn.score + ' · Length ' + sn.length + ' · Paused';
       main.textContent = 'Resume'; main.href = 'snake/?resume=1'; alt.hidden = false; alt.textContent = 'New game'; alt.href = 'snake/?new=1';
     } else if (hero.cont) {
-      $('hero-sub').textContent = 'From Chapter ' + (r.chapter + 1) + ' of ' + CHAPTERS + ' · about ' + racerMinutesLeft(r.chapter) + ' min left';
+      $('hero-sub').textContent = (r.place ? 'In Chapter ' : 'From Chapter ') + (r.chapter + 1) + ' of ' + CHAPTERS + ' · about ' + racerMinutesLeft(r.chapter) + ' min left';
       pb.hidden = false; $('hero-pb-fill').style.width = Math.round(r.chapter / CHAPTERS * 100) + '%';
       main.textContent = 'Resume'; main.href = 'racer/?resume=1'; alt.hidden = false; alt.textContent = 'New run'; alt.href = 'racer/?new=1';
     } else {
@@ -162,7 +164,7 @@
     $('snake-meta').textContent = best > 0 ? 'Best ' + best : '12 mazes';
     // the game that is not on the top card shows a small chip when it also has something saved
     var rc = $('racer-chip'); var sc = $('snake-chip');
-    rc.hidden = !(r && hero.game === 'snake'); if (!rc.hidden) rc.textContent = 'CH ' + (r.chapter + 1) + ' · REST STOP';
+    rc.hidden = !(r && hero.game === 'snake'); if (!rc.hidden) rc.textContent = 'CH ' + (r.chapter + 1) + (r.place ? ' · PAUSED' : ' · REST STOP');
     sc.hidden = !(sn && hero.game === 'racer'); if (!sc.hidden) sc.textContent = 'PAUSED · ' + sn.score;
   }
 

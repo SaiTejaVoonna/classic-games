@@ -30,29 +30,16 @@ One list of everything agreed or proposed so far, in the order we build it. Ever
 
 Something alive in every sky: birds, clouds, heat shimmer, city windows lighting up, drones and holo billboards, lightning on the mountains, a big aurora, fireworks.
 
-## Step 3. One big moment per chapter (**mock**)
+## Step 3. Big moments: tried and removed
 
-| Chapter | Big moment |
-|---|---|
-| Dawn Meadow | a hot-air balloon lifts off beside the road |
-| Cherry Hills | a steam train runs beside you, then crosses a bridge overhead |
-| Desert Road | a freight train at a level crossing; a sandstorm wall on the horizon |
-| Amber Valley | a wind farm and a river barge |
-| Sunset Coast | a cruise ship sails out; the bridge with a boat passing under it (done) |
-| Dusk City | an elevated metro train rushes overhead |
-| Neon Quarter | a light tunnel, and a flyover with cars above you |
-| Storm Pass | a tunnel in the rain; a rockslide on the far ridge |
-| Northern Lights | a reindeer herd; a lit train far away |
-| Sunrise Coast | a harbour with ships and a lighthouse beam; the finish fanfare |
-
-Each one has its own sound: a train horn, a ship horn, a metro whoosh, all passing by in 3D.
+The 10 set pieces (trains, a cruise ship, a metro bridge, a tunnel and so on) were built and then taken out: on a portrait screen they showed up as boxes cut off at the screen edge, or as flat bars across the sky. The coast bridge, with a boat passing under it, stays. Any new moment needs an approved mock first.
 
 ## Step 4. Gameplay v2 (direction C, kept simple and calm)
 
 - Combos and near passes fill a meter. A full meter gives a short boost, if you say yes to boost.
 - Rivals: one named car per chapter. Overtake it for bonus coins. No crashes are forced.
 - Coins buy car colours and unlock the locked cars, if you say yes.
-- Resume goes straight into the drive with a 3-2-1. The game saves mid-chapter, not only at rest stops. The Games screen's top card always shows the game you played last.
+- Done: Resume goes straight into the drive with a 3-2-1. The game saves your exact place every few seconds and when you leave. Losing your last heart sends you back to the last rest stop. The Games screen's top card shows the chapter you're in.
 
 ## Step 5. Smarter traffic
 
