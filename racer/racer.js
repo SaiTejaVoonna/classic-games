@@ -126,6 +126,7 @@
   var laneV = 0;   // lane velocity (lanes per second): the lane change is a damped spring
   var susp = { y: 0, v: 0 }; // suspension bob in CSS pixels
   var pitch = 0;   // nose dip when braking
+  var roll = { y: 0, v: 0 }; // body roll: lags the lane change, overshoots a touch and settles
   var camRoll = 0; // the camera banks a little into a lane change and into a bend (radians)
   var carId = 0;
   var lastPB = null; // where the player car was drawn last frame, for spray and dust
@@ -257,7 +258,7 @@
 
   function reset(fromCheckpoint) {
     applyTrip();
-    keepOn = false; runMul = mul(); applyTrip(); dist = 0; speed = RAMP.v0 * mul(); lane = 0; laneV = 0; susp = { y: 0, v: 0 }; pitch = 0; camRoll = 0; laneTarget = 0; traffic = []; nextSpawn = 300; combo = 0; comboTimer = 0;
+    keepOn = false; runMul = mul(); applyTrip(); dist = 0; speed = RAMP.v0 * mul(); lane = 0; laneV = 0; susp = { y: 0, v: 0 }; pitch = 0; roll = { y: 0, v: 0 }; camRoll = 0; laneTarget = 0; traffic = []; nextSpawn = 300; combo = 0; comboTimer = 0;
     score = 0; shake = 0; particles = []; pieces = {}; pieceFx = {}; lastChapter = -1; nearTimer = 0; shieldT = 0; flashT = 0; lives = maxLives; nextStop = 0; collected = {};
     run = { near: 0, coins: 0, hits: 0 }; coinNote = 0; coinNoteT = 0; braking = false; paused = false; calmUntil = 0;
     if (fromCheckpoint) {
@@ -283,7 +284,9 @@
       var k = Math.floor(rand() * lanes.length);
       var ln = lanes.splice(k, 1)[0];
       var kind = CAR_KINDS[Math.floor(rand() * CAR_KINDS.length)];
-      traffic.push({ id: ++carId, z: z + i * 6 * rand(), lane: ln, laneF: ln, v: speed * (d.vMin + rand() * d.vVar), kind: kind, col: CAR_COLS[Math.floor(rand() * CAR_COLS.length)], passed: false, minGap: 9, canLc: rand() < clamp((dist / journeyLen() - .12) * .7, 0, .35), lc: null });
+      // driver types: trucks keep slow and to their lane; sports cars drive faster and overtake when held up
+      var persona = kind === 'truck' ? 'slow' : kind === 'sport' || rand() < .15 ? 'fast' : 'calm', pv = persona === 'slow' ? .9 : persona === 'fast' ? 1.12 : 1;
+      traffic.push({ id: ++carId, z: z + i * 6 * rand(), lane: ln, laneF: ln, persona: persona, blockedT: 0, v: Math.min(speed * .95, speed * (d.vMin + rand() * d.vVar) * pv), kind: kind, col: CAR_COLS[Math.floor(rand() * CAR_COLS.length)], passed: false, minGap: 9, canLc: rand() < clamp((dist / journeyLen() - .12) * .7, 0, .35), lc: null });
     }
     return true;
   }
@@ -1042,7 +1045,7 @@
   // hills exactly like traffic does. Contact with traffic is tested at the same depth.
   function playerBox() { var r = rowAt(PD); return { x: r.ct + lane * LANE * r.hw, y: r.y, w: r.hw * LANE * BODY }; }
   function drawPlayer(S) {
-    var pb = playerBox(); var py = pb.y + (susp.y - pitch * 2.5) * dpr; var pw = pb.w; var tilt = clamp(laneV * .035, -.15, .15);
+    var pb = playerBox(); var py = pb.y + (susp.y - pitch * 2.5) * dpr; var pw = pb.w; var tilt = clamp(roll.y, -.17, .17);
     if (S.rain > .3) { var psg = g.createRadialGradient(pb.x, py, 0, pb.x, py, pw * .8); psg.addColorStop(0, 'rgba(215,228,245,' + (.3 * S.rain * clamp(speed / 30, .3, 1)) + ')'); psg.addColorStop(1, 'rgba(215,228,245,0)'); g.fillStyle = psg; g.beginPath(); g.ellipse(pb.x, py - pw * .02, pw * .85, pw * .2, 0, 0, TAU); g.fill(); } // spray off your own tyres
     if (S.night > .5 || S.rain > .3) {
       var px = pb.x;
@@ -1318,7 +1321,7 @@
   }
   function bump(hit) {
     run.hits += 1; lives -= 1; combo = 0; comboTimer = 0;
-    if (hit) { hit.knock = hit.lane === 0 ? (rand() < .5 ? -1 : 1) : hit.lane; hit.kx = 0; hit.hurt = 1.1; hit.v = Math.min(hit.v, speed * .5); }
+    if (hit) { hit.knock = hit.lane === 0 ? (rand() < .5 ? -1 : 1) : hit.lane; hit.kx = 0; hit.hurt = 1.1; hit.v = Math.min(hit.v, speed * .5); laneV += (lane >= hit.laneF ? 1 : -1) * 4.5; } // the knock shoves you sideways; the steering spring brings you back
     if (lives <= 0) { gameOver(); return; }
     shieldT = DIFFS[prefs.difficulty].shield; shake = 12; flashT = .35; calmUntil = dist + 500;
     traffic = traffic.filter(function (c) { var d = c.z - dist; return c === hit || d > 90 || d < PD - 4; }); // the road ahead clears so you can recover, except the car you hit
@@ -1368,8 +1371,10 @@
     return ve;
   }
   function stepLaneChange(c, dt, d) {
-    if (!c.lc && c.canLc && d > 150 && d < 230) {
-      c.canLc = false;
+    var vs = c.vs == null ? c.v : c.vs; c.blockedT = vs < c.v * .93 ? (c.blockedT || 0) + dt : 0;
+    var overtake = c.persona === 'fast' && c.blockedT > 1.2 && d > 70 && !c.lc; // held up behind a slower car: look for a gap and pull out
+    if (overtake || (!c.lc && c.canLc && d > 150 && d < 230)) {
+      c.canLc = false; c.blockedT = -3;
       var others = {}, n = 0;
       traffic.forEach(function (o) { if (o !== c && !o.knock && Math.abs(o.z - c.z) < 45) [o.lane, o.lc ? o.lc.to : o.lane].forEach(function (l) { if (!others[l]) { others[l] = 1; n++; } }); });
       var opts = [-1, 1].map(function (dr) { return c.lane + dr; }).filter(function (l) { return l >= -1 && l <= 1 && !others[l] && (n + 1 <= 2); });
@@ -1404,6 +1409,7 @@
     var bumpF = (rnd(Math.floor(dist / 2.2), 61) - .5) * 460 * sn, hillF = (elev(dist + 3) - 2 * elev(dist) + elev(dist - 3)) * 1500 * sn;
     susp.v += (bumpF + hillF - 190 * susp.y - 8 * susp.v) * dt; susp.y = clamp(susp.y + susp.v * dt, -5, 5);
     pitch += ((braking ? 1 : 0) - pitch) * Math.min(1, dt * 6);
+    roll.v += ((clamp(laneV * .035, -.15, .15) - roll.y) * 150 - roll.v * 11 * (1 - .35 * wet)) * dt; roll.y += roll.v * dt;
     camRoll += (clamp(-laneV * .0042 + curveAt(dist + 28) * 70, -.022, .022) - camRoll) * Math.min(1, dt * 4);
     if (mode === 'run' && lastPB && lastScene && speed > 14) emitRoadParticles(dt, lastScene);
     if (lastScene) stepFlurry(dt, lastScene);
