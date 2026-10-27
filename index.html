@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Classic Games</title>
+  <meta name="description" content="Classic Games: small games, made with care. An early prototype.">
+  <meta name="theme-color" content="#0a0b10">
+  <link rel="stylesheet" href="launcher.css">
+  <script src="src/storage.js" defer></script>
+  <script src="src/engine.js" defer></script>
+  <script src="launcher.js" defer></script>
+</head>
+<body>
+  <header class="top">
+    <a class="wordmark" href="./" aria-label="Classic Games home">Classic<span>Games</span></a>
+    <button type="button" class="chip-btn" id="award-chip" data-go="awards" aria-label="Awards"><span aria-hidden="true">&#9733;</span> <span id="award-chip-text">0 of 10</span></button>
+  </header>
+
+  <main class="wrap" id="main">
+    <!-- Games -->
+    <section class="view" id="view-games" aria-labelledby="h-games">
+      <h1 class="sr" id="h-games" tabindex="-1">Games</h1>
+      <article class="hero" id="hero">
+        <img id="hero-img" src="assets/hero-racer.jpg" alt="" width="874" height="620" loading="eager">
+        <div class="hero-in">
+          <span class="tag" id="hero-tag">PLAY</span>
+          <h2 id="hero-title">Cruise</h2>
+          <p id="hero-sub">Drive through changing roads, weather and light. Reach the coast.</p>
+          <div class="pb" id="hero-pb" hidden><i id="hero-pb-fill"></i></div>
+          <div class="btns">
+            <a class="btn pri" id="hero-main" href="racer/">Play</a>
+            <a class="btn ghost" id="hero-alt" href="racer/?new=1" hidden>New run</a>
+          </div>
+        </div>
+      </article>
+
+      <div class="sec"><h2>All games</h2><span id="game-count">2</span></div>
+      <div class="tiles">
+        <a class="tile" id="tile-racer" href="racer/" aria-label="Play Cruise">
+          <span class="tile-chip" id="racer-chip" hidden></span>
+          <img src="assets/tile-racer.jpg" alt="" width="640" height="439" loading="eager">
+          <span class="tile-t"><b>Cruise</b><small id="racer-meta">Journey and Endless</small></span>
+          <span class="go" aria-hidden="true">&#9654;</span>
+        </a>
+        <a class="tile" id="tile-snake" href="snake/" aria-label="Play Snake">
+          <span class="tile-chip" id="snake-chip" hidden></span>
+          <img src="assets/tile-snake.jpg" alt="" width="640" height="488" loading="eager">
+          <span class="tile-t"><b>Snake</b><small id="snake-meta">12 mazes</small></span>
+          <span class="go" aria-hidden="true">&#9654;</span>
+        </a>
+      </div>
+
+      <button type="button" class="strip" data-go="awards">
+        <span class="strip-h"><b>Awards</b><span id="strip-count">0 of 10 &rsaquo;</span></span>
+        <span class="dots" id="strip-dots" aria-hidden="true"></span>
+      </button>
+    </section>
+
+    <!-- Awards -->
+    <section class="view" id="view-awards" aria-labelledby="h-awards" hidden>
+      <h1 id="h-awards" tabindex="-1">Awards</h1>
+      <p class="lede" id="award-lede"></p>
+      <div id="award-list"></div>
+    </section>
+
+    <!-- Best scores -->
+    <section class="view" id="view-scores" aria-labelledby="h-scores" hidden>
+      <h1 id="h-scores" tabindex="-1">Best scores</h1>
+      <div id="score-list"></div>
+    </section>
+
+    <!-- Settings -->
+    <section class="view" id="view-settings" aria-labelledby="h-settings" hidden>
+      <h1 id="h-settings" tabindex="-1">Settings</h1>
+      <div class="grp" role="group" aria-labelledby="g-look">
+        <h3 id="g-look">Appearance</h3>
+        <div class="seg" data-pref="theme">
+          <button type="button" data-val="dark" aria-pressed="true">Dark</button>
+          <button type="button" data-val="light" aria-pressed="false">Light</button>
+          <button type="button" data-val="auto" aria-pressed="false">Auto</button>
+        </div>
+        <p class="hint">Applies to the Games screen, Snake and Cruise. Auto follows your phone.</p>
+      </div>
+      <div class="grp" role="group" aria-labelledby="g-sound">
+        <h3 id="g-sound">Sound</h3>
+        <div class="seg" data-pref="sound">
+          <button type="button" data-val="on" aria-pressed="true">On</button>
+          <button type="button" data-val="off" aria-pressed="false">Off</button>
+        </div>
+        <h3 id="g-vib">Vibration</h3>
+        <div class="seg" data-pref="haptics">
+          <button type="button" data-val="on" aria-pressed="true">On</button>
+          <button type="button" data-val="off" aria-pressed="false">Off</button>
+        </div>
+      </div>
+      <div class="grp">
+        <h3>Help</h3>
+        <button type="button" class="row-btn" data-open="dlg-help">How to play <span aria-hidden="true">&rsaquo;</span></button>
+        <button type="button" class="row-btn" data-open="dlg-about">About <span aria-hidden="true">&rsaquo;</span></button>
+        <p class="hint">Each game keeps its own options (board, mazes, colours, car, pace) inside the game.</p>
+      </div>
+    </section>
+  </main>
+
+  <nav class="tabs" id="tabs" aria-label="Main">
+    <button type="button" class="tab" data-go="games" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/></svg>Games</button>
+    <button type="button" class="tab" data-go="awards"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="9" r="5"/><path d="M8.5 13.5 7 21l5-3 5 3-1.5-7.5"/></svg>Awards</button>
+    <button type="button" class="tab" data-go="scores"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H5v1.5A3 3 0 0 0 8 10.5M16 6h3v1.5a3 3 0 0 1-3 3M12 13v4M9 20h6"/></svg>Scores</button>
+    <button type="button" class="tab" data-go="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg>Settings</button>
+  </nav>
+
+  <dialog id="dlg-help" aria-labelledby="t-help"><h2 id="t-help" tabindex="-1">How to play</h2>
+    <div class="dlg-scroll"><p><strong>Cruise:</strong> swipe left or right to change lane, or use the arrow keys. Pass close to traffic for combos, collect coins and hearts, and reach the end of the journey. Hold the ease off button to slow down, and use + and - to change the pace.</p>
+    <p><strong>Snake:</strong> swipe on the board, use the direction buttons or the arrow keys. Eat the fruit, avoid walls, mazes and yourself.</p>
+    <p>Each game has its own settings inside it. Leave a game with the Games button, or Exit to Games in its pause menu. Your progress is kept so you can continue later.</p></div><form method="dialog"><button class="btn pri">Close</button></form></dialog>
+  <dialog id="dlg-about" aria-labelledby="t-about"><h2 id="t-about" tabindex="-1">About</h2>
+    <div class="dlg-scroll"><p>Classic Games is an early prototype of small games made with care. Gameplay is inspired by classic mobile games and may differ from the originals.</p>
+    <p>Everything is saved on this device. There are no accounts and no ads.</p></div><form method="dialog"><button class="btn pri">Close</button></form></dialog>
+</body>
+</html>
