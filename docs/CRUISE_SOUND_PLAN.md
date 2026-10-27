@@ -1,5 +1,7 @@
 # Cruise sound plan: what is missing
 
+Status: built, except the menu music in M5 (browsers block sound until the first tap, and on the start screen that tap is Play). All tests pass.
+
 Sound only: music, effects and the mix. Everything stays synthesised in code, with no recordings and no copied music. Every rule is a Classic Games prototype choice.
 
 ## What is already there

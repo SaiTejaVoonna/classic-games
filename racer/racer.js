@@ -468,7 +468,7 @@
     g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill(); g.restore();
   }
 
-  var houseStyle = '';
+  var houseStyle = '', squealT = 0;
   var RIGID = { post: 1, tower: 1, neon: 1, house: 1, hut: 1, cabin: 1, lighthouse: 1, windmill: 1, lamp: 1, rock: 1, umbrella: 1 };
   // Roadside objects stand on the ground at (x, y) with scale s. sw = wind sway.
   function drawObj(kind, x, y, s, k, S, sw, lit) {
@@ -731,12 +731,13 @@
   // the sound of each moment: once when it starts, and again for what repeats (each firework, each lightning strike)
   function stepMoment(dt) {
     var wp = wheelPos(chapterAt(dist).i); if (mode === 'run' && wp != null && wp - dist < 230 && wp - dist > 0 && !momentFx['wheel' + chapterAt(dist).i]) { momentFx['wheel' + chapterAt(dist).i] = 1; au('life', 'musicbox', -.5); } // the fair plays as you near the giant wheel
-    var M = momentAt(dist); if (!M || mode !== 'run') return;
+    var M = momentAt(dist); au('setMoment', !!M && mode === 'run'); if (!M || mode !== 'run') return;
     var key = M.ch + ':' + M.kind;
     if (!momentFx[key] && M.u > .05) {
       momentFx[key] = 1;
-      var first = { balloons: ['balloon', -.3], kites: ['windchimes', .2], dustdevil: ['raingust', .3], geese: ['geese', .5], liner: ['foghorn', 0], airship: ['plane', 0], drones: ['shimmer', 0], storm: null, aurora: ['shimmer', 0], fireworks: null }[M.kind];
+      var first = { balloons: ['balloon', -.3], kites: ['kites', .2], dustdevil: ['dustdevil', .3], geese: ['geese', .5], liner: ['foghorn', 0], airship: ['plane', 0], drones: ['dronehum', 0], storm: null, aurora: ['shimmer', 0], fireworks: null }[M.kind];
       if (first) au('life', first[0], first[1]);
+      if (M.kind === 'drones') setTimeout(function () { au('life', 'shimmer', 0); }, 1500);
       if (M.kind === 'liner') setTimeout(function () { au('life', 'gulls', .4); }, 2600);
       if (M.kind === 'geese') setTimeout(function () { au('life', 'geese', -.4); }, 3200);
       if (M.kind === 'balloons') setTimeout(function () { au('life', 'balloon', .4); }, 2400);
@@ -1544,6 +1545,7 @@
     else if (S.snow > .3) { rate = 26 * S.snow; col = 'rgba(255,255,255,.55)'; kind = 'snow'; }
     else if (S.heat > .5) { rate = 24 * S.heat; col = 'rgba(214,182,126,.36)'; kind = 'dust'; r = 3; grow = 14; }
     // no leaves kicked up off the road: from behind they read as dirt specks
+    if (Math.abs(laneV) > 2.2 && speed > 24 && tAnim > squealT) { squealT = tAnim + 1.2; au('event', 'squeal', { side: laneV > 0 ? -1 : 1, wet: lastScene ? lastScene.rain : 0 }); }
     if (Math.abs(laneV) > 1.6 && speed > 24 && Math.random() < dt * 34) { // tyres squeal through a quick lane change: a thin puff off the loaded side
       var side = laneV > 0 ? -1 : 1;
       particles.push({ behind: true, x: B.x + side * B.w * .36, y: B.y + 5 * dpr, vx: side * (10 + Math.random() * 30), vy: -(10 + Math.random() * 30), life: 1, r: 2.2, c: 'rgba(232,232,238,.32)', gv: -5, grow: 10, decay: 1.8 });
@@ -1590,7 +1592,7 @@
     if (paused) return;
     if (countT > 0) { // 3, 2, 1 before a resumed drive moves
       var before = Math.ceil(countT); countT -= dt; var now2 = Math.ceil(countT);
-      if (now2 !== before || !elChapter.classList.contains('show')) { if (now2 > 0) showChapter('Welcome back', String(now2)); else { elChapter.classList.remove('show'); chTimer = 0; } }
+      if (now2 !== before || !elChapter.classList.contains('show')) { if (now2 !== before) au('event', 'tick', { go: now2 <= 0 }); if (now2 > 0) showChapter('Welcome back', String(now2)); else { elChapter.classList.remove('show'); chTimer = 0; } }
       tAnim += dt; return;
     }
     if (mode === 'run') { saveT -= dt; if (saveT <= 0) { saveT = 8; savePlace(); } }
@@ -1750,7 +1752,8 @@
     showOverlay('menu', { title: 'Cruise', sub: 'Swipe left or right to change lane. Pass close to traffic for combos.' }); renderOpts(); hud();
   }
   function pauseGame() { if (mode !== 'run' || paused) return; savePlace(); paused = true; brakeOff(); au('pause'); $('ps').hidden = false; $('ps-resume').focus(); }
-  function resumeGame() { if (!paused) return; paused = false; $('ps').hidden = true; $('ss').hidden = true; au('resume'); last = null; }
+  function resumeGame() { if (!paused) return; paused = false; $('ps').hidden = true; $('ss').hidden = true; au('resume'); au('event', 'ui', { whoosh: true }); last = null; }
+  document.addEventListener('click', function (e) { if (e.target && e.target.closest && e.target.closest('button') && !e.target.closest('#ps-resume')) au('event', 'ui'); }); // a soft tap for every button
   function openSound(from) { $('ss').hidden = false; $('ss').setAttribute('data-from', from); $('ss-close').focus(); }
   function closeSound() { $('ss').hidden = true; if (paused) $('ps-resume').focus(); }
 
